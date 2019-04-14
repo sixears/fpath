@@ -12,7 +12,7 @@ where
 import Data.Char      ( Char )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
-import Text.Show      ( Show( show ) )
+import Text.Show      ( Show )
 
 -- data-textual ------------------------
 

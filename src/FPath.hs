@@ -53,18 +53,17 @@ where
 
 -- base --------------------------------
 
-import Control.Monad   ( return )
-import Data.Bifunctor  ( first )
-import Data.Bool       ( otherwise )
-import Data.Either     ( either )
-import Data.Eq         ( Eq )
-import Data.Function   ( ($), id )
-import Data.Functor    ( (<$>), fmap )
-import Data.List       ( intercalate, last, reverse )
-import Data.Maybe      ( Maybe( Just, Nothing ) )
-import Data.String     ( String )
-import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
-import Text.Show       ( Show( show ) )
+import Control.Applicative  ( (*>) )
+import Control.Monad        ( return )
+import Data.Either          ( either )
+import Data.Eq              ( Eq )
+import Data.Function        ( ($), id )
+import Data.Functor         ( (<$>), fmap )
+import Data.List            ( reverse )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.String          ( String )
+import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
+import Text.Show            ( Show( show ) )
 
 {-
 
@@ -83,13 +82,12 @@ import System.IO      ( FilePath )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode        ( (≡), (≢) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), toString, toText )
+import Data.Textual  ( Printable( print ), Textual( textual ), toText )
 
 {-
 
@@ -102,7 +100,7 @@ import System.Directory  ( withCurrentDirectory )
 -- lens --------------------------------
 
 import Control.Lens.Getter   ( (^.), view )
-import Control.Lens.Lens     ( Lens', lens )
+import Control.Lens.Iso      ( Iso', from, iso )
 import Control.Lens.Prism    ( Prism', prism' )
 
 {-
@@ -113,24 +111,20 @@ import qualified  System.FilePath.Lens  as  FPLens
 
 -- mtl ---------------------------------
 
-import Control.Monad.Except  ( MonadError, throwError )
+import Control.Monad.Except  ( MonadError )
 
-{-
+-- parsers -----------------------------
 
--- path --------------------------------
+import Text.Parser.Char         ( char )
+import Text.Parser.Combinators  ( endBy )
 
-import qualified  Path
-import Path  ( Abs, Dir, File, Path, Rel, (</>), absdir, toFilePath )
+-- QuickCheck --------------------------
 
--}
-
--- template-haskell --------------------
-
-import Language.Haskell.TH  ( ExpQ, appE, conE, litE, stringL, varE )
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ), shrinkList )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, breakOnEnd, concat, pack, span, uncons, unsnoc )
+import Data.Text  ( Text, breakOnEnd, concat, unsnoc )
 
 -- text-printer ------------------------
 
@@ -172,9 +166,9 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathComponentE__, __FPathEmptyE__
                                , __FPathNonAbsE__, __FPathNotADirE__
                                )
-import FPath.PathComponent     ( PathComponent, parsePathC, qPathC )
+import FPath.PathComponent     ( PathComponent, parsePathC )
 import FPath.Util              ( QuasiQuoter
-                               , (⋕), __ERROR__, __ERROR'__, mkQuasiQuoterExp )
+                               , __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
@@ -192,18 +186,22 @@ nonRootAbsDir = prism' AbsNonRootDir go
                 where go AbsRootDir        = Nothing
                       go (AbsNonRootDir d) = Just d
 
+{-
+
 data RelDir = RelDir PathComponent (Maybe RelDir)
 
 data AbsFile = AbsFile PathComponent AbsDir
 
 data RelFile = RelFile PathComponent (Maybe RelDir)
 
+-}
+
 ----------------------------------------
 --                Show                --
 ----------------------------------------
 
 instance Show AbsDir where
-  show ad = [fmt|(absDirFromList [%L])|] (show <$> ad ^. pcList)
+  show ad = [fmt|((^. from pcList) [%L])|] (show <$> ad ^. pcList)
 
 ----------------------------------------
 --             Printable              --
@@ -213,9 +211,41 @@ instance Printable AbsDir where
   print = P.text ∘ ("/" ⊕ ) ∘ concat ∘ fmap ((⊕ "/") ∘ toText) ∘ view pcList
 
 ----------------------------------------
+--              Textual               --
+----------------------------------------
+
+instance Textual AbsDir where
+  textual = (^. from pcList) <$> (char '/' *> endBy textual (char '/'))
+
+----------------------------------------
+--              Arbitrary             --
+----------------------------------------
+
+instance Arbitrary AbsDir where
+  arbitrary = (^. from pcList) <$> arbitrary
+  -- "standard" definition for lists:
+  shrink = fmap (^. from pcList) ∘ shrinkList shrink ∘ (^. pcList)
+
+----------------------------------------
 --              AsPCList              --
 ----------------------------------------
 
+class IsPCList α where
+  toPCList ∷ α → [PathComponent]
+  setPCList ∷ [PathComponent] → α
+
+  pcList ∷ Iso' α [PathComponent]
+  pcList = iso toPCList setPCList
+  
+instance IsPCList AbsDir where
+  setPCList ps' = go (reverse ps')
+              where go [] = AbsRootDir
+                    go (p:ps) = AbsNonRootDir (NonRootAbsDir p (go ps))
+  toPCList = reverse ∘ go
+             where  go AbsRootDir = []
+                    go (AbsNonRootDir (NonRootAbsDir pc ad)) = pc : ad ^. pcList
+  
+{-
 class AsPCList α where
   toPCList ∷ α → [PathComponent]
   setPCList ∷ α → [PathComponent] → α
@@ -231,11 +261,13 @@ instance AsPCList AbsDir where
              where  go AbsRootDir = []
                     go (AbsNonRootDir (NonRootAbsDir pc ad)) = pc : ad ^. pcList
   
+-}
+  
 ----------------------------------------
 --            HasAbsOrRel             --
 ----------------------------------------
 
-data Rel = Rel
+-- data Rel = Rel
 data Abs = Abs
 
 type family DirType α where
@@ -263,16 +295,15 @@ instance HasMaybeParent AbsDir where
   parentMay AbsRootDir = Nothing
   parentMay (AbsNonRootDir d) = Just $ parent d
 
--- greater determinism (e.g., Root doesn't provide a parent)
--- lens
+-- arbitrary
+-- textual (parser)
+-- quickcheck tests for printable/textual, read/show
+-- lens for filepath
 -- use finite lists?
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
-
-eDirNoSlash ∷ Printable ρ ⇒ ρ → α
-eDirNoSlash x = __ERROR__ $ "dir lacks trailing /: '" ⊕ toText x ⊕ "'"
 
 absdirT ∷ TypeRep
 absdirT = typeRep (Proxy ∷ Proxy AbsDir)
@@ -312,9 +343,6 @@ absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parseAbsDir'__ s ⟧)
 ------------------------------------------------------------
 
 {-
-instance Printable (Path β τ) where
-  print = P.string ∘ toFilePath
-
 class AsFilePath ρ where
   toFPath ∷ ρ → FilePath
 

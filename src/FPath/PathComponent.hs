@@ -5,40 +5,50 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.PathComponent
-  ( PathComponent, parsePathC, pathComponent, pc, qPathC )
+  ( PathComponent, parsePathC, pathComponent, pc )
 where
 
-import Prelude  ( error )
+import Prelude  ( (!!), mod )
 
 -- base --------------------------------
 
-import Control.Monad   ( return )
-import Data.Bifunctor  ( first )
-import Data.Bool       ( otherwise )
-import Data.Either     ( either )
-import Data.Eq         ( Eq )
-import Data.List       ( null )
-import Data.Function   ( ($), id )
-import Data.String     ( String )
-import Text.Show       ( Show( show ) )
+import qualified  Data.List  as  List
+
+import Control.Applicative  ( some )
+import Control.Monad        ( return )
+import Data.Bool            ( not, otherwise )
+import Data.Char            ( isAlphaNum, ord )
+import Data.Either          ( either )
+import Data.Eq              ( Eq )
+import Data.Foldable        ( length )
+import Data.Function        ( ($), id )
+import Data.Functor         ( (<$>), fmap )
+import Data.List            ( filter, notElem, subsequences )
+import Data.String          ( String )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode        ( (≡) )
+import Data.Eq.Unicode        ( (≡), (≢) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), toText )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , toString, toText )
 
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
 
--- template-haskell --------------------
+-- parsers -----------------------------
 
-import Language.Haskell.TH  ( ExpQ, appE, conE, litE, stringL, varE )
+import Text.Parser.Char  ( noneOf )
+
+-- QuickCheck --------------------------
+
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
 -- text --------------------------------
 
@@ -71,6 +81,30 @@ instance Show PathComponent where
 instance Printable PathComponent where
   print (PathComponent t) = P.text t
 
+instance Textual PathComponent where
+  textual = PathComponent ∘ pack <$> some (noneOf "/\0")
+
+instance Arbitrary PathComponent where
+  arbitrary = let filtBadChars = filter (`notElem` ['/','\0'])
+               in PathComponent <$> (pack ∘ filtBadChars ) <$> arbitrary
+
+  -- shrink by -) trying proper substrings
+  --           -) replacing non-alphanumeric characters with alphanums
+  -- per the QuickCheck doc, try the more aggressive efforts first
+  shrink p = let properSubs x = filter (≢ x) (subsequences x)
+                 alphaNums = "abcdefghijklmnopqrstuvwxyz01234567890"
+                 trChar c = if isAlphaNum c
+                            then c
+                            else alphaNums !! (ord c `mod` length alphaNums)
+                 tr s = fmap trChar <$> s
+                 subs = properSubs (toString p)
+                 subsToTr = filter (List.any $ not ∘ isAlphaNum)
+                                   (toString p : subs)
+                 
+              in (PathComponent ∘ toText) <$> ((tr subsToTr) ⊕ subs)
+
+----------------------------------------
+
 parsePathC ∷ (Printable ρ, AsFPathComponentError ε, MonadError ε η) ⇒
              ρ → η PathComponent
 parsePathC (toText → "")                 = __FPathCEmptyE__
@@ -88,23 +122,9 @@ __parsePathC__ = either __ERROR'__ id ∘ parsePathC'
 __parsePathC'__ ∷ String → PathComponent
 __parsePathC'__ = __parsePathC__
 
-qPathC ∷ Printable ρ ⇒ ρ → ExpQ
--- qPathC t = either __ERROR'__ (\ (PathComponent p) → appE (conE 'PathComponent) (appE (varE 'pack) $ litE (stringL $ unpack p))) $ parsePathC' t
-qPathC t = either __ERROR'__ (\ (PathComponent p) → appE (conE 'PathComponent) (appE (varE 'pack) $ litE (stringL $ unpack p))) $ parsePathC' t
-
-
-{-
-qPathC ∷ String → ExpQ
-qPathC t | null t         = error "empty pathComponent"
-         | any (≡ '\0') t = error $ "pathComponent contains NUL: '" ⊕ t ⊕ "'"
-         | any (≡ '/')  t = error $ "pathComponent contains SLASH: '" ⊕ t ⊕ "'"
-         | otherwise      = appE (conE 'PathComponent)
-                                 (appE (varE 'pack) $ litE (stringL t))
--}
-
 {- | quasi-quoter for PathComponent -}
 pathComponent ∷ QuasiQuoter
-pathComponent = mkQuasiQuoterExp "pathComponent" (\ s → ⟦ __parsePathC'__ s ⟧) -- qPathC
+pathComponent = mkQuasiQuoterExp "pathComponent" $ \ s → ⟦ __parsePathC'__ s ⟧
 
 {- | abbreviation for `pathComponent` -}
 pc ∷ QuasiQuoter

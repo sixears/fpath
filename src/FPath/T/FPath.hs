@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE UnicodeSyntax     #-}
@@ -26,7 +27,7 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( toText )
+import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
 
 -- lens --------------------------------
 
@@ -70,7 +71,7 @@ import FPath.Error.FPathComponentError
                             ( FPathComponentError( FPathComponentEmptyE
                                                  , FPathComponentIllegalCharE )
                             )
-import FPath.PathComponent  ( pc )
+import FPath.PathComponent  ( PathComponent, pc )
 
 --------------------------------------------------------------------------------
 
@@ -85,6 +86,25 @@ pam_d = [absdir|/etc/pam.d/|]
 
 d_pam ∷ AbsDir
 d_pam = [absdir|/pam.d/etc/|]
+
+pathCTextualTests ∷ TestTree
+pathCTextualTests =
+  let nothin'     ∷ Maybe PathComponent
+      nothin'     = Nothing
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
+   in testGroup "Textual" [ success [pc|etc|]   "etc"
+                          , success [pc|pam.d|] "pam.d"
+                          , fail "/etc"
+                          , fail "etc/"
+                          , fail "e/c"
+                          , fail "\0etc"
+                          , fail "etc\0"
+                          , fail "e\0c"
+                          ]
+
+pathComponentTests ∷ TestTree
+pathComponentTests = testGroup "PathComponent" [ pathCTextualTests ]
 
 absParseDirTests ∷ TestTree
 absParseDirTests =
@@ -117,7 +137,7 @@ absDirShowTests =
   let pcl ∷ Text → [Text] → String
       pcl n ps = [fmt|(%t [%L])|] n ((\ p → "[pathComponent|" ⊕ p ⊕ "|]") <$> ps)
       pclad ∷ [Text] → String
-      pclad = pcl "absDirFromList"
+      pclad = pcl "(^. from pcList)"
 
    in testGroup "show"
                 [ testCase "root"  $ pclad []               @=? show root
@@ -169,17 +189,37 @@ absDirParentTests =
                          , testCase "pam_d"  $ Just etc  @=? par pam_d
                          ]
 
+absDirTextualTests ∷ TestTree
+absDirTextualTests =
+  let nothin'     ∷ Maybe AbsDir
+      nothin'     = Nothing
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
+   in testGroup "Textual" [ success [absdir|/|]           "/"
+                          , success [absdir|/etc/|]       "/etc/"
+                          , success [absdir|/etc/pam.d/|] "/etc/pam.d/"
+                          , fail "/etc"
+                          , fail "/etc/pam.d"
+                          , fail "etc/"
+                          , fail "etc/pam.d"
+                          , fail "/etc//pam.d/"
+                          , fail "e/c"
+                          , fail "\0etc"
+                          , fail "etc\0"
+                          , fail "e\0c"
+                          ]
+
 absDirTests ∷ TestTree
 absDirTests =
   testGroup "AbsDir" [ absParseDirTests, absDirShowTests, absDirPrintableTests
-                     , absDirAsPCListTests
+                     , absDirAsPCListTests, absDirTextualTests
                      , absDirParentMayTests, absDirParentTests
                      ]
 
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath" [ absDirTests ]
+tests = testGroup "FPath" [ pathComponentTests, absDirTests ]
 
 ----------------------------------------
 

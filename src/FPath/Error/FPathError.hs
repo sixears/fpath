@@ -12,7 +12,7 @@ where
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Typeable  ( TypeRep )
-import Text.Show      ( Show( show ) )
+import Text.Show      ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -24,7 +24,7 @@ import Data.Textual  ( Printable( print ) )
 
 -- lens --------------------------------
 
-import Control.Lens.Prism  ( Prism', prism' )
+import Control.Lens.Prism  ( Prism' )
 
 -- mtl ---------------------------------
 
@@ -46,9 +46,8 @@ import Text.Fmt  ( fmt )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.Error.FPathComponentError
-           ( AsFPathComponentError( _FPathComponentError ), FPathComponentError )
-import FPath.Util  ( (⋕) )
+import FPath.Error.FPathComponentError ( FPathComponentError )
+import FPath.Util                      ( (⋕) )
 
 --------------------------------------------------------------------------------
 

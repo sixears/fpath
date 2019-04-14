@@ -57,8 +57,9 @@ library
   other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends: base, base-unicode-symbols, data-textual, lens, mtl
-               , template-haskell, tasty, tasty-hunit, text, text-printer
+  build-depends: base, base-unicode-symbols, data-textual, lens, mtl, parsers
+               , QuickCheck, template-haskell, tasty, tasty-hunit, text
+               , text-printer
 
                , tfmt
   -- Directories containing source files.
