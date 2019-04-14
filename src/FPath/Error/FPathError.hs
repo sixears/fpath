@@ -3,12 +3,13 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.Error.FPathError
-  ( AsFPathError, FPathError
+  ( AsFPathError, FPathError(..)
   , __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__, __FPathNotADirE__ )
 where
 
 -- base --------------------------------
 
+import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Typeable  ( TypeRep )
 import Text.Show      ( Show( show ) )
@@ -16,6 +17,10 @@ import Text.Show      ( Show( show ) )
 -- base-unicode-symbols ----------------
 
 import Data.Function.Unicode  ( (∘) )
+
+-- data-textual ------------------------
+
+import Data.Textual  ( Printable( print ) )
 
 -- lens --------------------------------
 
@@ -28,6 +33,10 @@ import Control.Monad.Except  ( MonadError, throwError )
 -- text --------------------------------
 
 import Data.Text  ( Text )
+
+-- text-printer ------------------------
+
+import qualified  Text.Printer  as  P
 
 -- tfmt --------------------------------
 
@@ -47,6 +56,7 @@ data FPathError = FPathEmptyE TypeRep
                 | FPathNonAbsE TypeRep Text
                 | FPathNotADirE TypeRep Text
                 | FPathComponentE FPathComponentError TypeRep Text
+  deriving (Eq, Show)
 
 class AsFPathError ε where
   _FPathError ∷ Prism' ε FPathError
@@ -54,11 +64,12 @@ class AsFPathError ε where
 instance AsFPathError FPathError where
   _FPathError = id
 
-instance Show FPathError where
-  show (FPathEmptyE ty)          = [fmt|empty %w|] ty
-  show (FPathNonAbsE ty t)       = [fmt|non-absolute %w: '%T'|] ty t
-  show (FPathNotADirE ty t)      = [fmt|%w lacks trailing /: '%T'|]  ty t
-  show (FPathComponentE ce ty t) = [fmt|component error %T in %w '%T'|] ce ty t
+instance Printable FPathError where
+  print (FPathEmptyE ty)     = P.text $ [fmt|empty %w|] ty
+  print (FPathNonAbsE ty t)  = P.text $ [fmt|non-absolute %w: '%T'|] ty t
+  print (FPathNotADirE ty t) = P.text $ [fmt|%w lacks trailing /: '%T'|]  ty t
+  print (FPathComponentE ce ty t) =
+    P.text $ [fmt|component error %T in %w '%T'|] ce ty t
 
 ------------------------------------------------------------
 

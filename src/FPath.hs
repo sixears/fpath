@@ -1,13 +1,18 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath
   ( AbsDir {- AbsFile, AbsPath(..) -}
 
-  , absdir
+  , absdir, nonRootAbsDir
 
+  , parent, parentMay
+  , parseAbsDir, parseAbsDir', __parseAbsDir__, __parseAbsDir'__
   , pcList
     {-
   , AsFilePath( toFPath )
@@ -49,12 +54,13 @@ where
 -- base --------------------------------
 
 import Control.Monad   ( return )
+import Data.Bifunctor  ( first )
 import Data.Bool       ( otherwise )
 import Data.Either     ( either )
 import Data.Eq         ( Eq )
 import Data.Function   ( ($), id )
 import Data.Functor    ( (<$>), fmap )
-import Data.List       ( intercalate, last )
+import Data.List       ( intercalate, last, reverse )
 import Data.Maybe      ( Maybe( Just, Nothing ) )
 import Data.String     ( String )
 import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
@@ -97,7 +103,7 @@ import System.Directory  ( withCurrentDirectory )
 
 import Control.Lens.Getter   ( (^.), view )
 import Control.Lens.Lens     ( Lens', lens )
-import Control.Lens.Prism    ( Prism' )
+import Control.Lens.Prism    ( Prism', prism' )
 
 {-
 
@@ -124,17 +130,17 @@ import Language.Haskell.TH  ( ExpQ, appE, conE, litE, stringL, varE )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, concat, span, uncons, unsnoc )
+import Data.Text  ( Text, breakOnEnd, concat, pack, span, uncons, unsnoc )
 
 -- text-printer ------------------------
 
 import qualified  Text.Printer  as  P
 
-{-
-
 -- tfmt --------------------------------
 
 import Text.Fmt  ( fmt )
+
+{-
 
 -- unix --------------------------------
 
@@ -167,7 +173,8 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathNonAbsE__, __FPathNotADirE__
                                )
 import FPath.PathComponent     ( PathComponent, parsePathC, qPathC )
-import FPath.Util              ( QuasiQuoter, (⋕), __ERROR__, mkQuasiQuoterExp )
+import FPath.Util              ( QuasiQuoter
+                               , (⋕), __ERROR__, __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
@@ -175,10 +182,15 @@ data RootDir = RootDir
   deriving Eq
 
 data NonRootAbsDir = NonRootAbsDir PathComponent AbsDir
-  deriving Eq
+  deriving (Eq, Show)
 
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
   deriving Eq
+
+nonRootAbsDir ∷ Prism' AbsDir NonRootAbsDir
+nonRootAbsDir = prism' AbsNonRootDir go
+                where go AbsRootDir        = Nothing
+                      go (AbsNonRootDir d) = Just d
 
 data RelDir = RelDir PathComponent (Maybe RelDir)
 
@@ -191,7 +203,7 @@ data RelFile = RelFile PathComponent (Maybe RelDir)
 ----------------------------------------
 
 instance Show AbsDir where
-  show ad = "absDirFromList [" ⊕ intercalate "," (show <$> ad ^. pcList) ⊕ "]"
+  show ad = [fmt|(absDirFromList [%L])|] (show <$> ad ^. pcList)
 
 ----------------------------------------
 --             Printable              --
@@ -212,11 +224,49 @@ class AsPCList α where
   pcList = lens toPCList setPCList
 
 instance AsPCList AbsDir where
-  setPCList _ [] = AbsRootDir
-  setPCList x (p:ps) = AbsNonRootDir (NonRootAbsDir p (setPCList x ps))
-  toPCList AbsRootDir = []
-  toPCList (AbsNonRootDir (NonRootAbsDir pc ad)) = pc : ad ^. pcList
+  setPCList x' ps' = go x' (reverse ps')
+              where go _ [] = AbsRootDir
+                    go x (p:ps) = AbsNonRootDir (NonRootAbsDir p (go x ps))
+  toPCList = reverse ∘ go
+             where  go AbsRootDir = []
+                    go (AbsNonRootDir (NonRootAbsDir pc ad)) = pc : ad ^. pcList
   
+----------------------------------------
+--            HasAbsOrRel             --
+----------------------------------------
+
+data Rel = Rel
+data Abs = Abs
+
+type family DirType α where
+  DirType Abs = AbsDir
+
+class HasAbsOrRel α where
+  type AbsOrRel α
+
+instance HasAbsOrRel AbsDir where
+  type AbsOrRel AbsDir = Abs
+
+instance HasAbsOrRel NonRootAbsDir where
+  type AbsOrRel NonRootAbsDir = Abs
+
+class HasAbsOrRel α ⇒ HasMaybeParent α where
+  parentMay ∷ α → Maybe (DirType (AbsOrRel α))
+
+class HasAbsOrRel α ⇒ HasParent α where
+  parent ∷ α → DirType (AbsOrRel α)
+
+instance HasParent NonRootAbsDir where
+  parent (NonRootAbsDir _ d) = d
+
+instance HasMaybeParent AbsDir where
+  parentMay AbsRootDir = Nothing
+  parentMay (AbsNonRootDir d) = Just $ parent d
+
+-- greater determinism (e.g., Root doesn't provide a parent)
+-- lens
+-- use finite lists?
+
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
@@ -224,43 +274,41 @@ instance AsPCList AbsDir where
 eDirNoSlash ∷ Printable ρ ⇒ ρ → α
 eDirNoSlash x = __ERROR__ $ "dir lacks trailing /: '" ⊕ toText x ⊕ "'"
 
-mkAbsDirQ ∷ String → ExpQ
-mkAbsDirQ t = let (p,s) = span (≢ '/') (toText t)
-               in appE (conE 'AbsNonRootDir)
-                       (appE (appE (conE 'NonRootAbsDir) (qPathC $ toString p))
-                             (absdirQQ s))
-
 absdirT ∷ TypeRep
 absdirT = typeRep (Proxy ∷ Proxy AbsDir)
 
-mkAbsDir ∷ (AsFPathError ε, MonadError ε η) ⇒ Text → η AbsDir
-mkAbsDir t = do
-  let (p,s) = span (≢ '/') t
-  p' ← either (\ ce → __FPathComponentE__ ce absdirT t) return $ parsePathC p
-  s' ← parseAbsDir s
-  return ∘ AbsNonRootDir $ NonRootAbsDir p' s'
-
 parseAbsDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsDir
+parseAbsDir (toText → "") = __FPathEmptyE__ absdirT
 parseAbsDir (toText → t) =
-  case uncons t of
-    Nothing → __FPathEmptyE__ absdirT
-    Just ('/', "") → return AbsRootDir
-    Just ('/', t') → case unsnoc t' of
-                       Just (t'', '/') → mkAbsDir t
-                       _               → __FPathNotADirE__ absdirT t'
-    _              → __FPathNonAbsE__ absdirT t
+  let mkAbsDir ∷ (AsFPathError ε, MonadError ε η) ⇒ Text → η AbsDir
+      mkAbsDir x = do
+        let (p,s) = breakOnEnd ("/") x
+            mkCompE ce = __FPathComponentE__ ce absdirT t
+        s' ← either mkCompE return $ parsePathC s
+        p' ← go p
+        return ∘ AbsNonRootDir $ NonRootAbsDir s' p'
 
-absdirQQ ∷ Printable ρ ⇒ ρ → ExpQ
-absdirQQ (toText → "")  = __ERROR__ "empty absdir"
-absdirQQ (toText → "/") = conE 'AbsRootDir
-absdirQQ (toString → x@('/':t)) | last t ≢ '/' = eDirNoSlash x
-                                | otherwise    = mkAbsDirQ t
-absdirQQ (toText → s)       = __ERROR__ $ "non-absolute absdir '" ⊕ s ⊕ "'"
+      go ∷ (AsFPathError ε, MonadError ε η) ⇒ Text → η AbsDir
+      go x = case unsnoc x of
+               Nothing → __FPathNonAbsE__ absdirT t
+               Just ("", '/') → return AbsRootDir
+               Just (x', '/') → mkAbsDir x'
+               _              → __FPathNotADirE__ absdirT t
+
+   in go t
+
+parseAbsDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsDir
+parseAbsDir' = parseAbsDir
+
+__parseAbsDir__ ∷ Printable τ ⇒ τ → AbsDir
+__parseAbsDir__ = either __ERROR'__ id ∘ parseAbsDir'
+
+__parseAbsDir'__ ∷ String → AbsDir
+__parseAbsDir'__ = __parseAbsDir__
 
 {- | quasi-quoter for PathComponent -}
 absdir ∷ QuasiQuoter
-absdir = mkQuasiQuoterExp "absdir" absdirQQ
-
+absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parseAbsDir'__ s ⟧)
 ------------------------------------------------------------
 
 {-

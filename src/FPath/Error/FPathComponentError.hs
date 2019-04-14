@@ -3,13 +3,14 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.Error.FPathComponentError
-  ( AsFPathComponentError(..), FPathComponentError
+  ( AsFPathComponentError(..), FPathComponentError(..)
   , __FPathCEmptyE__, __FPathCIllegalCharE__ )
 where
 
 -- base --------------------------------
 
 import Data.Char      ( Char )
+import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Text.Show      ( Show( show ) )
 
@@ -47,6 +48,7 @@ import FPath.Util  ( (⋕) )
 
 data FPathComponentError = FPathComponentEmptyE
                          | FPathComponentIllegalCharE Char Text
+  deriving (Eq, Show)
 
 class AsFPathComponentError ε where
   _FPathComponentError ∷ Prism' ε FPathComponentError
@@ -68,8 +70,6 @@ __FPathCIllegalCharE__ c t =
 
 instance AsFPathComponentError FPathComponentError where
   _FPathComponentError = id
-
-instance Show FPathComponentError where
 
 instance Printable FPathComponentError where
   print (FPathComponentEmptyE)           = P.text [fmt|empty pathComponent|]

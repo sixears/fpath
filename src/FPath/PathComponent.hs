@@ -12,19 +12,21 @@ import Prelude  ( error )
 
 -- base --------------------------------
 
-import Control.Monad  ( return )
-import Data.Bool      ( otherwise )
-import Data.Either    ( either )
-import Data.Eq        ( Eq )
-import Data.List      ( null )
-import Data.Function  ( ($), id )
-import Data.String    ( String )
-import Text.Show      ( Show( show ) )
+import Control.Monad   ( return )
+import Data.Bifunctor  ( first )
+import Data.Bool       ( otherwise )
+import Data.Either     ( either )
+import Data.Eq         ( Eq )
+import Data.List       ( null )
+import Data.Function   ( ($), id )
+import Data.String     ( String )
+import Text.Show       ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode      ( (≡) )
-import Data.Monoid.Unicode  ( (⊕) )
+import Data.Eq.Unicode        ( (≡) )
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
@@ -80,8 +82,16 @@ parsePathC' ∷ (Printable ρ, MonadError FPathComponentError η) ⇒
               ρ → η PathComponent
 parsePathC' = parsePathC
 
+__parsePathC__ ∷ Printable τ ⇒ τ → PathComponent
+__parsePathC__ = either __ERROR'__ id ∘ parsePathC'
+
+__parsePathC'__ ∷ String → PathComponent
+__parsePathC'__ = __parsePathC__
+
 qPathC ∷ Printable ρ ⇒ ρ → ExpQ
+-- qPathC t = either __ERROR'__ (\ (PathComponent p) → appE (conE 'PathComponent) (appE (varE 'pack) $ litE (stringL $ unpack p))) $ parsePathC' t
 qPathC t = either __ERROR'__ (\ (PathComponent p) → appE (conE 'PathComponent) (appE (varE 'pack) $ litE (stringL $ unpack p))) $ parsePathC' t
+
 
 {-
 qPathC ∷ String → ExpQ
@@ -94,7 +104,7 @@ qPathC t | null t         = error "empty pathComponent"
 
 {- | quasi-quoter for PathComponent -}
 pathComponent ∷ QuasiQuoter
-pathComponent = mkQuasiQuoterExp "pathComponent" qPathC
+pathComponent = mkQuasiQuoterExp "pathComponent" (\ s → ⟦ __parsePathC'__ s ⟧) -- qPathC
 
 {- | abbreviation for `pathComponent` -}
 pc ∷ QuasiQuoter
