@@ -8,27 +8,22 @@ module FPath.PathComponent
   ( PathComponent, parsePathC, pathComponent, pc )
 where
 
-import Prelude  ( (!!), mod )
-
 -- base --------------------------------
-
-import qualified  Data.List  as  List
 
 import Control.Applicative  ( some )
 import Control.Monad        ( return )
-import Data.Bool            ( not, otherwise )
-import Data.Char            ( isAlphaNum, ord )
+import Data.Bool            ( otherwise )
 import Data.Either          ( either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( length )
 import Data.Function        ( ($), id )
 import Data.Functor         ( (<$>), fmap )
-import Data.List            ( filter, notElem, subsequences )
+import Data.List            ( filter, notElem, nub, subsequences )
 import Data.String          ( String )
 import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
+import Data.Bool.Unicode      ( (∧) )
 import Data.Eq.Unicode        ( (≡), (≢) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
@@ -49,6 +44,7 @@ import Text.Parser.Char  ( noneOf )
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+import Test.QuickCheck.Gen        ( listOf1 )
 
 -- text --------------------------------
 
@@ -65,7 +61,7 @@ import qualified  Text.Printer  as  P
 import FPath.Error.FPathComponentError
            ( AsFPathComponentError, FPathComponentError
            , __FPathCEmptyE__, __FPathCIllegalCharE__ )
-import FPath.Util  ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
+import FPath.Util  ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp, mkVisS )
 
 --------------------------------------------------------------------------------
 
@@ -85,23 +81,18 @@ instance Textual PathComponent where
   textual = PathComponent ∘ pack <$> some (noneOf "/\0")
 
 instance Arbitrary PathComponent where
-  arbitrary = let filtBadChars = filter (`notElem` ['/','\0'])
-               in PathComponent <$> (pack ∘ filtBadChars ) <$> arbitrary
+  arbitrary =
+    let filtBadChars = filter (`notElem` ['/','\0'])
+     in PathComponent <$> (pack ∘ filtBadChars) <$> (listOf1 arbitrary)
 
   -- shrink by -) trying proper substrings
   --           -) replacing non-alphanumeric characters with alphanums
   -- per the QuickCheck doc, try the more aggressive efforts first
-  shrink p = let properSubs x = filter (≢ x) (subsequences x)
-                 alphaNums = "abcdefghijklmnopqrstuvwxyz01234567890"
-                 trChar c = if isAlphaNum c
-                            then c
-                            else alphaNums !! (ord c `mod` length alphaNums)
-                 tr s = fmap trChar <$> s
-                 subs = properSubs (toString p)
-                 subsToTr = filter (List.any $ not ∘ isAlphaNum)
-                                   (toString p : subs)
-                 
-              in (PathComponent ∘ toText) <$> ((tr subsToTr) ⊕ subs)
+  shrink (PathComponent p) =
+    let subs = subsequences (toString p)
+     in -- "" is never a valid pathComponent
+        fmap PathComponent $ filter (\ t → t ≢ p ∧ t ≢ "") $
+            toText <$> nub ((mkVisS <$> subs) ⊕ subs)
 
 ----------------------------------------
 

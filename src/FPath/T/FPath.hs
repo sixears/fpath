@@ -22,22 +22,29 @@ import Text.Show      ( show )
 
 -- base-unicode-symbols ----------------
 
+import Data.Eq.Unicode        ( (≢) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
+import Data.Textual  ( Parsed( Parsed )
+                     , fromString, parseString, parseText, toText )
 
 -- lens --------------------------------
 
 import Control.Lens.Fold    ( (^?) )
+import Control.Lens.Iso     ( from )
 import Control.Lens.Getter  ( (^.) )
 import Control.Lens.Setter  ( (.~) )
 
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- QuickCheck --------------------------
+
+import Test.QuickCheck.Property  ( property )
 
 -- tasty -------------------------------
 
@@ -49,6 +56,10 @@ import Test.Tasty.Runners  ( defaultMainWithIngredients, parseTestPattern
 -- tasty-hunit -------------------------
 
 import Test.Tasty.HUnit  ( (@=?), testCase )
+
+-- tasty-quickcheck --------------------
+
+import Test.Tasty.QuickCheck  ( Property, (===), testProperty )
 
 -- text --------------------------------
 
@@ -87,6 +98,15 @@ pam_d = [absdir|/etc/pam.d/|]
 d_pam ∷ AbsDir
 d_pam = [absdir|/pam.d/etc/|]
 
+wgM ∷ AbsDir
+wgM = [absdir|/w/g/M/|]
+
+pathCArbitraryTests ∷ TestTree
+pathCArbitraryTests =
+  let propNonEmpty ∷ PathComponent → Property
+      propNonEmpty p = property $ toText p ≢ ""
+   in testProperty "non-empty" propNonEmpty
+
 pathCTextualTests ∷ TestTree
 pathCTextualTests =
   let nothin'     ∷ Maybe PathComponent
@@ -104,7 +124,8 @@ pathCTextualTests =
                           ]
 
 pathComponentTests ∷ TestTree
-pathComponentTests = testGroup "PathComponent" [ pathCTextualTests ]
+pathComponentTests = testGroup "PathComponent" [ pathCArbitraryTests
+                                               , pathCTextualTests ]
 
 absParseDirTests ∷ TestTree
 absParseDirTests =
@@ -120,6 +141,7 @@ absParseDirTests =
                 [ testCase "root"  $ Right root   @=? parseAbsDir_ "/"
                 , testCase "etc"   $ Right etc    @=? parseAbsDir_ "/etc/"
                 , testCase "pam.d" $ Right pam_d  @=? parseAbsDir_ "/etc/pam.d/"
+                , testCase "wgM"   $ Right wgM    @=? parseAbsDir_ "/w/g/M/"
                 , testCase "no trailing /" $
                       Left (FPathNotADirE absdirT pamF) @=? parseAbsDir_ pamF
                 , testCase "empty" $
@@ -151,6 +173,7 @@ absDirPrintableTests =
             [ testCase "root"  $ "/"           @=? toText root
             , testCase "etc"   $ "/etc/"       @=? toText etc
             , testCase "pam.d" $ "/etc/pam.d/" @=? toText pam_d
+            , testCase "wgM"   $ "/w/g/M/"     @=? toText wgM
             ]
 
 absDirAsPCListGetterTests ∷ TestTree
@@ -159,6 +182,7 @@ absDirAsPCListGetterTests =
             [ testCase "root"  $ []                         @=? root  ^. pcList
             , testCase "etc"   $ [ [pc|etc|] ]              @=? etc   ^. pcList
             , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] @=? pam_d ^. pcList
+            , testCase "wgM"   $ [[pc|w|],[pc|g|],[pc|M|]]  @=? wgM ^. pcList
             ]
 
 absDirAsPCListSetterTests ∷ TestTree
@@ -168,6 +192,7 @@ absDirAsPCListSetterTests =
             , testCase "root"  $ root  @=? (etc   & pcList .~ [ ])
             , testCase "d.pam" $ d_pam @=? (d_pam & pcList .~ [ [pc|pam.d|]
                                                               , [pc|etc|] ])
+            , testCase "wgM"   $ wgM   @=? (^. from pcList) [[pc|w|],[pc|g|],[pc|M|]]
             ]
 
 absDirAsPCListTests ∷ TestTree
@@ -209,11 +234,18 @@ absDirTextualTests =
                           , fail "e\0c"
                           ]
 
+absDirTextualPrintableTests ∷ TestTree
+absDirTextualPrintableTests =
+  let propInvertibleTextual ∷ AbsDir → Property
+      propInvertibleTextual d = parseText (toText d) === Parsed d
+   in testProperty "parseText - toText" propInvertibleTextual
+                          
 absDirTests ∷ TestTree
 absDirTests =
   testGroup "AbsDir" [ absParseDirTests, absDirShowTests, absDirPrintableTests
                      , absDirAsPCListTests, absDirTextualTests
                      , absDirParentMayTests, absDirParentTests
+                     , absDirTextualPrintableTests
                      ]
 
 ----------------------------------------

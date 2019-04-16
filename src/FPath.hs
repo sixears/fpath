@@ -197,6 +197,24 @@ data RelFile = RelFile PathComponent (Maybe RelDir)
 -}
 
 ----------------------------------------
+--              AsPCList              --
+----------------------------------------
+
+class IsPCList α where
+  toPCList ∷ α → [PathComponent]
+  setPCList ∷ [PathComponent] → α
+
+  pcList ∷ Iso' α [PathComponent]
+  pcList = iso toPCList setPCList
+  
+instance IsPCList AbsDir where
+  setPCList ps' = go (reverse ps')
+              where go [] = AbsRootDir
+                    go (p:ps) = AbsNonRootDir (NonRootAbsDir p (go ps))
+  toPCList AbsRootDir = []
+  toPCList (AbsNonRootDir (NonRootAbsDir pc ad)) = ad ^. pcList ⊕ [pc]
+  
+----------------------------------------
 --                Show                --
 ----------------------------------------
 
@@ -226,43 +244,6 @@ instance Arbitrary AbsDir where
   -- "standard" definition for lists:
   shrink = fmap (^. from pcList) ∘ shrinkList shrink ∘ (^. pcList)
 
-----------------------------------------
---              AsPCList              --
-----------------------------------------
-
-class IsPCList α where
-  toPCList ∷ α → [PathComponent]
-  setPCList ∷ [PathComponent] → α
-
-  pcList ∷ Iso' α [PathComponent]
-  pcList = iso toPCList setPCList
-  
-instance IsPCList AbsDir where
-  setPCList ps' = go (reverse ps')
-              where go [] = AbsRootDir
-                    go (p:ps) = AbsNonRootDir (NonRootAbsDir p (go ps))
-  toPCList = reverse ∘ go
-             where  go AbsRootDir = []
-                    go (AbsNonRootDir (NonRootAbsDir pc ad)) = pc : ad ^. pcList
-  
-{-
-class AsPCList α where
-  toPCList ∷ α → [PathComponent]
-  setPCList ∷ α → [PathComponent] → α
-
-  pcList ∷ Lens' α [PathComponent]
-  pcList = lens toPCList setPCList
-
-instance AsPCList AbsDir where
-  setPCList x' ps' = go x' (reverse ps')
-              where go _ [] = AbsRootDir
-                    go x (p:ps) = AbsNonRootDir (NonRootAbsDir p (go x ps))
-  toPCList = reverse ∘ go
-             where  go AbsRootDir = []
-                    go (AbsNonRootDir (NonRootAbsDir pc ad)) = pc : ad ^. pcList
-  
--}
-  
 ----------------------------------------
 --            HasAbsOrRel             --
 ----------------------------------------
