@@ -1,11 +1,14 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE UnicodeSyntax              #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 module FPath.PathComponent
-  ( PathComponent, parsePathC, pathComponent, pc )
+  -- XXX REMOVE PathComponent DATA CTOR
+  ( PathComponent( PathComponent ), parsePathC, pathComponent, pc )
 where
 
 -- base --------------------------------
@@ -17,8 +20,11 @@ import Data.Either          ( either )
 import Data.Eq              ( Eq )
 import Data.Function        ( ($), id )
 import Data.Functor         ( (<$>), fmap )
-import Data.List            ( filter, notElem, nub, subsequences )
+import Data.List            ( any, elem, filter, find, nub, subsequences )
+import Data.Maybe           ( Maybe( Nothing ) )
+import Data.Monoid          ( mconcat )
 import Data.String          ( String )
+import GHC.Generics         ( Generic )
 import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
@@ -30,8 +36,19 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , toString, toText )
+import Data.Textual  ( Printable( print ), Textual( textual ), toString )
+
+-- genvalidity -------------------------
+
+import Data.GenValidity  ( GenUnchecked, GenValid( genValid ) )
+
+-- genvalidity-bytestring --------------
+
+import Data.GenValidity.ByteString  ( )
+
+-- genvalidity-text --------------------
+
+import Data.GenValidity.Text  ( )
 
 -- mtl ---------------------------------
 
@@ -44,15 +61,10 @@ import Text.Parser.Char  ( noneOf )
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
-import Test.QuickCheck.Gen        ( listOf1 )
 
--- text --------------------------------
+-- validity ----------------------------
 
-import Data.Text  ( Text, any, pack, unpack )
-
--- text-printer ------------------------
-
-import qualified  Text.Printer  as  P
+import Data.Validity  ( Validity( validate ), declare )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -61,47 +73,67 @@ import qualified  Text.Printer  as  P
 import FPath.Error.FPathComponentError
            ( AsFPathComponentError, FPathComponentError
            , __FPathCEmptyE__, __FPathCIllegalCharE__ )
+-- import FPath.PathCTypes.ByteString     ( PathCChar, PathCInner, pathCChar
+-- import FPath.PathCTypes.ByteStringUtf8 ( PathCChar, PathCInner, pathCChar
+import FPath.PathCTypes.String         ( PathCChar, PathCInner, pathCChar
+-- import FPath.PathCTypes.Text           ( PathCChar, PathCInner, pathCChar
+                                       , to_inner, to_print, to_string )
 import FPath.Util  ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp, mkVisS )
 
 --------------------------------------------------------------------------------
 
+{-| file name components may contain any character 'cept NUL and SLASH -}
+badChars :: [PathCChar]
+badChars = pathCChar <$> [0,47] -- '\0', '/'
+
+
 {- | A single component in a Path, that is, a directory or file ---
      notably no slashes are allowed (or nul chars); must not be empty
  -}
-newtype PathComponent = PathComponent Text
-  deriving Eq
+newtype PathComponent = PathComponent PathCInner
+  deriving (Eq, Generic, GenUnchecked)
 
 instance Show PathComponent where
-  show (PathComponent t) = "[pathComponent|" ⊕ unpack t ⊕ "|]"
+  show (PathComponent t) = "[pathComponent|" ⊕ to_string t ⊕ "|]"
 
 instance Printable PathComponent where
-  print (PathComponent t) = P.text t
+  print (PathComponent t) = to_print t
+
+instance Validity PathComponent where
+  validate p =
+    let badCs = declare "has neither NUL nor /" $
+                    Nothing ≡ find (`elem` badChars) (toString p)
+        nonEmpty = declare "is not empty" $ "" ≢ toString p
+     in mconcat [ badCs, nonEmpty ]
+
+instance GenValid PathComponent where
 
 instance Textual PathComponent where
-  textual = PathComponent ∘ pack <$> some (noneOf "/\0")
+  textual = PathComponent ∘ to_inner <$> some (noneOf badChars)
 
 instance Arbitrary PathComponent where
-  arbitrary =
-    let filtBadChars = filter (`notElem` ['/','\0'])
-     in PathComponent <$> (pack ∘ filtBadChars) <$> (listOf1 arbitrary)
+  arbitrary = genValid
 
   -- shrink by -) trying proper substrings
   --           -) replacing non-alphanumeric characters with alphanums
   -- per the QuickCheck doc, try the more aggressive efforts first
   shrink (PathComponent p) =
-    let subs = subsequences (toString p)
-     in -- "" is never a valid pathComponent
-        fmap PathComponent $ filter (\ t → t ≢ p ∧ t ≢ "") $
-            toText <$> nub ((mkVisS <$> subs) ⊕ subs)
+    let subs ∷ [String]
+        subs = subsequences (to_string p)
+        all_subs ∷ [String]
+        all_subs = nub $ (mkVisS <$> subs) ⊕ subs
+        filt_subs ∷ [String] → [String]
+        filt_subs = filter $ \ t → t ≢ to_string p ∧ t ≢ ""
+     in fmap (PathComponent ∘ to_inner) $ filt_subs all_subs
 
 ----------------------------------------
 
 parsePathC ∷ (Printable ρ, AsFPathComponentError ε, MonadError ε η) ⇒
              ρ → η PathComponent
-parsePathC (toText → "")                 = __FPathCEmptyE__
-parsePathC (toText → t) | any (≡ '\0') t = __FPathCIllegalCharE__ '\0' t
-                        | any (≡ '/')  t = __FPathCIllegalCharE__ '/' t
-                        | otherwise      = return $ PathComponent t
+parsePathC (toString → "")                 = __FPathCEmptyE__
+parsePathC (toString → t) | any (≡ '\0') t = __FPathCIllegalCharE__ '\0' t
+                          | any (≡ '/')  t = __FPathCIllegalCharE__ '/' t
+                          | otherwise      = return $ PathComponent (to_inner t)
 
 parsePathC' ∷ (Printable ρ, MonadError FPathComponentError η) ⇒
               ρ → η PathComponent

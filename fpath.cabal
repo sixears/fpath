@@ -50,16 +50,23 @@ library
                  , FPath.Error.FPathError, FPath.T.FPath
 
   -- modules included in this library but not exported.
-  other-modules:   FPath.PathComponent, FPath.Util
+  other-modules:   FPath.PathComponent
+--                 , FPath.PathCTypes.ByteString
+--                 , FPath.PathCTypes.ByteStringUtf8
+                 , FPath.PathCTypes.String
+--                 , FPath.PathCTypes.Text
+                 , FPath.Util
 
   default-extensions: NoImplicitPrelude
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends: base, base-unicode-symbols, data-textual, lens, mtl, parsers
-               , QuickCheck, template-haskell, tasty, tasty-hunit
-               , tasty-quickcheck, text, text-printer
+  build-depends: base, base-unicode-symbols, data-textual
+               , genvalidity, genvalidity-bytestring, genvalidity-property
+               , genvalidity-text, lens, mtl, parsers, QuickCheck
+               , template-haskell, tasty, tasty-hunit, tasty-quickcheck, text
+               , text-printer, validity
 
                , tfmt
   -- Directories containing source files.
@@ -75,7 +82,7 @@ test-suite fpath-test
   type:             exitcode-stdio-1.0
   hs-source-dirs:   t
   main-is:          fpath-test.hs
-  build-depends:    base, fpath
+  build-depends:    base, fpath, tasty
   default-language: Haskell2010
 
 -------------------------------------------------------------------------------

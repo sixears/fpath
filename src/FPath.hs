@@ -279,6 +279,7 @@ instance HasMaybeParent AbsDir where
 -- arbitrary
 -- textual (parser)
 -- quickcheck tests for printable/textual, read/show
+-- rid of Text?
 -- lens for filepath
 -- use finite lists?
 

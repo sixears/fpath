@@ -12,6 +12,7 @@ where
 import Data.Char      ( Char )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
+import Data.String    ( String )
 import Text.Show      ( Show )
 
 -- data-textual ------------------------
@@ -25,10 +26,6 @@ import Control.Lens.Prism  ( Prism' )
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError, throwError )
-
--- text --------------------------------
-
-import Data.Text  ( Text )
 
 -- text-printer ------------------------
 
@@ -47,7 +44,7 @@ import FPath.Util  ( (⋕) )
 --------------------------------------------------------------------------------
 
 data FPathComponentError = FPathComponentEmptyE
-                         | FPathComponentIllegalCharE Char Text
+                         | FPathComponentIllegalCharE Char String
   deriving (Eq, Show)
 
 class AsFPathComponentError ε where
@@ -59,12 +56,12 @@ _FPathCEmptyE = (_FPathComponentError ⋕) $ FPathComponentEmptyE
 __FPathCEmptyE__ ∷ (AsFPathComponentError ε, MonadError ε η) ⇒ η α
 __FPathCEmptyE__ = throwError $ _FPathCEmptyE
 
-_FPathCIllegalCharE ∷ AsFPathComponentError ε ⇒ Char → Text → ε
+_FPathCIllegalCharE ∷ AsFPathComponentError ε ⇒ Char → String → ε
 _FPathCIllegalCharE c t =
   _FPathComponentError ⋕ FPathComponentIllegalCharE c t
 
 __FPathCIllegalCharE__ ∷ (AsFPathComponentError ε,MonadError ε η) ⇒
-                                 Char → Text → η α
+                                 Char → String → η α
 __FPathCIllegalCharE__ c t =
   throwError $ _FPathCIllegalCharE c t
 
@@ -77,6 +74,6 @@ instance Printable FPathComponentError where
     let repr '\0' = "NUL"
         repr '/'  = "SLASH"
         repr x    = [x]
-     in P.text $ [fmt|pathComponent contains %s: '%T'|] (repr c) t
+     in P.text $ [fmt|pathComponent contains %s: '%s'|] (repr c) t
 
 -- that's all, folks! ----------------------------------------------------------

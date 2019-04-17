@@ -7,18 +7,21 @@ module FPath.T.FPath
   ( tests )
 where
 
+import Prelude  ( fromIntegral )
+
 -- base --------------------------------
 
-import Control.Monad  ( (>>), return )
-import Data.Bool      ( Bool( False ) )
-import Data.Either    ( Either( Left, Right  ) )
-import Data.Function  ( ($), (&), flip )
-import Data.Functor   ( (<$>) )
-import Data.Maybe     ( Maybe( Just, Nothing ), fromMaybe )
-import Data.String    ( String )
-import Data.Typeable  ( Proxy( Proxy ), typeRep )
-import System.IO      ( IO )
-import Text.Show      ( show )
+import Control.Monad    ( (>>), return )
+import Data.Bool        ( Bool( False ) )
+import Data.Either      ( Either( Left, Right  ) )
+import Data.Function    ( ($), (&), flip )
+import Data.Functor     ( (<$>) )
+import Data.Maybe       ( Maybe( Just, Nothing ), fromMaybe )
+import Data.String      ( String )
+import Data.Typeable    ( Proxy( Proxy ), typeRep )
+import Numeric.Natural  ( Natural )
+import System.IO        ( IO )
+import Text.Show        ( show )
 
 -- base-unicode-symbols ----------------
 
@@ -29,7 +32,15 @@ import Data.Monoid.Unicode    ( (⊕) )
 -- data-textual ------------------------
 
 import Data.Textual  ( Parsed( Parsed )
-                     , fromString, parseString, parseText, toText )
+                     , fromString, parseString, toString, toText )
+
+-- genvalidity -------------------------
+
+import Data.GenValidity  ( genValid )
+
+-- genvalidity-property ----------------
+
+import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 
 -- lens --------------------------------
 
@@ -48,10 +59,10 @@ import Test.QuickCheck.Property  ( property )
 
 -- tasty -------------------------------
 
-import Test.Tasty          ( TestTree, defaultIngredients, testGroup )
-import Test.Tasty.Options  ( singleOption )
-import Test.Tasty.Runners  ( defaultMainWithIngredients, parseTestPattern
-                           , tryIngredients )
+import Test.Tasty           ( TestTree, defaultIngredients, testGroup )
+import Test.Tasty.Options   ( OptionSet, singleOption )
+import Test.Tasty.Runners   ( TestPattern, defaultMainWithIngredients
+                            , parseTestPattern, tryIngredients )
 
 -- tasty-hunit -------------------------
 
@@ -59,7 +70,10 @@ import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-quickcheck --------------------
 
-import Test.Tasty.QuickCheck  ( Property, (===), testProperty )
+import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
+                              , QuickCheckReplay( QuickCheckReplay )
+                              , (===), shrink, testProperty
+                              )
 
 -- text --------------------------------
 
@@ -123,9 +137,22 @@ pathCTextualTests =
                           , fail "e\0c"
                           ]
 
+pathCValidityTests ∷ TestTree
+pathCValidityTests =
+  let genValidPC ∷ Gen PathComponent
+      genValidPC = genValid
+      arbPC ∷ Gen PathComponent
+      arbPC = arbitrary
+   in testGroup "Validity"
+                [
+                  testProperty "genValid"  $ genGeneratesValid genValidPC shrink
+                , testProperty "arbitrary" $ genGeneratesValid arbPC      shrink
+                ]
+
 pathComponentTests ∷ TestTree
-pathComponentTests = testGroup "PathComponent" [ pathCArbitraryTests
-                                               , pathCTextualTests ]
+pathComponentTests =
+  testGroup "PathComponent" [ pathCArbitraryTests, pathCTextualTests
+                            , pathCValidityTests ]
 
 absParseDirTests ∷ TestTree
 absParseDirTests =
@@ -234,12 +261,14 @@ absDirTextualTests =
                           , fail "e\0c"
                           ]
 
+propInvertibleTextual ∷ AbsDir → Property
+propInvertibleTextual d =
+  parseString (toString d) === Parsed d
+
 absDirTextualPrintableTests ∷ TestTree
 absDirTextualPrintableTests =
-  let propInvertibleTextual ∷ AbsDir → Property
-      propInvertibleTextual d = parseText (toText d) === Parsed d
-   in testProperty "parseText - toText" propInvertibleTextual
-                          
+  testProperty "parseUtf8 - toUtf8" propInvertibleTextual
+  
 absDirTests ∷ TestTree
 absDirTests =
   testGroup "AbsDir" [ absParseDirTests, absDirShowTests, absDirPrintableTests
@@ -258,12 +287,24 @@ tests = testGroup "FPath" [ pathComponentTests, absDirTests ]
 _test ∷ IO ()
 _test = defaultMainWithIngredients defaultIngredients tests
 
-
 _tests ∷ String → IO ()
 _tests s = let (<<) = flip (>>)
+               tryOpt ∷ TestPattern → TestTree → Maybe (IO Bool)
                tryOpt = tryIngredients defaultIngredients ∘ singleOption
             in return () << case parseTestPattern s of
                              Nothing → return False
                              Just p  → fromMaybe (return False) $ tryOpt p tests
+
+-- 896499
+_testr ∷ String → Natural → IO ()
+_testr s r = let (<<) = flip (>>)
+                 replayO ∷ Natural → OptionSet
+                 replayO = singleOption ∘ QuickCheckReplay ∘ Just ∘ fromIntegral
+                 tryOpt ∷ TestPattern → TestTree → Maybe (IO Bool)
+                 tryOpt p = tryIngredients defaultIngredients $
+                                singleOption p ⊕ replayO r
+              in return () << case parseTestPattern s of
+                               Nothing → return False
+                               Just p  → fromMaybe (return False) $ tryOpt p tests
 
 -- that's all, folks! ----------------------------------------------------------

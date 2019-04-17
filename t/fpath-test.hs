@@ -1,9 +1,23 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
--- if it compiles, it works...
+-- base --------------------------------
 
-import Perg ( )
+import System.IO  ( IO )
+
+-- tasty -------------------------------
+
+import Test.Tasty           ( defaultIngredients )
+import Test.Tasty.Runners   ( defaultMainWithIngredients )
+
+------------------------------------------------------------
+--                     local imports                      --
+------------------------------------------------------------
+
+import FPath.T.FPath  ( tests )
+
+--------------------------------------------------------------------------------
 
 main ∷ IO ()
-main = return ()
-  
+main = defaultMainWithIngredients defaultIngredients tests
+
+-- that's all, folks! ----------------------------------------------------------
