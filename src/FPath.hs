@@ -7,14 +7,19 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath
-  ( AbsDir {- AbsFile, AbsPath(..) -}
+  ( AbsDir, NonRootAbsDir {- AbsFile, AbsPath(..) -}
   , AsFilePath( filepath )
 
-  , absdir, nonRootAbsDir
+  -- quasi-quoters
+  , absdir, absdirN
+
+  , nonRootAbsDir
 
   , parent, parentMay
   , parseAbsDir, parseAbsDir', __parseAbsDir__, __parseAbsDir'__
   , pcList
+
+  , root
     {-
   , AsFilePath( toFPath )
   , MyPath( AbsOrRel, FileType, isRoot, resolve, toDir, toFile, toFile_
@@ -56,7 +61,7 @@ where
 
 import Control.Applicative  ( (*>) )
 import Control.Monad        ( return )
-import Data.Either          ( either )
+import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
 import Data.Function        ( ($), id )
 import Data.Functor         ( (<$>), fmap )
@@ -104,6 +109,7 @@ import System.Directory  ( withCurrentDirectory )
 
 import Control.Lens.Getter   ( (^.), view )
 import Control.Lens.Iso      ( Iso', from, iso )
+import Control.Lens.Lens     ( Lens', lens )
 import Control.Lens.Prism    ( Prism', prism' )
 
 {-
@@ -111,6 +117,10 @@ import Control.Lens.Prism    ( Prism', prism' )
 import qualified  System.FilePath.Lens  as  FPLens
 
 -}
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⊣) )
 
 -- mtl ---------------------------------
 
@@ -165,7 +175,7 @@ import Fluffy.Text           ( last )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.Error.FPathError  ( AsFPathError, FPathError
+import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
                                , __FPathComponentE__, __FPathEmptyE__
                                , __FPathNonAbsE__, __FPathNotADirE__
                                )
@@ -266,18 +276,39 @@ instance HasAbsOrRel AbsDir where
 instance HasAbsOrRel NonRootAbsDir where
   type AbsOrRel NonRootAbsDir = Abs
 
-class HasAbsOrRel α ⇒ HasMaybeParent α where
-  parentMay ∷ α → Maybe (DirType (AbsOrRel α))
+----------------------------------------
+--             HasParent              --
+----------------------------------------
 
 class HasAbsOrRel α ⇒ HasParent α where
-  parent ∷ α → DirType (AbsOrRel α)
+  parent ∷ Lens' α (DirType (AbsOrRel α))
 
 instance HasParent NonRootAbsDir where
-  parent (NonRootAbsDir _ d) = d
+  parent = lens (\ (NonRootAbsDir _ d) → d)
+                (\ (NonRootAbsDir p _) d → NonRootAbsDir p d)
+
+----------------------------------------
+--           HasMaybeParent           --
+----------------------------------------
+
+class HasAbsOrRel α ⇒ HasMaybeParent α where
+  parentMay ∷ Lens' α (Maybe (DirType (AbsOrRel α)))
 
 instance HasMaybeParent AbsDir where
-  parentMay AbsRootDir = Nothing
-  parentMay (AbsNonRootDir d) = Just $ parent d
+  parentMay =
+    let getParent ∷ AbsDir → Maybe AbsDir
+        getParent AbsRootDir                          = Nothing
+        getParent (AbsNonRootDir (NonRootAbsDir p d)) = Just d
+
+        setParent ∷ AbsDir → Maybe AbsDir → AbsDir
+        setParent AbsRootDir (Just d) = d
+        setParent AbsRootDir Nothing  = AbsRootDir
+        setParent (AbsNonRootDir (NonRootAbsDir p _)) (Just d) =
+          AbsNonRootDir (NonRootAbsDir p d)
+        setParent (AbsNonRootDir (NonRootAbsDir p _)) Nothing =
+          AbsNonRootDir (NonRootAbsDir p AbsRootDir)
+
+     in lens getParent setParent
 
 ----------------------------------------
 --             AsFilePath             --
@@ -299,6 +330,9 @@ instance AsFilePath AbsDir where
 
 absdirT ∷ TypeRep
 absdirT = typeRep (Proxy ∷ Proxy AbsDir)
+
+nrabsdirT ∷ TypeRep
+nrabsdirT = typeRep (Proxy ∷ Proxy NonRootAbsDir)
 
 parseAbsDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsDir
 parseAbsDir (toText → "") = __FPathEmptyE__ absdirT
@@ -329,9 +363,28 @@ __parseAbsDir__ = either __ERROR'__ id ∘ parseAbsDir'
 __parseAbsDir'__ ∷ String → AbsDir
 __parseAbsDir'__ = __parseAbsDir__
 
-{- | quasi-quoter for PathComponent -}
+__parseAbsDirN__ ∷ String → NonRootAbsDir
+__parseAbsDirN__ s = case parseAbsDir' s of
+                       Left e → __ERROR'__ e
+                       Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
+                       Right (AbsNonRootDir nr) → nr
+
+{- | quasi-quoter for AbsDir -}
 absdir ∷ QuasiQuoter
 absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parseAbsDir'__ s ⟧)
+
+{- | quasi-quoter for NonRootAbsDir -}
+
+absdirN ∷ QuasiQuoter
+absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parseAbsDirN__ s ⟧)
+
+----------------------------------------
+--             constants              --
+----------------------------------------
+
+root ∷ AbsDir
+root = AbsRootDir
+
 ------------------------------------------------------------
 
 {-

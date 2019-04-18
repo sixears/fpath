@@ -43,7 +43,9 @@ import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 
 -- lens --------------------------------
 
+import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( from )
+import Control.Lens.Setter  ( (?~) )
 
 -- more-unicode ------------------------
 
@@ -90,8 +92,10 @@ import Text.Fmt  ( fmt )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                ( AbsDir, absdir, filepath, nonRootAbsDir, parent
-                            , parentMay, parseAbsDir', pcList )
+import FPath                ( AbsDir, NonRootAbsDir
+                            , absdir, absdirN, filepath, nonRootAbsDir, parent
+                            , parentMay, parseAbsDir', pcList
+                            )
 import FPath.Error.FPathError
                             ( FPathError( FPathComponentE, FPathEmptyE
                                         , FPathNonAbsE, FPathNotADirE ) )
@@ -109,14 +113,20 @@ root = [absdir|/|]
 etc ∷ AbsDir
 etc = [absdir|/etc/|]
 
-pam_d ∷ AbsDir
-pam_d = [absdir|/etc/pam.d/|]
+pamd ∷ AbsDir
+pamd = [absdir|/etc/pam.d/|]
 
-d_pam ∷ AbsDir
-d_pam = [absdir|/pam.d/etc/|]
+wgm ∷ AbsDir
+wgm = [absdir|/w/g/M/|]
 
-wgM ∷ AbsDir
-wgM = [absdir|/w/g/M/|]
+etcN ∷ NonRootAbsDir
+etcN = [absdirN|/etc/|]
+
+pamdN ∷ NonRootAbsDir
+pamdN = [absdirN|/etc/pam.d/|]
+
+wgmN ∷ NonRootAbsDir
+wgmN = [absdirN|/w/g/M/|]
 
 pathCArbitraryTests ∷ TestTree
 pathCArbitraryTests =
@@ -170,8 +180,8 @@ absParseDirTests =
    in testGroup "parseAbsDir"
                 [ testCase "root"  $ Right root   ≟ parseAbsDir_ "/"
                 , testCase "etc"   $ Right etc    ≟ parseAbsDir_ "/etc/"
-                , testCase "pam.d" $ Right pam_d  ≟ parseAbsDir_ "/etc/pam.d/"
-                , testCase "wgM"   $ Right wgM    ≟ parseAbsDir_ "/w/g/M/"
+                , testCase "pam.d" $ Right pamd   ≟ parseAbsDir_ "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgm    ≟ parseAbsDir_ "/w/g/M/"
                 , testCase "no trailing /" $
                       Left (FPathNotADirE absdirT pamF) ≟ parseAbsDir_ pamF
                 , testCase "empty" $
@@ -194,7 +204,7 @@ absDirShowTests =
    in testGroup "show"
                 [ testCase "root"  $ pclad []               ≟ show root
                 , testCase "etc"   $ pclad ["etc"]          ≟ show etc
-                , testCase "pam.d" $ pclad ["etc", "pam.d"] ≟ show pam_d
+                , testCase "pam.d" $ pclad ["etc", "pam.d"] ≟ show pamd
                 ]
 
 absDirPrintableTests ∷ TestTree
@@ -202,8 +212,8 @@ absDirPrintableTests =
   testGroup "printable"
             [ testCase "root"  $ "/"           ≟ toText root
             , testCase "etc"   $ "/etc/"       ≟ toText etc
-            , testCase "pam.d" $ "/etc/pam.d/" ≟ toText pam_d
-            , testCase "wgM"   $ "/w/g/M/"     ≟ toText wgM
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ toText pamd
+            , testCase "wgm"   $ "/w/g/M/"     ≟ toText wgm
             ]
 
 absDirAsPCListGetterTests ∷ TestTree
@@ -211,19 +221,22 @@ absDirAsPCListGetterTests =
   testGroup "getter"
             [ testCase "root"  $ []                         ≟ root  ⊣ pcList
             , testCase "etc"   $ [ [pc|etc|] ]              ≟ etc   ⊣ pcList
-            , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] ≟ pam_d ⊣ pcList
-            , testCase "wgM"   $ [[pc|w|],[pc|g|],[pc|M|]]  ≟ wgM ⊣ pcList
+            , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] ≟ pamd ⊣ pcList
+            , testCase "wgm"   $ [[pc|w|],[pc|g|],[pc|M|]]  ≟ wgm ⊣ pcList
             ]
 
 absDirAsPCListSetterTests ∷ TestTree
 absDirAsPCListSetterTests =
-  testGroup "setter"
-            [ testCase "etc"   $ etc   ≟ (root  & pcList ⊢ [ [pc|etc|] ])
-            , testCase "root"  $ root  ≟ (etc   & pcList ⊢ [ ])
-            , testCase "d.pam" $ d_pam ≟ (d_pam & pcList ⊢ [ [pc|pam.d|]
-                                                              , [pc|etc|] ])
-            , testCase "wgM"   $ wgM   ≟ (⊣ from pcList) [[pc|w|],[pc|g|],[pc|M|]]
-            ]
+  let d_pam ∷ AbsDir
+      d_pam = [absdir|/pam.d/etc/|]
+   in testGroup "setter"
+                [ testCase "etc"   $ etc   ≟ (root  & pcList ⊢ [ [pc|etc|] ])
+                , testCase "root"  $ root  ≟ (etc   & pcList ⊢ [ ])
+                , testCase "d.pam" $
+                      d_pam ≟ (d_pam & pcList ⊢ [ [pc|pam.d|], [pc|etc|] ])
+                , testCase "wgm"   $
+                      wgm   ≟ (⊣ from pcList) [[pc|w|],[pc|g|],[pc|M|]]
+                ]
 
 absDirAsPCListTests ∷ TestTree
 absDirAsPCListTests =
@@ -231,18 +244,53 @@ absDirAsPCListTests =
 
 absDirParentMayTests ∷ TestTree
 absDirParentMayTests =
-  testGroup "parentMay" [ testCase "root"   $ Nothing   ≟ parentMay root
-                        , testCase "etc"    $ Just root ≟ parentMay etc
-                        , testCase "pam_d"  $ Just etc  ≟ parentMay pam_d
-                        ]
+  let d ~~ d' = d & parentMay ?~ d'
+   in testGroup "parentMay"
+                [ testCase "root"   $ Nothing   ≟ root  ⊣ parentMay
+                , testCase "etc"    $ Just root ≟ etc   ⊣ parentMay
+                , testCase "pamd"  $ Just etc  ≟ pamd ⊣ parentMay
+
+                , testCase "etc → root" $ etc ≟ etc ~~ root
+                , testCase "root → etc" $ etc ≟ root ~~ etc
+
+                , testCase "pamd → root" $ [absdir|/pam.d/|] ≟ pamd ~~ root
+                , testCase "root → pamd" $ pamd ≟ root ~~ pamd
+
+                , testCase "etc → wgm" $ [absdir|/w/g/M/etc/|] ≟ etc ~~ wgm
+                , testCase "wgm → etc" $ [absdir|/etc/M/|] ≟ wgm ~~ etc
+
+                , testCase "root → wgm" $ wgm ≟ root ~~ wgm
+                , testCase "wgm → root" $ [absdir|/M/|] ≟ wgm ~~ root
+
+                , testCase "pamd → etc" $ pamd ≟ pamd ~~ etc
+                , testCase "etc → pamd" $
+                      [absdir|/etc/pam.d/etc/|] ≟ etc ~~ pamd
+
+                , testCase "pamd → Nothing" $
+                      [absdir|/pam.d/|]  ≟ (pamd & parentMay ⊢ Nothing)
+                ]
 
 absDirParentTests ∷ TestTree
 absDirParentTests =
-  let par d = parent ⊳ (d ⩼ nonRootAbsDir)
-   in testGroup "parent" [ testCase "root"   $ Nothing   ≟ par root
-                         , testCase "etc"    $ Just root ≟ par etc
-                         , testCase "pam_d"  $ Just etc  ≟ par pam_d
-                         ]
+  let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
+      d ~~ d' = d & parent ⊢ d'
+   in testGroup "parent"
+                [ testCase "root"   $ Nothing   ≟ par root
+                , testCase "etc"    $ Just root ≟ par etc
+                , testCase "pamd"  $ Just etc  ≟ par pamd
+
+                , testCase "etc → root" $ etcN  ≟ etcN ~~ root
+
+                , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
+
+                , testCase "etc → wgm" $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm
+                , testCase "wgm → etc" $ [absdirN|/etc/M/|] ≟ wgmN ~~ etc
+
+                , testCase "wgm → root" $ [absdirN|/M/|] ≟ wgmN ~~ root
+                , testCase "pamd → etc" $ pamdN ≟ pamdN ~~ etc
+                , testCase "etc → pamd" $
+                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamd
+                ]
 
 absDirTextualTests ∷ TestTree
 absDirTextualTests =
@@ -291,8 +339,8 @@ absDirFilepathTests =
    in testGroup "filepath"
             [ testCase "root"  $ "/"           ≟ root    ## filepath
             , testCase "etc"   $ "/etc/"       ≟ etc     ## filepath
-            , testCase "pam.d" $ "/etc/pam.d/" ≟ pam_d   ## filepath
-            , testCase "wgM"   $ "/w/g/M/"     ≟ wgM     ## filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ pamd    ## filepath
+            , testCase "wgm"   $ "/w/g/M/"     ≟ wgm     ## filepath
             , testCase "/etc/" $ Just etc      ≟ "/etc/" ⩼ filepath
             , testCase "/etc"         $ nothin' ≟ "/etc" ⩼ filepath
             , testCase "/etc/pam.d"   $ nothin' ≟ "/etc/pam.d" ⩼ filepath

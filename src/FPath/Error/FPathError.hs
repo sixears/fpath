@@ -3,8 +3,8 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.Error.FPathError
-  ( AsFPathError, FPathError(..)
-  , __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__, __FPathNotADirE__ )
+  ( AsFPathError, FPathError(..), __FPathComponentE__ , __FPathEmptyE__
+  , __FPathNonAbsE__, __FPathNotADirE__, __FPathRootDirE__ )
 where
 
 -- base --------------------------------
@@ -55,6 +55,7 @@ data FPathError = FPathEmptyE TypeRep
                 | FPathNonAbsE TypeRep Text
                 | FPathNotADirE TypeRep Text
                 | FPathComponentE FPathComponentError TypeRep Text
+                | FPathRootDirE TypeRep
   deriving (Eq, Show)
 
 class AsFPathError ε where
@@ -69,6 +70,7 @@ instance Printable FPathError where
   print (FPathNotADirE ty t) = P.text $ [fmt|%w lacks trailing /: '%T'|]  ty t
   print (FPathComponentE ce ty t) =
     P.text $ [fmt|component error %T in %w '%T'|] ce ty t
+  print (FPathRootDirE ty)     = P.text $ [fmt|is root dir: %w|] ty
 
 ------------------------------------------------------------
 
@@ -96,5 +98,11 @@ _FPathComponentE ce r t = _FPathError ⋕ FPathComponentE ce r t
 __FPathComponentE__ ∷ (AsFPathError ε,MonadError ε η) ⇒
                       FPathComponentError → TypeRep → Text → η α
 __FPathComponentE__ ce r t = throwError $ _FPathComponentE ce r t
+
+_FPathRootDirE ∷ AsFPathError ε ⇒ TypeRep → ε
+_FPathRootDirE = (_FPathError ⋕) ∘ FPathRootDirE
+
+__FPathRootDirE__ ∷ (AsFPathError ε, MonadError ε η) ⇒ TypeRep → η α
+__FPathRootDirE__ = throwError ∘ _FPathRootDirE
 
 -- that's all, folks! ----------------------------------------------------------
