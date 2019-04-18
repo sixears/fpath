@@ -11,11 +11,10 @@ import Prelude  ( fromIntegral )
 
 -- base --------------------------------
 
-import Control.Monad    ( (>>), return )
+import Control.Monad    ( return )
 import Data.Bool        ( Bool( False ) )
 import Data.Either      ( Either( Left, Right  ) )
-import Data.Function    ( ($), (&), flip )
-import Data.Functor     ( (<$>) )
+import Data.Function    ( ($), (&) )
 import Data.Maybe       ( Maybe( Just, Nothing ), fromMaybe )
 import Data.String      ( String )
 import Data.Typeable    ( Proxy( Proxy ), typeRep )
@@ -31,8 +30,8 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Parsed( Parsed )
-                     , fromString, parseString, toString, toText )
+import Data.Textual  ( Parsed( Parsed ), fromString, parseString, parseText
+                     , parseUtf8, toString, toText, toUtf8 )
 
 -- genvalidity -------------------------
 
@@ -44,10 +43,14 @@ import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 
 -- lens --------------------------------
 
-import Control.Lens.Fold    ( (^?) )
 import Control.Lens.Iso     ( from )
-import Control.Lens.Getter  ( (^.) )
-import Control.Lens.Setter  ( (.~) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Lens     ( (⊣), (⊢), (⩼), (##) )
+import Data.MoreUnicode.Monad    ( (⪻) )
+import Data.MoreUnicode.Tasty    ( (≟), (≣) )
 
 -- mtl ---------------------------------
 
@@ -66,13 +69,13 @@ import Test.Tasty.Runners   ( TestPattern, defaultMainWithIngredients
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( (@=?), testCase )
+import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-quickcheck --------------------
 
 import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
                               , QuickCheckReplay( QuickCheckReplay )
-                              , (===), shrink, testProperty
+                              , shrink, testProperty
                               )
 
 -- text --------------------------------
@@ -87,8 +90,8 @@ import Text.Fmt  ( fmt )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                ( AbsDir, absdir, nonRootAbsDir, parent, parentMay
-                            , parseAbsDir', pcList )
+import FPath                ( AbsDir, absdir, filepath, nonRootAbsDir, parent
+                            , parentMay, parseAbsDir', pcList )
 import FPath.Error.FPathError
                             ( FPathError( FPathComponentE, FPathEmptyE
                                         , FPathNonAbsE, FPathNotADirE ) )
@@ -125,8 +128,8 @@ pathCTextualTests ∷ TestTree
 pathCTextualTests =
   let nothin'     ∷ Maybe PathComponent
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  @=? parseString s
-      fail s      = testCase s $ nothin'   @=? fromString s
+      success e s = testCase s $ Parsed e  ≟ parseString s
+      fail s      = testCase s $ nothin'   ≟ fromString s
    in testGroup "Textual" [ success [pc|etc|]   "etc"
                           , success [pc|pam.d|] "pam.d"
                           , fail "/etc"
@@ -165,61 +168,61 @@ absParseDirTests =
       parseAbsDir_ ∷ MonadError FPathError η ⇒ Text → η AbsDir
       parseAbsDir_ = parseAbsDir'
    in testGroup "parseAbsDir"
-                [ testCase "root"  $ Right root   @=? parseAbsDir_ "/"
-                , testCase "etc"   $ Right etc    @=? parseAbsDir_ "/etc/"
-                , testCase "pam.d" $ Right pam_d  @=? parseAbsDir_ "/etc/pam.d/"
-                , testCase "wgM"   $ Right wgM    @=? parseAbsDir_ "/w/g/M/"
+                [ testCase "root"  $ Right root   ≟ parseAbsDir_ "/"
+                , testCase "etc"   $ Right etc    ≟ parseAbsDir_ "/etc/"
+                , testCase "pam.d" $ Right pam_d  ≟ parseAbsDir_ "/etc/pam.d/"
+                , testCase "wgM"   $ Right wgM    ≟ parseAbsDir_ "/w/g/M/"
                 , testCase "no trailing /" $
-                      Left (FPathNotADirE absdirT pamF) @=? parseAbsDir_ pamF
+                      Left (FPathNotADirE absdirT pamF) ≟ parseAbsDir_ pamF
                 , testCase "empty" $
-                      Left (FPathEmptyE absdirT)  @=? parseAbsDir_ ""
+                      Left (FPathEmptyE absdirT)  ≟ parseAbsDir_ ""
                 , testCase "no leading /" $
-                      Left (FPathNonAbsE absdirT "etc/") @=? parseAbsDir_ "etc/"
+                      Left (FPathNonAbsE absdirT "etc/") ≟ parseAbsDir_ "etc/"
                 , testCase "bad component" $
-                      Left illegalCE @=? parseAbsDir_ pamNUL
+                      Left illegalCE ≟ parseAbsDir_ pamNUL
                 , testCase "empty component" $
-                      Left emptyCompCE @=? parseAbsDir_ "/etc//pam.d/"
+                      Left emptyCompCE ≟ parseAbsDir_ "/etc//pam.d/"
                 ]
 
 absDirShowTests ∷ TestTree
 absDirShowTests =
   let pcl ∷ Text → [Text] → String
-      pcl n ps = [fmt|(%t [%L])|] n ((\ p → "[pathComponent|" ⊕ p ⊕ "|]") <$> ps)
+      pcl n ps = [fmt|(%t [%L])|] n ((\ p → "[pathComponent|" ⊕ p ⊕ "|]") ⊳ ps)
       pclad ∷ [Text] → String
       pclad = pcl "(^. from pcList)"
 
    in testGroup "show"
-                [ testCase "root"  $ pclad []               @=? show root
-                , testCase "etc"   $ pclad ["etc"]          @=? show etc
-                , testCase "pam.d" $ pclad ["etc", "pam.d"] @=? show pam_d
+                [ testCase "root"  $ pclad []               ≟ show root
+                , testCase "etc"   $ pclad ["etc"]          ≟ show etc
+                , testCase "pam.d" $ pclad ["etc", "pam.d"] ≟ show pam_d
                 ]
 
 absDirPrintableTests ∷ TestTree
 absDirPrintableTests =
   testGroup "printable"
-            [ testCase "root"  $ "/"           @=? toText root
-            , testCase "etc"   $ "/etc/"       @=? toText etc
-            , testCase "pam.d" $ "/etc/pam.d/" @=? toText pam_d
-            , testCase "wgM"   $ "/w/g/M/"     @=? toText wgM
+            [ testCase "root"  $ "/"           ≟ toText root
+            , testCase "etc"   $ "/etc/"       ≟ toText etc
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ toText pam_d
+            , testCase "wgM"   $ "/w/g/M/"     ≟ toText wgM
             ]
 
 absDirAsPCListGetterTests ∷ TestTree
 absDirAsPCListGetterTests =
   testGroup "getter"
-            [ testCase "root"  $ []                         @=? root  ^. pcList
-            , testCase "etc"   $ [ [pc|etc|] ]              @=? etc   ^. pcList
-            , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] @=? pam_d ^. pcList
-            , testCase "wgM"   $ [[pc|w|],[pc|g|],[pc|M|]]  @=? wgM ^. pcList
+            [ testCase "root"  $ []                         ≟ root  ⊣ pcList
+            , testCase "etc"   $ [ [pc|etc|] ]              ≟ etc   ⊣ pcList
+            , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] ≟ pam_d ⊣ pcList
+            , testCase "wgM"   $ [[pc|w|],[pc|g|],[pc|M|]]  ≟ wgM ⊣ pcList
             ]
 
 absDirAsPCListSetterTests ∷ TestTree
 absDirAsPCListSetterTests =
   testGroup "setter"
-            [ testCase "etc"   $ etc   @=? (root  & pcList .~ [ [pc|etc|] ])
-            , testCase "root"  $ root  @=? (etc   & pcList .~ [ ])
-            , testCase "d.pam" $ d_pam @=? (d_pam & pcList .~ [ [pc|pam.d|]
+            [ testCase "etc"   $ etc   ≟ (root  & pcList ⊢ [ [pc|etc|] ])
+            , testCase "root"  $ root  ≟ (etc   & pcList ⊢ [ ])
+            , testCase "d.pam" $ d_pam ≟ (d_pam & pcList ⊢ [ [pc|pam.d|]
                                                               , [pc|etc|] ])
-            , testCase "wgM"   $ wgM   @=? (^. from pcList) [[pc|w|],[pc|g|],[pc|M|]]
+            , testCase "wgM"   $ wgM   ≟ (⊣ from pcList) [[pc|w|],[pc|g|],[pc|M|]]
             ]
 
 absDirAsPCListTests ∷ TestTree
@@ -228,25 +231,25 @@ absDirAsPCListTests =
 
 absDirParentMayTests ∷ TestTree
 absDirParentMayTests =
-  testGroup "parentMay" [ testCase "root"   $ Nothing   @=? parentMay root
-                        , testCase "etc"    $ Just root @=? parentMay etc
-                        , testCase "pam_d"  $ Just etc  @=? parentMay pam_d
+  testGroup "parentMay" [ testCase "root"   $ Nothing   ≟ parentMay root
+                        , testCase "etc"    $ Just root ≟ parentMay etc
+                        , testCase "pam_d"  $ Just etc  ≟ parentMay pam_d
                         ]
 
 absDirParentTests ∷ TestTree
 absDirParentTests =
-  let par d = parent <$> (d ^? nonRootAbsDir)
-   in testGroup "parent" [ testCase "root"   $ Nothing   @=? par root
-                         , testCase "etc"    $ Just root @=? par etc
-                         , testCase "pam_d"  $ Just etc  @=? par pam_d
+  let par d = parent ⊳ (d ⩼ nonRootAbsDir)
+   in testGroup "parent" [ testCase "root"   $ Nothing   ≟ par root
+                         , testCase "etc"    $ Just root ≟ par etc
+                         , testCase "pam_d"  $ Just etc  ≟ par pam_d
                          ]
 
 absDirTextualTests ∷ TestTree
 absDirTextualTests =
   let nothin'     ∷ Maybe AbsDir
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  @=? parseString s
-      fail s      = testCase s $ nothin'   @=? fromString s
+      success e s = testCase s $ Parsed e  ≟ parseString s
+      fail s      = testCase s $ nothin'   ≟ fromString s
    in testGroup "Textual" [ success [absdir|/|]           "/"
                           , success [absdir|/etc/|]       "/etc/"
                           , success [absdir|/etc/pam.d/|] "/etc/pam.d/"
@@ -261,20 +264,53 @@ absDirTextualTests =
                           , fail "e\0c"
                           ]
 
-propInvertibleTextual ∷ AbsDir → Property
-propInvertibleTextual d =
-  parseString (toString d) === Parsed d
+propInvertibleString ∷ AbsDir → Property
+propInvertibleString d =
+  parseString (toString d) ≣ Parsed d
+
+propInvertibleText ∷ AbsDir → Property
+propInvertibleText d =
+  parseText (toText d) ≣ Parsed d
+
+propInvertibleUtf8 ∷ AbsDir → Property
+propInvertibleUtf8 d =
+  parseUtf8 (toUtf8 d) ≣ Parsed d
 
 absDirTextualPrintableTests ∷ TestTree
 absDirTextualPrintableTests =
-  testProperty "parseUtf8 - toUtf8" propInvertibleTextual
-  
+  testGroup "textual invertibility"
+            [ testProperty "parseString - toString" propInvertibleString
+            , testProperty "parseText - toText" propInvertibleText
+            , testProperty "parseUtf8 - toUtf8" propInvertibleUtf8
+            ]
+
+
+absDirFilepathTests ∷ TestTree
+absDirFilepathTests =
+  let nothin' = Nothing ∷ Maybe AbsDir
+   in testGroup "filepath"
+            [ testCase "root"  $ "/"           ≟ root    ## filepath
+            , testCase "etc"   $ "/etc/"       ≟ etc     ## filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ pam_d   ## filepath
+            , testCase "wgM"   $ "/w/g/M/"     ≟ wgM     ## filepath
+            , testCase "/etc/" $ Just etc      ≟ "/etc/" ⩼ filepath
+            , testCase "/etc"         $ nothin' ≟ "/etc" ⩼ filepath
+            , testCase "/etc/pam.d"   $ nothin' ≟ "/etc/pam.d" ⩼ filepath
+            , testCase "etc/"         $ nothin' ≟ "etc/" ⩼ filepath
+            , testCase "etc/pam.d"    $ nothin' ≟ "etc/pam.d" ⩼ filepath
+            , testCase "/etc//pam.d/" $ nothin' ≟ "/etc//pam.d/" ⩼ filepath
+            , testCase "e/c"          $ nothin' ≟ "e/c" ⩼ filepath
+            , testCase "\0etc"        $ nothin' ≟ "\0etc" ⩼ filepath
+            , testCase "etc\0"        $ nothin' ≟ "etc\0" ⩼ filepath
+            , testCase "e\0c"         $ nothin' ≟ "e\0c" ⩼ filepath
+            ]
+
 absDirTests ∷ TestTree
 absDirTests =
   testGroup "AbsDir" [ absParseDirTests, absDirShowTests, absDirPrintableTests
                      , absDirAsPCListTests, absDirTextualTests
                      , absDirParentMayTests, absDirParentTests
-                     , absDirTextualPrintableTests
+                     , absDirTextualPrintableTests, absDirFilepathTests
                      ]
 
 ----------------------------------------
@@ -288,22 +324,19 @@ _test ∷ IO ()
 _test = defaultMainWithIngredients defaultIngredients tests
 
 _tests ∷ String → IO ()
-_tests s = let (<<) = flip (>>)
-               tryOpt ∷ TestPattern → TestTree → Maybe (IO Bool)
+_tests s = let tryOpt ∷ TestPattern → TestTree → Maybe (IO Bool)
                tryOpt = tryIngredients defaultIngredients ∘ singleOption
-            in return () << case parseTestPattern s of
+            in return () ⪻ case parseTestPattern s of
                              Nothing → return False
                              Just p  → fromMaybe (return False) $ tryOpt p tests
 
--- 896499
 _testr ∷ String → Natural → IO ()
-_testr s r = let (<<) = flip (>>)
-                 replayO ∷ Natural → OptionSet
+_testr s r = let replayO ∷ Natural → OptionSet
                  replayO = singleOption ∘ QuickCheckReplay ∘ Just ∘ fromIntegral
                  tryOpt ∷ TestPattern → TestTree → Maybe (IO Bool)
                  tryOpt p = tryIngredients defaultIngredients $
                                 singleOption p ⊕ replayO r
-              in return () << case parseTestPattern s of
+              in return () ⪻ case parseTestPattern s of
                                Nothing → return False
                                Just p  → fromMaybe (return False) $ tryOpt p tests
 

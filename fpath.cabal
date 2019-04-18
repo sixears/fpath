@@ -68,7 +68,7 @@ library
                , template-haskell, tasty, tasty-hunit, tasty-quickcheck, text
                , text-printer, validity
 
-               , tfmt
+               , more-unicode, tfmt
   -- Directories containing source files.
   hs-source-dirs:      src
 

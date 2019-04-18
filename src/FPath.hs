@@ -8,6 +8,7 @@
 
 module FPath
   ( AbsDir {- AbsFile, AbsPath(..) -}
+  , AsFilePath( filepath )
 
   , absdir, nonRootAbsDir
 
@@ -63,6 +64,7 @@ import Data.List            ( reverse )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
+import System.IO            ( FilePath )
 import Text.Show            ( Show( show ) )
 
 {-
@@ -87,7 +89,8 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual ), toText )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , fromString, toString, toText )
 
 {-
 
@@ -276,12 +279,19 @@ instance HasMaybeParent AbsDir where
   parentMay AbsRootDir = Nothing
   parentMay (AbsNonRootDir d) = Just $ parent d
 
--- arbitrary
--- textual (parser)
--- quickcheck tests for printable/textual, read/show
--- rid of Text?
--- lens for filepath
--- use finite lists?
+----------------------------------------
+--             AsFilePath             --
+----------------------------------------
+
+class AsFilePath α where
+  filepath ∷ Prism' FilePath α
+
+instance AsFilePath AbsDir where
+  filepath = prism' toString fromString
+
+-- use finite lists (seq)?
+-- lens for parent (using type families)
+-- more-unicode
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
