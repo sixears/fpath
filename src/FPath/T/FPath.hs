@@ -11,22 +11,28 @@ import Prelude  ( fromIntegral )
 
 -- base --------------------------------
 
-import Control.Monad    ( return )
-import Data.Bool        ( Bool( False ) )
-import Data.Either      ( Either( Left, Right  ) )
-import Data.Function    ( ($), (&) )
-import Data.Maybe       ( Maybe( Just, Nothing ), fromMaybe )
-import Data.String      ( String )
-import Data.Typeable    ( Proxy( Proxy ), typeRep )
-import Numeric.Natural  ( Natural )
-import System.IO        ( IO )
-import Text.Show        ( show )
+import Control.Applicative  ( pure )
+import Control.Monad        ( return )
+import Data.Bool            ( Bool( False ) )
+import Data.Either          ( Either( Left, Right  ) )
+import Data.Foldable        ( toList )
+import Data.Function        ( ($), (&) )
+import Data.Maybe           ( Maybe( Just, Nothing ), fromMaybe )
+import Data.String          ( String )
+import Data.Typeable        ( Proxy( Proxy ), typeRep )
+import Numeric.Natural      ( Natural )
+import System.IO            ( IO )
+import Text.Show            ( show )
 
 -- base-unicode-symbols ----------------
 
 import Data.Eq.Unicode        ( (≢) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
+
+-- containers --------------------------
+
+import qualified  Data.Sequence  as  Seq
 
 -- data-textual ------------------------
 
@@ -51,6 +57,7 @@ import Control.Lens.Setter  ( (?~) )
 
 import Data.MoreUnicode.Functor  ( (⊳) )
 import Data.MoreUnicode.Lens     ( (⊣), (⊢), (⩼), (##) )
+import Data.MoreUnicode.List     ( (⋮) )
 import Data.MoreUnicode.Monad    ( (⪻) )
 import Data.MoreUnicode.Tasty    ( (≟), (≣) )
 
@@ -93,8 +100,9 @@ import Text.Fmt  ( fmt )
 ------------------------------------------------------------
 
 import FPath                ( AbsDir, NonRootAbsDir
-                            , absdir, absdirN, filepath, nonRootAbsDir, parent
-                            , parentMay, parseAbsDir', pcList
+                            , absdir, absdirN, filepath, fromList, fromListNE
+                            , nonRootAbsDir, parent, parentMay, parseAbsDir'
+                            , pcSeq
                             )
 import FPath.Error.FPathError
                             ( FPathError( FPathComponentE, FPathEmptyE
@@ -216,31 +224,57 @@ absDirPrintableTests =
             , testCase "wgm"   $ "/w/g/M/"     ≟ toText wgm
             ]
 
-absDirAsPCListGetterTests ∷ TestTree
-absDirAsPCListGetterTests =
+absDirAsPCSeqGetterTests ∷ TestTree
+absDirAsPCSeqGetterTests =
   testGroup "getter"
-            [ testCase "root"  $ []                         ≟ root  ⊣ pcList
-            , testCase "etc"   $ [ [pc|etc|] ]              ≟ etc   ⊣ pcList
-            , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] ≟ pamd ⊣ pcList
-            , testCase "wgm"   $ [[pc|w|],[pc|g|],[pc|M|]]  ≟ wgm ⊣ pcList
+            [ testCase "root"  $ []                         ≟ toList (root  ⊣ pcSeq)
+            , testCase "etc"   $ [ [pc|etc|] ]              ≟ toList (etc   ⊣ pcSeq)
+            , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ] ≟ toList (pamd ⊣ pcSeq)
+            , testCase "wgm"   $ [[pc|w|],[pc|g|],[pc|M|]]  ≟ toList (wgm ⊣ pcSeq)
             ]
 
-absDirAsPCListSetterTests ∷ TestTree
-absDirAsPCListSetterTests =
+absDirAsPCSeqSetterTests ∷ TestTree
+absDirAsPCSeqSetterTests =
   let d_pam ∷ AbsDir
       d_pam = [absdir|/pam.d/etc/|]
+      x ~~ y = x & pcSeq ⊢ Seq.fromList y
    in testGroup "setter"
-                [ testCase "etc"   $ etc   ≟ (root  & pcList ⊢ [ [pc|etc|] ])
-                , testCase "root"  $ root  ≟ (etc   & pcList ⊢ [ ])
+                [ testCase "etc"   $ etc   ≟ root ~~ [ [pc|etc|] ]
+                , testCase "root"  $ root  ≟ etc ~~ []
                 , testCase "d.pam" $
-                      d_pam ≟ (d_pam & pcList ⊢ [ [pc|pam.d|], [pc|etc|] ])
+                      d_pam ≟ d_pam ~~ [ [pc|pam.d|], [pc|etc|] ]
                 , testCase "wgm"   $
-                      wgm   ≟ (⊣ from pcList) [[pc|w|],[pc|g|],[pc|M|]]
+                      wgm   ≟ (⊣ from pcSeq)
+                                   (Seq.fromList [[pc|w|],[pc|g|],[pc|M|]])
                 ]
 
-absDirAsPCListTests ∷ TestTree
-absDirAsPCListTests =
-  testGroup "asPCList"  [ absDirAsPCListGetterTests, absDirAsPCListSetterTests ]
+absDirFromListTests ∷ TestTree
+absDirFromListTests =
+  let dpam ∷ AbsDir
+      dpam = [absdir|/pam.d/etc/|]
+   in testGroup "fromList"
+                [ testCase "etc"   $ etc  ≟ fromList [ [pc|etc|] ]
+                , testCase "root"  $ root ≟ fromList []
+                , testCase "pam.d" $ pamd ≟ fromList [ [pc|etc|], [pc|pam.d|] ]
+                , testCase "d.pam" $ dpam ≟ fromList [ [pc|pam.d|], [pc|etc|] ]
+                , testCase "wgm"   $ wgm  ≟ fromList [[pc|w|],[pc|g|],[pc|M|]]
+                ]
+
+absDirNRFromListNETests ∷ TestTree
+absDirNRFromListNETests =
+  let dpam ∷ AbsDir
+      dpam = [absdir|/pam.d/etc/|]
+      x ?? y = (x ⩼ nonRootAbsDir) ≟ Just (fromListNE y)
+   in testGroup "fromList"
+                [ testCase "etc"   $ etc  ?? pure [pc|etc|]
+                , testCase "pam.d" $ pamd ?? ([pc|etc|]⋮[[pc|pam.d|]])
+                , testCase "d.pam" $ dpam ?? ([pc|pam.d|]⋮[[pc|etc|]])
+                , testCase "wgm"   $ wgm  ?? ([pc|w|]⋮[[pc|g|],[pc|M|]])
+                ]
+
+absDirAsPCSeqTests ∷ TestTree
+absDirAsPCSeqTests =
+  testGroup "asPCSeq"  [ absDirAsPCSeqGetterTests, absDirAsPCSeqSetterTests ]
 
 absDirParentMayTests ∷ TestTree
 absDirParentMayTests =
@@ -356,9 +390,10 @@ absDirFilepathTests =
 absDirTests ∷ TestTree
 absDirTests =
   testGroup "AbsDir" [ absParseDirTests, absDirShowTests, absDirPrintableTests
-                     , absDirAsPCListTests, absDirTextualTests
+                     , absDirAsPCSeqTests, absDirTextualTests
                      , absDirParentMayTests, absDirParentTests
                      , absDirTextualPrintableTests, absDirFilepathTests
+                     , absDirFromListTests, absDirNRFromListNETests
                      ]
 
 ----------------------------------------

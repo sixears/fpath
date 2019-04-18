@@ -62,11 +62,11 @@ library
   other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends: base, base-unicode-symbols, data-textual
+  build-depends: base, base-unicode-symbols, containers, data-textual
                , genvalidity, genvalidity-bytestring, genvalidity-property
-               , genvalidity-text, lens, mtl, parsers, QuickCheck
-               , template-haskell, tasty, tasty-hunit, tasty-quickcheck, text
-               , text-printer, validity
+               , genvalidity-text, lens, mono-traversable, mtl, parsers
+               , QuickCheck, template-haskell, tasty, tasty-hunit
+               , tasty-quickcheck, text, text-printer, validity
 
                , more-unicode, tfmt
   -- Directories containing source files.

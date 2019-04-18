@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -13,11 +14,14 @@ module FPath
   -- quasi-quoters
   , absdir, absdirN
 
+  -- constructor fns
+  , fromList, fromListNE
+
   , nonRootAbsDir
 
   , parent, parentMay
   , parseAbsDir, parseAbsDir', __parseAbsDir__, __parseAbsDir'__
-  , pcList
+  , pcSeq
 
   , root
     {-
@@ -57,15 +61,23 @@ module FPath
   )
 where
 
+import Prelude  ( undefined )
+
 -- base --------------------------------
+
+import qualified  Data.Foldable       as  Foldable
+import qualified  Data.List.NonEmpty  as  NonEmpty
+
 
 import Control.Applicative  ( (*>) )
 import Control.Monad        ( return )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
+import Data.Foldable        ( Foldable, concat, foldl', foldl1, foldr, foldr1 )
 import Data.Function        ( ($), id )
 import Data.Functor         ( (<$>), fmap )
 import Data.List            ( reverse )
+import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
@@ -91,6 +103,12 @@ import System.IO      ( FilePath )
 
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
+
+-- containers --------------------------
+
+import qualified  Data.Sequence  as  Seq
+
+import Data.Sequence  ( Seq( Empty, (:<|), (:|>) ) )
 
 -- data-textual ------------------------
 
@@ -118,9 +136,18 @@ import qualified  System.FilePath.Lens  as  FPLens
 
 -}
 
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( Element
+                             , MonoFoldable( ofoldMap, ofoldl', ofoldr
+                                           , ofoldr1Ex, ofoldl1Ex', otoList )
+                             )
+
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⊣) )
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Lens     ( (⊣) )
+import Data.MoreUnicode.List     ( (⋮) )
 
 -- mtl ---------------------------------
 
@@ -134,10 +161,11 @@ import Text.Parser.Combinators  ( endBy )
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ), shrinkList )
+import Test.QuickCheck.Gen        ( Gen )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, breakOnEnd, concat, unsnoc )
+import Data.Text  ( Text, breakOnEnd, unsnoc )
 
 -- text-printer ------------------------
 
@@ -185,14 +213,22 @@ import FPath.Util              ( QuasiQuoter
 
 -------------------------------------------------------------------------------
 
+------------------------------------------------------------
+--                         AbsDir                         --
+------------------------------------------------------------
+
 data RootDir = RootDir
   deriving Eq
 
 data NonRootAbsDir = NonRootAbsDir PathComponent AbsDir
   deriving (Eq, Show)
 
+type instance Element NonRootAbsDir = PathComponent
+
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
   deriving Eq
+
+type instance Element AbsDir = PathComponent
 
 nonRootAbsDir ∷ Prism' AbsDir NonRootAbsDir
 nonRootAbsDir = prism' AbsNonRootDir go
@@ -210,52 +246,133 @@ data RelFile = RelFile PathComponent (Maybe RelDir)
 -}
 
 ----------------------------------------
---              AsPCList              --
+--               ToSeq                --
 ----------------------------------------
 
-class IsPCList α where
-  toPCList ∷ α → [PathComponent]
-  setPCList ∷ [PathComponent] → α
+class ToSeq α where
+  toSeq ∷ α → Seq (Element α)
 
-  pcList ∷ Iso' α [PathComponent]
-  pcList = iso toPCList setPCList
-  
-instance IsPCList AbsDir where
-  setPCList ps' = go (reverse ps')
-              where go [] = AbsRootDir
-                    go (p:ps) = AbsNonRootDir (NonRootAbsDir p (go ps))
-  toPCList AbsRootDir = []
-  toPCList (AbsNonRootDir (NonRootAbsDir pc ad)) = ad ^. pcList ⊕ [pc]
-  
+instance ToSeq AbsDir where
+  toSeq AbsRootDir = Empty
+  toSeq (AbsNonRootDir (NonRootAbsDir pc ad)) = ad ^. pcSeq :|> pc
+
+----------------------------------------
+--               ToList               --
+----------------------------------------
+
+class ToList α where
+  toList ∷ α → [Element α]
+
+instance ToList AbsDir where
+  toList = Foldable.toList ∘ toSeq
+
+----------------------------------------
+--              FromSeq               --
+----------------------------------------
+
+class FromSeq α where
+   fromSeq ∷ Seq (Element α) → α
+
+instance FromSeq AbsDir where
+  fromSeq xs = go (Seq.reverse $ xs)
+               where go Empty = AbsRootDir
+                     go (y :<| ys) = AbsNonRootDir (NonRootAbsDir y (go ys))
+
+----------------------------------------
+--              FromList              --
+----------------------------------------
+
+class FromList α where
+   fromList ∷ Foldable ψ ⇒ ψ (Element α) → α
+
+instance FromList AbsDir where
+  fromList xs = fromSeq (Seq.fromList $ Foldable.toList xs)
+
+----------------------------------------
+--          FromListNonEmpty          --
+----------------------------------------
+
+class FromListNonEmpty α where
+   fromListNE ∷ NonEmpty (Element α) → α
+
+instance FromListNonEmpty NonRootAbsDir where
+  fromListNE (NonEmpty.reverse → x :| xs) =
+    NonRootAbsDir x (fromList $ reverse xs)
+
+----------------------------------------
+--            MonoFoldable            --
+----------------------------------------
+
+instance MonoFoldable AbsDir where
+  ofoldMap   = undefined
+
+  ofoldl' ∷ (α → PathComponent → α) → α → AbsDir → α
+  ofoldl' f init d = foldl' f init (toList d)
+
+  ofoldr ∷ (PathComponent → α → α) → α → AbsDir → α
+  ofoldr f init d = foldr f init (toList d)
+
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
+            → PathComponent
+  ofoldr1Ex f d  = foldr1 f (toList d)
+
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
+             → PathComponent
+  ofoldl1Ex' f d = foldl1 f (toList d)
+
+----------------------------------------
+--              IsPCSeq               --
+----------------------------------------
+
+class IsPCSeq α where
+{-
+  toPCSeq ∷ α → Seq PathComponent
+  setPCSeq ∷ Seq PathComponent → α
+-}
+
+  pcSeq ∷ Iso' α (Seq PathComponent)
+--  pcSeq = iso toPCSeq setPCSeq
+
+instance IsPCSeq AbsDir where
+{-
+  setPCSeq xs = go (Seq.reverse xs)
+              where go Empty = AbsRootDir
+                    go (y :<| ys) = AbsNonRootDir (NonRootAbsDir y (go ys))
+  toPCSeq AbsRootDir = Empty
+  toPCSeq (AbsNonRootDir (NonRootAbsDir pc ad)) = ad ^. pcSeq :|> pc
+-}
+
+  pcSeq = iso toSeq fromSeq
+
 ----------------------------------------
 --                Show                --
 ----------------------------------------
 
 instance Show AbsDir where
-  show ad = [fmt|((^. from pcList) [%L])|] (show <$> ad ^. pcList)
+  show ad = [fmt|((^. from pcList) [%L])|] (show ⊳ toList ad)
 
 ----------------------------------------
 --             Printable              --
 ----------------------------------------
 
 instance Printable AbsDir where
-  print = P.text ∘ ("/" ⊕ ) ∘ concat ∘ fmap ((⊕ "/") ∘ toText) ∘ view pcList
+  print = P.string ∘ ("/" ⊕ ) ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ otoList
 
 ----------------------------------------
 --              Textual               --
 ----------------------------------------
 
 instance Textual AbsDir where
-  textual = (^. from pcList) <$> (char '/' *> endBy textual (char '/'))
+  textual = fromList ⊳ (char '/' *> endBy textual (char '/'))
 
 ----------------------------------------
 --              Arbitrary             --
 ----------------------------------------
 
 instance Arbitrary AbsDir where
-  arbitrary = (^. from pcList) <$> arbitrary
+  arbitrary = fromList ⊳ (arbitrary ∷ Gen [PathComponent])
   -- "standard" definition for lists:
-  shrink = fmap (^. from pcList) ∘ shrinkList shrink ∘ (^. pcList)
+  shrink = fmap fromList ∘ shrinkList shrink ∘ toList
 
 ----------------------------------------
 --            HasAbsOrRel             --
@@ -298,7 +415,7 @@ instance HasMaybeParent AbsDir where
   parentMay =
     let getParent ∷ AbsDir → Maybe AbsDir
         getParent AbsRootDir                          = Nothing
-        getParent (AbsNonRootDir (NonRootAbsDir p d)) = Just d
+        getParent (AbsNonRootDir (NonRootAbsDir _ d)) = Just d
 
         setParent ∷ AbsDir → Maybe AbsDir → AbsDir
         setParent AbsRootDir (Just d) = d
@@ -320,8 +437,8 @@ class AsFilePath α where
 instance AsFilePath AbsDir where
   filepath = prism' toString fromString
 
--- use finite lists (seq)?
--- lens for parent (using type families)
+-- list non-empty pattern match
+-- seq unicode pattern match
 -- more-unicode
 
 ------------------------------------------------------------
@@ -523,7 +640,7 @@ instance MyPath (Path Abs File) where
           (getParent old)
   getFilename        = Path.filename
   getParent d        = Just $ Path.parent d
-  setExt             = setFileExtension_ 
+  setExt             = setFileExtension_
 
 instance MyPath (Path Rel Dir) where
   type FileType (Path Rel Dir) = Dir
@@ -685,7 +802,7 @@ rootDir = [absdir|/|]
 
 rel2abs ∷ (MonadError ε μ, AsPathError ε) ⇒ AbsDir → Text → μ AbsDir
 rel2abs _ t@(pathIsAbsolute → True) = parseAbsDir t
-rel2abs d t                          = (Path.</>) d <$> (parseRelDir t)
+rel2abs d t                          = (Path.</>) d ⊳ (parseRelDir t)
 
 -}
 ----------------------------------------
@@ -814,8 +931,8 @@ fn ~<.> e = let pe = pathError' "~<.>" (toFPath fn)
 parseDir ∷ (AsPathError ε, MonadError ε μ) ⇒
              Text → μ (Either AbsDir RelDir)
 parseDir t = if pathIsAbsolute t
-              then Left  <$> parseAbsDir t
-              else Right <$> parseRelDir t
+              then Left  ⊳ parseAbsDir t
+              else Right ⊳ parseRelDir t
 
 parseDir' ∷ MonadError PathError μ ⇒ Text → μ (Either AbsDir RelDir)
 parseDir' = parseDir
@@ -829,8 +946,8 @@ parseDir' = parseDir
 parseFile ∷ (AsPathError ε, MonadError ε μ) ⇒
              Text → μ (Either AbsFile RelFile)
 parseFile t = if pathIsAbsolute t
-              then Left  <$> parseAbsFile t
-              else Right <$> parseRelFile t
+              then Left  ⊳ parseAbsFile t
+              else Right ⊳ parseRelFile t
 
 parseFile' ∷ MonadError PathError μ ⇒ Text → μ (Either AbsFile RelFile)
 parseFile' = parseFile
@@ -891,7 +1008,7 @@ setFileExtension_ e = _ASSERT ∘ setFileExtension' e
 --   order-of-magnitude more rare)
 ext ∷ MyPath π ⇒ π → Text
 --   root (/) is considered to have an extension of ""
-ext = maybe "" pack ∘ (Path.fileExtension <$>) ∘ toFile
+ext = maybe "" pack ∘ (Path.fileExtension ⊳) ∘ toFile
 
 extension ∷ MyPath π ⇒ Lens' π Text
 extension = lens ext (flip setExt)
@@ -908,7 +1025,7 @@ extension = lens ext (flip setExt)
 -- | > filename ∷ MyPath (Path β τ) ⇒ Lens' (Path β τ) (Path Rel τ)
 filename ∷ MyPath π ⇒
             Lens π (Path (AbsOrRel π) τ) (Path Rel (FileType π)) (Path Rel τ)
-            
+
 filename = lens getFilename (flip setFilename)
 
 -}
