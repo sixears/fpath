@@ -34,6 +34,8 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
+import Data.Sequence  ( Seq( Empty ) )
+
 -- data-textual ------------------------
 
 import Data.Textual  ( Parsed( Parsed ), fromString, parseString, parseText
@@ -99,14 +101,17 @@ import Text.Fmt  ( fmt )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                ( AbsDir, NonRootAbsDir
+import FPath                ( AbsDir, NonRootAbsDir, RelDir
                             , absdir, absdirN, filepath, fromList, fromListNE
                             , nonRootAbsDir, parent, parentMay, parseAbsDir'
-                            , pcSeq
+                            , parseRelDir', pcSeq, reldir
                             )
 import FPath.Error.FPathError
-                            ( FPathError( FPathComponentE, FPathEmptyE
-                                        , FPathNonAbsE, FPathNotADirE ) )
+                            ( FPathError( FPathAbsE, FPathComponentE
+                                        , FPathEmptyE, FPathNonAbsE
+                                        , FPathNotADirE
+                                        )
+                            )
 import FPath.Error.FPathComponentError
                             ( FPathComponentError( FPathComponentEmptyE
                                                  , FPathComponentIllegalCharE )
@@ -396,10 +401,60 @@ absDirTests =
                      , absDirFromListTests, absDirNRFromListNETests
                      ]
 
+------------------------------------------------------------
+
+r0 ∷ RelDir
+r0 = fromList []
+
+r0' ∷ RelDir
+r0' = fromList [ [pc|.|] ]
+
+r1 ∷ RelDir
+r1 = fromList [ [pc|r|] ]
+
+r2 ∷ RelDir
+r2 = fromList [ [pc|r|],[pc|p|] ]
+
+r3 ∷ RelDir
+r3 = fromList [ [pc|p|],[pc|q|],[pc|r|] ]
+
+relParseDirTests ∷ TestTree
+relParseDirTests =
+  let reldirT     = typeRep (Proxy ∷ Proxy RelDir)
+      pamNUL      = "/etc/pam\0/"
+      pamF        = "/etc/pam"
+      illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
+                       in FPathComponentE fpcice reldirT s
+      badChar s p = testCase ("bad component " ⊕ toString s) $
+                        Left (illegalCE s p) ≟ parseRelDir_ s
+      emptyCompCE t = FPathComponentE FPathComponentEmptyE reldirT t
+      parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
+      parseRelDir_ = parseRelDir'
+   in testGroup "parseRelDir"
+                [ testCase "r0"  $ Right r0  ≟ parseRelDir_ ""
+                , testCase "r0'" $ Right r0' ≟ parseRelDir_ "./"
+                , testCase "r1"  $ Right r1  ≟ parseRelDir_ "r/"
+                , testCase "r2"  $ Right r2  ≟ parseRelDir_ "r/p/"
+                , testCase "r3"  $ Right r3  ≟ parseRelDir_ "p/q/r/"
+                , testCase "no trailing /" $
+                      Left (FPathNotADirE reldirT pamF) ≟ parseRelDir_ pamF
+                , testCase "leading /" $
+                      Left (FPathAbsE reldirT "/r/") ≟ parseRelDir_ "/r/"
+                , badChar "x/\0/y/" "\0"
+                , badChar "r/p\0/" "p\0"
+                , badChar "\0r/p/" "\0r"
+                , testCase "empty component" $
+                      Left (emptyCompCE "r//p/") ≟ parseRelDir_ "r//p/"
+                ]
+
+relDirTests ∷ TestTree
+relDirTests =
+  testGroup "RelDir" [ relParseDirTests ]
+
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath" [ pathComponentTests, absDirTests ]
+tests = testGroup "FPath" [ pathComponentTests, absDirTests, relDirTests ]
 
 ----------------------------------------
 

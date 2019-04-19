@@ -4,7 +4,7 @@
 
 module FPath.Error.FPathError
   ( AsFPathError, FPathError(..), __FPathComponentE__ , __FPathEmptyE__
-  , __FPathNonAbsE__, __FPathNotADirE__, __FPathRootDirE__ )
+  , __FPathNonAbsE__, __FPathAbsE__, __FPathNotADirE__, __FPathRootDirE__ )
 where
 
 -- base --------------------------------
@@ -51,8 +51,9 @@ import FPath.Util                      ( (⋕) )
 
 --------------------------------------------------------------------------------
 
-data FPathError = FPathEmptyE TypeRep
-                | FPathNonAbsE TypeRep Text
+data FPathError = FPathEmptyE   TypeRep
+                | FPathAbsE     TypeRep Text
+                | FPathNonAbsE  TypeRep Text
                 | FPathNotADirE TypeRep Text
                 | FPathComponentE FPathComponentError TypeRep Text
                 | FPathRootDirE TypeRep
@@ -67,6 +68,7 @@ instance AsFPathError FPathError where
 instance Printable FPathError where
   print (FPathEmptyE ty)     = P.text $ [fmt|empty %w|] ty
   print (FPathNonAbsE ty t)  = P.text $ [fmt|non-absolute %w: '%T'|] ty t
+  print (FPathAbsE    ty t)  = P.text $ [fmt|absolute %w: '%T'|] ty t
   print (FPathNotADirE ty t) = P.text $ [fmt|%w lacks trailing /: '%T'|]  ty t
   print (FPathComponentE ce ty t) =
     P.text $ [fmt|component error %T in %w '%T'|] ce ty t
@@ -85,6 +87,12 @@ _FPathNonAbsE r t = _FPathError ⋕ FPathNonAbsE r t
 
 __FPathNonAbsE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathNonAbsE__ r t = throwError $ _FPathNonAbsE r t
+
+_FPathAbsE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
+_FPathAbsE r t = _FPathError ⋕ FPathAbsE r t
+
+__FPathAbsE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
+__FPathAbsE__ r t = throwError $ _FPathAbsE r t
 
 _FPathNotADirE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
 _FPathNotADirE r t = _FPathError ⋕ FPathNotADirE r t

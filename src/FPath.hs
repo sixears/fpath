@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
@@ -8,11 +9,11 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath
-  ( AbsDir, NonRootAbsDir {- AbsFile, AbsPath(..) -}
+  ( AbsDir, NonRootAbsDir, RelDir {- AbsFile, AbsPath(..) -}
   , AsFilePath( filepath )
 
   -- quasi-quoters
-  , absdir, absdirN
+  , absdir, absdirN, reldir
 
   -- constructor fns
   , fromList, fromListNE
@@ -21,6 +22,7 @@ module FPath
 
   , parent, parentMay
   , parseAbsDir, parseAbsDir', __parseAbsDir__, __parseAbsDir'__
+  , parseRelDir, parseRelDir'
   , pcSeq
 
   , root
@@ -69,20 +71,19 @@ import qualified  Data.Foldable       as  Foldable
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
 
-import Control.Applicative  ( (*>) )
-import Control.Monad        ( return )
-import Data.Either          ( Either( Left, Right ), either )
-import Data.Eq              ( Eq )
-import Data.Foldable        ( Foldable, concat, foldl', foldl1, foldr, foldr1 )
-import Data.Function        ( ($), id )
-import Data.Functor         ( (<$>), fmap )
-import Data.List            ( reverse )
-import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
-import Data.Maybe           ( Maybe( Just, Nothing ) )
-import Data.String          ( String )
-import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
-import System.IO            ( FilePath )
-import Text.Show            ( Show( show ) )
+import Control.Monad       ( return )
+import Data.Either         ( Either( Left, Right ), either )
+import Data.Eq             ( Eq )
+import Data.Foldable       ( Foldable, concat, foldl', foldl1, foldr, foldr1 )
+import Data.Function       ( ($), id )
+import Data.Functor        ( fmap )
+import Data.List           ( reverse )
+import Data.List.NonEmpty  ( NonEmpty( (:|) ) )
+import Data.Maybe          ( Maybe( Just, Nothing ) )
+import Data.String         ( String )
+import Data.Typeable       ( Proxy( Proxy ), TypeRep, typeRep )
+import System.IO           ( FilePath )
+import Text.Show           ( Show( show ) )
 
 {-
 
@@ -108,7 +109,7 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
-import Data.Sequence  ( Seq( Empty, (:<|), (:|>) ) )
+import Data.Sequence  ( Seq( Empty, (:<|), (:|>) ), (|>) )
 
 -- data-textual ------------------------
 
@@ -125,8 +126,7 @@ import System.Directory  ( withCurrentDirectory )
 
 -- lens --------------------------------
 
-import Control.Lens.Getter   ( (^.), view )
-import Control.Lens.Iso      ( Iso', from, iso )
+import Control.Lens.Iso      ( Iso', iso )
 import Control.Lens.Lens     ( Lens', lens )
 import Control.Lens.Prism    ( Prism', prism' )
 
@@ -145,9 +145,9 @@ import Data.MonoTraversable  ( Element
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor  ( (⊳) )
-import Data.MoreUnicode.Lens     ( (⊣) )
-import Data.MoreUnicode.List     ( (⋮) )
+import Data.MoreUnicode.Applicative  ( (⋫) )
+import Data.MoreUnicode.Functor      ( (⊳) )
+import Data.MoreUnicode.Lens         ( (⊣) )
 
 -- mtl ---------------------------------
 
@@ -205,7 +205,8 @@ import Fluffy.Text           ( last )
 
 import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
                                , __FPathComponentE__, __FPathEmptyE__
-                               , __FPathNonAbsE__, __FPathNotADirE__
+                               , __FPathAbsE__, __FPathNonAbsE__
+                               , __FPathNotADirE__
                                )
 import FPath.PathComponent     ( PathComponent, parsePathC )
 import FPath.Util              ( QuasiQuoter
@@ -235,9 +236,16 @@ nonRootAbsDir = prism' AbsNonRootDir go
                 where go AbsRootDir        = Nothing
                       go (AbsNonRootDir d) = Just d
 
-{-
+------------------------------------------------------------
+--                         RelDir                         --
+------------------------------------------------------------
 
-data RelDir = RelDir PathComponent (Maybe RelDir)
+newtype RelDir = RelDir { unRelDir ∷ Seq PathComponent }
+  deriving (Eq, Show)
+
+type instance Element RelDir = PathComponent
+
+{-
 
 data AbsFile = AbsFile PathComponent AbsDir
 
@@ -254,7 +262,10 @@ class ToSeq α where
 
 instance ToSeq AbsDir where
   toSeq AbsRootDir = Empty
-  toSeq (AbsNonRootDir (NonRootAbsDir pc ad)) = ad ^. pcSeq :|> pc
+  toSeq (AbsNonRootDir (NonRootAbsDir pc ad)) = ad ⊣ pcSeq :|> pc
+
+instance ToSeq RelDir where
+  toSeq = unRelDir
 
 ----------------------------------------
 --               ToList               --
@@ -278,6 +289,9 @@ instance FromSeq AbsDir where
                where go Empty = AbsRootDir
                      go (y :<| ys) = AbsNonRootDir (NonRootAbsDir y (go ys))
 
+instance FromSeq RelDir where
+  fromSeq = RelDir
+
 ----------------------------------------
 --              FromList              --
 ----------------------------------------
@@ -286,7 +300,10 @@ class FromList α where
    fromList ∷ Foldable ψ ⇒ ψ (Element α) → α
 
 instance FromList AbsDir where
-  fromList xs = fromSeq (Seq.fromList $ Foldable.toList xs)
+  fromList xs = fromSeq ∘ Seq.fromList $ Foldable.toList xs
+
+instance FromList RelDir where
+  fromList xs = fromSeq ∘ Seq.fromList $ Foldable.toList xs
 
 ----------------------------------------
 --          FromListNonEmpty          --
@@ -363,7 +380,7 @@ instance Printable AbsDir where
 ----------------------------------------
 
 instance Textual AbsDir where
-  textual = fromList ⊳ (char '/' *> endBy textual (char '/'))
+  textual = fromList ⊳ (char '/' ⋫ endBy textual (char '/'))
 
 ----------------------------------------
 --              Arbitrary             --
@@ -437,13 +454,13 @@ class AsFilePath α where
 instance AsFilePath AbsDir where
   filepath = prism' toString fromString
 
--- list non-empty pattern match
--- seq unicode pattern match
--- more-unicode
+
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
+
+-- AbsDir ------------------------------
 
 absdirT ∷ TypeRep
 absdirT = typeRep (Proxy ∷ Proxy AbsDir)
@@ -494,6 +511,44 @@ absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parseAbsDir'__ s ⟧)
 
 absdirN ∷ QuasiQuoter
 absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parseAbsDirN__ s ⟧)
+
+-- RelDir ------------------------------
+
+reldirT ∷ TypeRep
+reldirT = typeRep (Proxy ∷ Proxy RelDir)
+
+parseRelDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
+parseRelDir (toText → "") = return $ RelDir Empty
+parseRelDir (toText → t) =
+  let mkRelDir ∷ (AsFPathError ε, MonadError ε η) ⇒ Text → η (Seq PathComponent)
+      mkRelDir x = do
+        let (p,s) = breakOnEnd ("/") x
+            mkCompE ce = __FPathComponentE__ ce reldirT t
+        s' ← either mkCompE return $ parsePathC s
+        p' ← go p
+        return $ p' |> s'
+
+      go ∷ (AsFPathError ε, MonadError ε η) ⇒ Text → η (Seq PathComponent)
+      go x = case unsnoc x of
+               Nothing → return Empty
+               Just ("", '/') → __FPathAbsE__ reldirT t
+               Just (x', '/') → mkRelDir x'
+               _              → __FPathNotADirE__ reldirT t
+
+   in RelDir ⊳ go t
+
+parseRelDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
+parseRelDir' = parseRelDir
+
+__parseRelDir__ ∷ Printable τ ⇒ τ → RelDir
+__parseRelDir__ = either __ERROR'__ id ∘ parseRelDir'
+
+__parseRelDir'__ ∷ String → RelDir
+__parseRelDir'__ = __parseRelDir__
+
+{- | quasi-quoter for RelDir -}
+reldir ∷ QuasiQuoter
+reldir = mkQuasiQuoterExp "reldir" (\ s → ⟦ __parseRelDir'__ s ⟧)
 
 ----------------------------------------
 --             constants              --
