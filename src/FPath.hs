@@ -63,8 +63,6 @@ module FPath
   )
 where
 
-import Prelude  ( undefined )
-
 -- base --------------------------------
 
 import qualified  Data.Foldable       as  Foldable
@@ -74,7 +72,7 @@ import qualified  Data.List.NonEmpty  as  NonEmpty
 import Control.Monad       ( return )
 import Data.Either         ( Either( Left, Right ), either )
 import Data.Eq             ( Eq )
-import Data.Foldable       ( Foldable, concat, foldl', foldl1, foldr, foldr1 )
+import Data.Foldable       ( Foldable, concat )
 import Data.Function       ( ($), id )
 import Data.Functor        ( fmap )
 import Data.List           ( reverse )
@@ -135,13 +133,6 @@ import Control.Lens.Prism    ( Prism', prism' )
 import qualified  System.FilePath.Lens  as  FPLens
 
 -}
-
--- mono-traversable --------------------
-
-import Data.MonoTraversable  ( Element
-                             , MonoFoldable( ofoldMap, ofoldl', ofoldr
-                                           , ofoldr1Ex, ofoldl1Ex', otoList )
-                             )
 
 -- more-unicode ------------------------
 
@@ -213,6 +204,8 @@ import FPath.Util              ( QuasiQuoter
                                , __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
+
+type family Element α
 
 ------------------------------------------------------------
 --                         AbsDir                         --
@@ -317,27 +310,6 @@ instance FromListNonEmpty NonRootAbsDir where
     NonRootAbsDir x (fromList $ reverse xs)
 
 ----------------------------------------
---            MonoFoldable            --
-----------------------------------------
-
-instance MonoFoldable AbsDir where
-  ofoldMap   = undefined
-
-  ofoldl' ∷ (α → PathComponent → α) → α → AbsDir → α
-  ofoldl' f init d = foldl' f init (toList d)
-
-  ofoldr ∷ (PathComponent → α → α) → α → AbsDir → α
-  ofoldr f init d = foldr f init (toList d)
-
-  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
-            → PathComponent
-  ofoldr1Ex f d  = foldr1 f (toList d)
-
-  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
-             → PathComponent
-  ofoldl1Ex' f d = foldl1 f (toList d)
-
-----------------------------------------
 --              IsPCSeq               --
 ----------------------------------------
 
@@ -373,7 +345,7 @@ instance Show AbsDir where
 ----------------------------------------
 
 instance Printable AbsDir where
-  print = P.string ∘ ("/" ⊕ ) ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ otoList
+  print = P.string ∘ ("/" ⊕ ) ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
 
 ----------------------------------------
 --              Textual               --

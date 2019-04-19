@@ -34,8 +34,6 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
-import Data.Sequence  ( Seq( Empty ) )
-
 -- data-textual ------------------------
 
 import Data.Textual  ( Parsed( Parsed ), fromString, parseString, parseText
@@ -140,6 +138,21 @@ pamdN = [absdirN|/etc/pam.d/|]
 
 wgmN ∷ NonRootAbsDir
 wgmN = [absdirN|/w/g/M/|]
+
+r0 ∷ RelDir
+r0 = fromList []
+
+r0' ∷ RelDir
+r0' = fromList [ [pc|.|] ]
+
+r1 ∷ RelDir
+r1 = fromList [ [pc|r|] ]
+
+r2 ∷ RelDir
+r2 = fromList [ [pc|r|],[pc|p|] ]
+
+r3 ∷ RelDir
+r3 = fromList [ [pc|p|],[pc|q|],[pc|r|] ]
 
 pathCArbitraryTests ∷ TestTree
 pathCArbitraryTests =
@@ -403,25 +416,9 @@ absDirTests =
 
 ------------------------------------------------------------
 
-r0 ∷ RelDir
-r0 = fromList []
-
-r0' ∷ RelDir
-r0' = fromList [ [pc|.|] ]
-
-r1 ∷ RelDir
-r1 = fromList [ [pc|r|] ]
-
-r2 ∷ RelDir
-r2 = fromList [ [pc|r|],[pc|p|] ]
-
-r3 ∷ RelDir
-r3 = fromList [ [pc|p|],[pc|q|],[pc|r|] ]
-
 relParseDirTests ∷ TestTree
 relParseDirTests =
   let reldirT     = typeRep (Proxy ∷ Proxy RelDir)
-      pamNUL      = "/etc/pam\0/"
       pamF        = "/etc/pam"
       illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
                        in FPathComponentE fpcice reldirT s
@@ -447,9 +444,19 @@ relParseDirTests =
                       Left (emptyCompCE "r//p/") ≟ parseRelDir_ "r//p/"
                 ]
 
+relDirReldirTests ∷ TestTree
+relDirReldirTests =
+  testGroup "parseRelDir"
+            [ testCase "r0"  $ r0  ≟ [reldir||]
+            , testCase "r0'" $ r0' ≟ [reldir|./|]
+            , testCase "r1"  $ r1  ≟ [reldir|r/|]
+            , testCase "r2"  $ r2  ≟ [reldir|r/p/|]
+            , testCase "r3"  $ r3  ≟ [reldir|p/q/r/|]
+            ]
+
 relDirTests ∷ TestTree
 relDirTests =
-  testGroup "RelDir" [ relParseDirTests ]
+  testGroup "RelDir" [ relParseDirTests, relDirReldirTests ]
 
 ----------------------------------------
 
