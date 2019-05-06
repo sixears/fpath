@@ -6,7 +6,7 @@
 
 module FPath.SeqNE
   ( {-| A non-empty finite sequence of homogenous things -}
-    SeqNE( (:|>), (:<|), (:⫸), (:⫷), unSeqNE )
+    SeqNE( (:|>), (:<|), (:<||), (:||>), (:⫸), (:⫷), unSeqNE )
   , Seqish( (<*|), (|*>) ), pattern (:⪬), pattern (:⪭), (⪬)
   , (⪭), (⪪), (⪫), (⫷), (⫸), (⋖), (⋗)
   , cons, snoc, toSeq, uncons, unsnoc
@@ -14,7 +14,7 @@ module FPath.SeqNE
   )
 where
 
-import Prelude  ( error, undefined )
+import Prelude  ( error )
 
 -- base --------------------------------
 
@@ -86,6 +86,7 @@ instance MonoFoldable (SeqNE α) where
 
 instance Show α ⇒ Show (SeqNE α) where
   show (x :⫷ xs) = show x ⊕ " ⋖ " ⊕ show xs
+  show _          = error "failed to uncons SeqNE"
 
 -- UNSAFE only call when you know that the sequence is non-empty
 __SeqNE ∷ Seq α → SeqNE α

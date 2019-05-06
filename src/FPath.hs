@@ -70,10 +70,10 @@ import Control.Applicative  ( pure )
 import Control.Monad        ( mapM, return )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( Foldable, concat, toList )
+import Data.Foldable        ( concat, toList )
 import Data.Function        ( ($), id )
-import Data.Functor         ( Functor, fmap )
-import Data.List            ( intercalate, last )
+import Data.Functor         ( fmap )
+import Data.List            ( intercalate )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 import Data.Traversable     ( Traversable )
@@ -106,7 +106,7 @@ import Data.Monoid.Unicode    ( (∅), (⊕) )
 import qualified  Data.Sequence  as  Seq
 
 -- import Data.Sequence  ( Seq( (:<|), (:|>) ), ViewR( EmptyR ) )
-import Data.Sequence  ( Seq( (:<|) ), ViewR( EmptyR ) )
+import Data.Sequence  ( Seq( (:<|) ) )
 
 -- data-textual ------------------------
 
@@ -127,7 +127,6 @@ import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( Iso', iso )
 import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
-import Data.Sequence.Lens  ( viewR )  
 
 {-
 
@@ -137,16 +136,13 @@ import qualified  System.FilePath.Lens  as  FPLens
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element )
-import Data.NonNull          ( NonNull
-                             , impureNonNull, ncons, splitFirst, toNullable )
-import Data.Sequences        ( SemiSequence, snoc )
+import Data.MonoTraversable  ( Element, MonoTraversable )
 
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⊣), (⋗) )
+import Data.MoreUnicode.Lens         ( (⊣) )
 
 -- mtl ---------------------------------
 
@@ -182,8 +178,6 @@ import System.Posix.Directory  ( getWorkingDirectory )
 
 -}
 
-import Debug.Trace  ( trace, traceShow )
-
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
@@ -214,7 +208,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
                                , __FPathNotADirE__
                                )
 import FPath.PathComponent     ( PathComponent, parsePathC )
-import FPath.SeqNE             ( SeqNE( (:|>), (:⫸), (:⫷) ), pattern (:⪬), (⪪), (⪫), (⫷), (⋖), onEmpty' )
+import FPath.SeqNE             ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), (⋖), onEmpty' )
 import FPath.Util              ( QuasiQuoter
                                , __ERROR'__, mkQuasiQuoterExp )
 
@@ -276,7 +270,7 @@ instance FromMonoSeqNonEmpty NonRootAbsDir where
                           Seq.Empty → NonRootAbsDir p AbsRootDir
                           _         → NonRootAbsDir p (fromSeq ps) -}
                          NonRootAbsDir p (onEmpty' AbsRootDir fromSeq ps)
-  fromSeqNE _ = error "failed to uncons SeqNE"
+  fromSeqNE _ = error "failed to unsnoc SeqNE"
 
 instance FromMonoSeqNonEmpty RelDir where
   fromSeqNE = RelDir
