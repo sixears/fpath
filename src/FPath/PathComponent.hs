@@ -3,12 +3,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UnicodeSyntax              #-}
 {-# LANGUAGE ViewPatterns               #-}
 
 module FPath.PathComponent
-  -- XXX REMOVE PathComponent DATA CTOR
-  ( PathComponent( PathComponent ), parsePathC, pathComponent, pc )
+  ( PathComponent, parsePathC, pathComponent, pc, toLower, toUpper )
 where
 
 -- base --------------------------------
@@ -23,6 +23,7 @@ import Data.Functor         ( (<$>), fmap )
 import Data.List            ( any, elem, filter, find, nub, subsequences )
 import Data.Maybe           ( Maybe( Nothing ) )
 import Data.Monoid          ( mconcat )
+import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
 import GHC.Generics         ( Generic )
 import Text.Show            ( Show( show ) )
@@ -70,15 +71,15 @@ import Data.Validity  ( Validity( validate ), declare )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import qualified  FPath.PathCTypes.String  as  PathCTypes
+
 import FPath.Error.FPathComponentError
            ( AsFPathComponentError, FPathComponentError
            , __FPathCEmptyE__, __FPathCIllegalCharE__ )
--- import FPath.PathCTypes.ByteString     ( PathCChar, PathCInner, pathCChar
--- import FPath.PathCTypes.ByteStringUtf8 ( PathCChar, PathCInner, pathCChar
-import FPath.PathCTypes.String         ( PathCChar, PathCInner, pathCChar
--- import FPath.PathCTypes.Text           ( PathCChar, PathCInner, pathCChar
-                                       , to_inner, to_print, to_string )
-import FPath.Util  ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp, mkVisS )
+import FPath.PathCTypes.String  ( PathCChar, PathCInner, pathCChar
+                                , to_inner, to_print, to_string )
+import FPath.Util               ( QuasiQuoter
+                                , __ERROR'__, mkQuasiQuoterExp, mkVisS )
 
 --------------------------------------------------------------------------------
 
@@ -91,7 +92,7 @@ badChars = pathCChar <$> [0,47] -- '\0', '/'
      notably no slashes are allowed (or nul chars); must not be empty
  -}
 newtype PathComponent = PathComponent PathCInner
-  deriving (Eq, Generic, GenUnchecked)
+  deriving (Eq, Generic, GenUnchecked, Semigroup)
 
 instance Show PathComponent where
   show (PathComponent t) = "[pathComponent|" ⊕ to_string t ⊕ "|]"
@@ -152,5 +153,29 @@ pathComponent = mkQuasiQuoterExp "pathComponent" $ \ s → ⟦ __parsePathC'__ s
 {- | abbreviation for `pathComponent` -}
 pc ∷ QuasiQuoter
 pc = pathComponent
+
+----------------------------------------
+
+-- don't do this!  In general, omaps over monofunctor aren't safe, as
+-- they may map the "inner" "string" to something invalid (containing /, or \0,
+-- or empty).  And if we declare this instance here, then it will get exported -
+-- no way to stop that :-(.
+{-
+type instance Element PathComponent = PathCInner
+
+instance MonoFunctor PathComponent where
+  omap = _  
+-}
+
+-- don't export this, it wouldn't be safe... it must only be used with functions
+-- that map a Valid PathComponent to a Valid PathComponent
+pcmap ∷ (PathCInner → PathCInner) → PathComponent → PathComponent
+pcmap f (PathComponent p) = PathComponent (f p)
+
+toUpper ∷ PathComponent → PathComponent
+toUpper = pcmap PathCTypes.to_upper
+  
+toLower ∷ PathComponent → PathComponent
+toLower = pcmap PathCTypes.to_lower
 
 -- that's all, folks! ----------------------------------------------------------
