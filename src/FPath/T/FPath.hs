@@ -17,7 +17,7 @@ import Control.Monad        ( return )
 import Data.Bool            ( Bool( False ) )
 import Data.Either          ( Either( Left, Right  ) )
 import Data.Foldable        ( toList )
-import Data.Function        ( ($), (&) )
+import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ), fromMaybe )
 import Data.String          ( String )
@@ -43,6 +43,10 @@ import Data.Sequence  ( Seq( Empty ) )
 import Data.Textual  ( Parsed( Parsed ), fromString, parseString, parseText
                      , parseUtf8, toString, toText, toUtf8 )
 
+-- fluffy ------------------------------
+
+import Fluffy.SeqNE  ( SeqNE, (⪪), (⋖) )
+
 -- genvalidity -------------------------
 
 import Data.GenValidity  ( genValid )
@@ -59,16 +63,18 @@ import Control.Lens.Setter     ( (?~) )
 
 -- mono-traversable --------------------
 
-import Data.Sequences  ( reverse )
+import Data.MonoTraversable  ( omap )
+import Data.Sequences        ( reverse )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Function   ( (⅋) )
-import Data.MoreUnicode.Functor    ( (⊳) )
-import Data.MoreUnicode.Lens       ( (⊣), (⊢), (⊧), (⩼), (##) )
-import Data.MoreUnicode.Monad      ( (⪻) )
-import Data.MoreUnicode.Semigroup  ( (◇) )
-import Data.MoreUnicode.Tasty      ( (≟), (≣) )
+import Data.MoreUnicode.Function        ( (⅋) )
+import Data.MoreUnicode.Functor         ( (⊳) )
+import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Monad           ( (⪻) )
+import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
+import Data.MoreUnicode.Semigroup       ( (◇) )
+import Data.MoreUnicode.Tasty           ( (≟), (≣) )
 
 -- mtl ---------------------------------
 
@@ -120,7 +126,6 @@ import FPath.Error.FPathComponentError
                                                  , FPathComponentIllegalCharE )
                             )
 import FPath.PathComponent  ( PathComponent, pc, toUpper )
-import FPath.SeqNE          ( SeqNE, (⪪), (⋖) )
 
 --------------------------------------------------------------------------------
 
@@ -403,6 +408,15 @@ nonRootAbsDirSeqGetTests =
                         , testCase "wgM" $ [pc|w|] ⋖ [[pc|g|],[pc|M|]] ?? wgmN
                         ]
 
+nonRootAbsDirMonoFunctorTests ∷ TestTree
+nonRootAbsDirMonoFunctorTests =
+  testGroup "MonoFunctor"
+            [ testCase "usr" $
+                    [absdirN|/usr/|] ≟ omap (const [pc|usr|]) etcN
+            , testCase "wgm.d" $ [absdirN|/w.d/g.d/M.d/|] ≟ (◇ [pc|.d|]) ⪧ wgmN
+            , testCase "WGM" $ [absdirN|/W/G/M/|] ≟  wgmN ⪦ toUpper
+            ]
+
 nonRootAbsDirSeqSetTests ∷ TestTree
 nonRootAbsDirSeqSetTests =
   testGroup "seqNE" [ testCase "usr" $
@@ -420,7 +434,9 @@ nonRootAbsDirSeqSetTests =
 nonRootAbsDirSeqTests ∷ TestTree
 nonRootAbsDirSeqTests =
   testGroup "nonRootAbsDirSeqTests" [ nonRootAbsDirSeqGetTests
-                                    , nonRootAbsDirSeqSetTests ]
+                                    , nonRootAbsDirSeqSetTests
+                                    , nonRootAbsDirMonoFunctorTests
+                                    ]
 
 nonRootAbsDirTests ∷ TestTree
 nonRootAbsDirTests =

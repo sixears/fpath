@@ -47,10 +47,13 @@ library
   ghc-options:     -W -Wall -fhelpful-errors
   -- Modules exported by the library.
   exposed-modules: FPath, FPath.Error.FPathComponentError
-                 , FPath.Error.FPathError, FPath.SeqNE, FPath.T.FPath
+                 , FPath.Error.FPathError, FPath.T.FPath
+
+                 , Fluffy.T.SeqNE
 
   -- modules included in this library but not exported.
-  other-modules:   FPath.PathComponent
+  other-modules:   Fluffy.SeqNE
+                 , FPath.PathComponent
 --                 , FPath.PathCTypes.ByteString
 --                 , FPath.PathCTypes.ByteStringUtf8
                  , FPath.PathCTypes.String
@@ -82,6 +85,16 @@ test-suite fpath-test
   type:             exitcode-stdio-1.0
   hs-source-dirs:   t
   main-is:          fpath-test.hs
+  build-depends:    base, fpath, tasty
+  default-language: Haskell2010
+
+--------------------
+
+test-suite fluffy-test
+  ghc-options:      -O2 -W -Wall -fhelpful-errors
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   t
+  main-is:          fluffy-test.hs
   build-depends:    base, fpath, tasty
   default-language: Haskell2010
 

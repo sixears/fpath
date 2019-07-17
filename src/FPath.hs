@@ -62,6 +62,7 @@ module FPath
 -}
   )
 where
+
 import Prelude  ( error )
 
 -- base --------------------------------
@@ -76,7 +77,7 @@ import Data.Functor         ( fmap )
 import Data.List            ( intercalate )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
-import Data.Traversable     ( Traversable )
+-- import Data.Traversable     ( Traversable )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import System.IO            ( FilePath )
 import Text.Show            ( Show( show ) )
@@ -121,6 +122,12 @@ import System.Directory  ( withCurrentDirectory )
 
 -}
 
+-- fluffy ------------------------------
+
+import qualified  Fluffy.SeqNE  as  SeqNE
+
+import Fluffy.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), (⋖), onEmpty' )
+
 -- lens --------------------------------
 
 import Control.Lens.Cons   ( unsnoc )
@@ -136,7 +143,7 @@ import qualified  System.FilePath.Lens  as  FPLens
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element, MonoTraversable )
+import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
 
 -- more-unicode ------------------------
 
@@ -198,7 +205,6 @@ import Fluffy.Text           ( last )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import qualified  FPath.SeqNE  as  SeqNE
 
 import FPath.Error.FPathComponentError
                                ( FPathComponentError )
@@ -208,7 +214,6 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
                                , __FPathNotADirE__
                                )
 import FPath.PathComponent     ( PathComponent, parsePathC )
-import FPath.SeqNE             ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), (⋖), onEmpty' )
 import FPath.Util              ( QuasiQuoter
                                , __ERROR'__, mkQuasiQuoterExp )
 
@@ -228,12 +233,21 @@ data RootDir = RootDir
 data NonRootAbsDir = NonRootAbsDir PathComponent AbsDir
   deriving (Eq, Show)
 
+instance MonoFunctor NonRootAbsDir where
+  omap ∷ (PathComponent → PathComponent) → NonRootAbsDir → NonRootAbsDir
+  omap f (NonRootAbsDir p a) = NonRootAbsDir (f p) (omap f a)
+
 type instance Element NonRootAbsDir = PathComponent
 
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
   deriving Eq
 
 type instance Element AbsDir = PathComponent
+
+instance MonoFunctor AbsDir where
+  omap ∷ (PathComponent → PathComponent) → AbsDir → AbsDir
+  omap _ AbsRootDir = AbsRootDir
+  omap f (AbsNonRootDir d) = AbsNonRootDir (omap f d)
 
 nonRootAbsDir ∷ Prism' AbsDir NonRootAbsDir
 nonRootAbsDir = prism' AbsNonRootDir go
@@ -266,10 +280,7 @@ class FromMonoSeqNonEmpty α where
 
 instance FromMonoSeqNonEmpty NonRootAbsDir where
   fromSeqNE ∷ SeqNE PathComponent → NonRootAbsDir
-  fromSeqNE (ps :⫸ p) = {- case ps of
-                          Seq.Empty → NonRootAbsDir p AbsRootDir
-                          _         → NonRootAbsDir p (fromSeq ps) -}
-                         NonRootAbsDir p (onEmpty' AbsRootDir fromSeq ps)
+  fromSeqNE (ps :⫸ p) = NonRootAbsDir p (onEmpty' AbsRootDir fromSeq ps)
   fromSeqNE _ = error "failed to unsnoc SeqNE"
 
 instance FromMonoSeqNonEmpty RelDir where
@@ -370,7 +381,6 @@ pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
             
 instance Printable AbsDir where
---  print = P.string ∘ ("/" ⊕ ) ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
   print = pDir ("/" ⊕)
 
 -- Printable, Textual for NonRootAbsDir
