@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
--- {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.T.FPath
@@ -16,6 +16,7 @@ import Control.Applicative  ( pure )
 import Control.Monad        ( return )
 import Data.Bool            ( Bool( False ) )
 import Data.Either          ( Either( Left, Right  ) )
+import Data.Eq              ( Eq )
 import Data.Foldable        ( toList )
 import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
@@ -24,7 +25,7 @@ import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
-import Text.Show            ( show )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
@@ -40,12 +41,12 @@ import Data.Sequence  ( Seq( Empty ) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Parsed( Parsed ), fromString, parseString, parseText
-                     , parseUtf8, toString, toText, toUtf8 )
+import Data.Textual  ( Parsed( Parsed ), Textual, fromString, parseString
+                     , parseText, parseUtf8, toString, toText, toUtf8 )
 
 -- fluffy ------------------------------
 
-import Fluffy.SeqNE  ( SeqNE, (⪪), (⋖) )
+import NonEmptyContainers.SeqNE  ( SeqNE, (⪪), (⋖) )
 
 -- genvalidity -------------------------
 
@@ -128,6 +129,20 @@ import FPath.Error.FPathComponentError
 import FPath.PathComponent  ( PathComponent, pc, toUpper )
 
 --------------------------------------------------------------------------------
+
+propInvertibleString ∷ (Eq α, Show α, Textual α) ⇒ α → Property
+propInvertibleString d =
+  parseString (toString d) ≣ Parsed d
+
+propInvertibleText ∷ (Eq α, Show α, Textual α) ⇒ α → Property
+propInvertibleText d =
+  parseText (toText d) ≣ Parsed d
+
+propInvertibleUtf8 ∷ (Eq α, Show α, Textual α) ⇒ α → Property
+propInvertibleUtf8 d =
+  parseUtf8 (toUtf8 d) ≣ Parsed d
+
+----------------------------------------
 
 root ∷ AbsDir
 root = [absdir|/|]
@@ -347,26 +362,16 @@ absDirTextualTests =
                           , fail "e\0c"
                           ]
 
-propInvertibleString ∷ AbsDir → Property
-propInvertibleString d =
-  parseString (toString d) ≣ Parsed d
-
-propInvertibleText ∷ AbsDir → Property
-propInvertibleText d =
-  parseText (toText d) ≣ Parsed d
-
-propInvertibleUtf8 ∷ AbsDir → Property
-propInvertibleUtf8 d =
-  parseUtf8 (toUtf8 d) ≣ Parsed d
-
 absDirTextualPrintableTests ∷ TestTree
 absDirTextualPrintableTests =
   testGroup "textual invertibility"
-            [ testProperty "parseString - toString" propInvertibleString
-            , testProperty "parseText - toText" propInvertibleText
-            , testProperty "parseUtf8 - toUtf8" propInvertibleUtf8
+            [ testProperty "parseString - toString"
+                           (propInvertibleString @AbsDir)
+            , testProperty "parseText - toText" (propInvertibleText @AbsDir)
+            , testProperty "parseUtf8 - toUtf8" (propInvertibleUtf8 @AbsDir)
             ]
 
+----------------------------------------
 
 absDirFilepathTests ∷ TestTree
 absDirFilepathTests =
@@ -438,9 +443,51 @@ nonRootAbsDirSeqTests =
                                     , nonRootAbsDirMonoFunctorTests
                                     ]
 
+nonRootAbsDirPrintableTests ∷ TestTree
+nonRootAbsDirPrintableTests =
+  testGroup "printable"
+            [ testCase "etcN"  $ "/etc/"       ≟ toText etcN
+            , testCase "pamdN" $ "/etc/pam.d/" ≟ toText pamdN
+            , testCase "wgmN"  $ "/w/g/M/"     ≟ toText wgmN
+            ]
+
+nonRootAbsDirTextualTests ∷ TestTree
+nonRootAbsDirTextualTests =
+  let nothin'     ∷ Maybe AbsDir
+      nothin'     = Nothing
+      success e s = testCase s $ Parsed e  ≟ parseString s
+      fail s      = testCase s $ nothin'   ≟ fromString s
+   in testGroup "Textual" [ success [absdirN|/etc/|]       "/etc/"
+                          , success [absdirN|/etc/pam.d/|] "/etc/pam.d/"
+                          , fail "/etc"
+                          , fail "/etc/pam.d"
+                          , fail "etc/"
+                          , fail "etc/pam.d"
+                          , fail "/etc//pam.d/"
+                          , fail "e/c"
+                          , fail "\0etc"
+                          , fail "etc\0"
+                          , fail "e\0c"
+                          ]
+
+nonRootAbsDirTextualPrintableTests ∷ TestTree
+nonRootAbsDirTextualPrintableTests =
+  testGroup "textual invertibility"
+            [ testProperty "parseString - toString"
+                           (propInvertibleString @NonRootAbsDir)
+            , testProperty "parseText - toText"
+                           (propInvertibleText @NonRootAbsDir)
+            , testProperty "parseUtf8 - toUtf8"
+                           (propInvertibleUtf8 @NonRootAbsDir)
+            ]
+
 nonRootAbsDirTests ∷ TestTree
 nonRootAbsDirTests =
-  testGroup "nonRootAbsDir" [ nonRootAbsDirSeqTests ]
+  testGroup "nonRootAbsDir" [ nonRootAbsDirSeqTests
+                            , nonRootAbsDirPrintableTests
+                            , nonRootAbsDirTextualTests
+                            , nonRootAbsDirTextualPrintableTests
+                            ]
 
 ------------------------------------------------------------
 
@@ -538,13 +585,20 @@ relDirTests =
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath" [ pathComponentTests, absDirTests, nonRootAbsDirTests
-                          , relDirTests ]
+tests = testGroup "FPath" [ pathComponentTests
+                          , absDirTests
+                          , nonRootAbsDirTests
+                          , relDirTests
+                          ]
 
 ----------------------------------------
 
+-- Cannot use Fluffy.Tasty here, as we will be a dependency of Fluffy...
+
 _test ∷ IO ()
 _test = defaultMainWithIngredients defaultIngredients tests
+
+--------------------
 
 _tests ∷ String → IO ()
 _tests s = let tryOpt ∷ TestPattern → TestTree → Maybe (IO Bool)

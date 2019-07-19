@@ -122,12 +122,6 @@ import System.Directory  ( withCurrentDirectory )
 
 -}
 
--- fluffy ------------------------------
-
-import qualified  Fluffy.SeqNE  as  SeqNE
-
-import Fluffy.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), (⋖), onEmpty' )
-
 -- lens --------------------------------
 
 import Control.Lens.Cons   ( unsnoc )
@@ -148,21 +142,28 @@ import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⋫) )
-import Data.MoreUnicode.Functor      ( (⊳) )
+import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊣) )
 
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
 
+-- non-empty-containers ----------------
+
+import qualified  NonEmptyContainers.SeqNE  as  SeqNE
+
+import NonEmptyContainers.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), (⋖)
+                                 , fromNEList, onEmpty' )
+
 -- parsers -----------------------------
 
 import Text.Parser.Char         ( char )
-import Text.Parser.Combinators  ( endBy )
+import Text.Parser.Combinators  ( endBy, endByNonEmpty )
 
 -- QuickCheck --------------------------
 
-import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ), shrinkList )
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 import Test.QuickCheck.Gen        ( Gen )
 
 -- text --------------------------------
@@ -219,17 +220,17 @@ import FPath.Util              ( QuasiQuoter
 
 -------------------------------------------------------------------------------
 
--- type SeqNE α = NonNull (Seq α)
-
--- type family Element α
-
 ------------------------------------------------------------
 --                         AbsDir                         --
 ------------------------------------------------------------
 
+{- | The root directory, i.e., '/' -}
 data RootDir = RootDir
   deriving Eq
 
+{- | A non-root absolute directory, e.g., /etc. -}
+-- a non-root dir is a path component appended to a (possibly-root) absolute
+-- directory
 data NonRootAbsDir = NonRootAbsDir PathComponent AbsDir
   deriving (Eq, Show)
 
@@ -239,6 +240,8 @@ instance MonoFunctor NonRootAbsDir where
 
 type instance Element NonRootAbsDir = PathComponent
 
+{- | An absolute directory is either the root directory, or a non-root absolute
+     directory -}
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
   deriving Eq
 
@@ -258,6 +261,7 @@ nonRootAbsDir = prism' AbsNonRootDir go
 --                         RelDir                         --
 ------------------------------------------------------------
 
+{- | a relative directory -}
 newtype RelDir = RelDir { unRelDir ∷ SeqNE PathComponent }
   deriving Eq
 
@@ -275,6 +279,7 @@ data RelFile = RelFile PathComponent (Maybe RelDir)
 --        FromMonoSeqNonEmpty         --
 ----------------------------------------
 
+{- | α that may be constructed from a non-empty Sequence of `Element α` -}
 class FromMonoSeqNonEmpty α where
   fromSeqNE ∷ SeqNE (Element α) → α
 
@@ -283,6 +288,9 @@ instance FromMonoSeqNonEmpty NonRootAbsDir where
   fromSeqNE (ps :⫸ p) = NonRootAbsDir p (onEmpty' AbsRootDir fromSeq ps)
   fromSeqNE _ = error "failed to unsnoc SeqNE"
 
+instance FromMonoSeqNonEmpty AbsDir where
+  fromSeqNE = AbsNonRootDir ∘ fromSeqNE
+
 instance FromMonoSeqNonEmpty RelDir where
   fromSeqNE = RelDir
 
@@ -290,6 +298,7 @@ instance FromMonoSeqNonEmpty RelDir where
 --         ToMonoSeqNonEmpty          --
 ----------------------------------------
 
+{- | α that may be converted to a non-empty Sequence of `Element α` -}
 class ToMonoSeqNonEmpty α where
   toSeqNE ∷ α → SeqNE (Element α)
   toSeq_ ∷ α → Seq (Element α)
@@ -309,6 +318,7 @@ instance ToMonoSeqNonEmpty RelDir where
 --         IsMonoSeqNonEmpty          --
 ----------------------------------------
 
+{- | α that are isomorphic to a non-empty Sequence of `Element α` -}
 class IsMonoSeqNonEmpty α where
   seqNE ∷ Iso' α (SeqNE (Element α))
 
@@ -322,6 +332,7 @@ instance IsMonoSeqNonEmpty RelDir where
 --            FromMonoSeq             --
 ----------------------------------------
 
+{- | α that may be constructed from a (empty?) Sequence of `Element α` -}
 class FromMonoSeq α where
   fromSeq ∷ Seq (Element α) → α
   fromList ∷ [Element α] → α
@@ -336,6 +347,7 @@ instance FromMonoSeq AbsDir where
 --             ToMonoSeq              --
 ----------------------------------------
 
+{- | α that may be converted to a (empty?) Sequence of `Element α` -}
 class ToMonoSeq α where
   toSeq ∷ α → Seq (Element α)
 
@@ -353,6 +365,7 @@ instance ToMonoSeq RelDir where
 --             IsMonoSeq              --
 ----------------------------------------
 
+{- | α that are isomorphic to a (empty?) Sequence of `Element α` -}
 class IsMonoSeq α where
   seq ∷ Iso' α (Seq (Element α))
 
@@ -376,6 +389,9 @@ instance Show RelDir where
 --             Printable              --
 ----------------------------------------
 
+{- | Convert a sequence of printable elements to strings by intercalating '/'
+     characters; with a post-fact string transformation for extra bells (e.g.,
+     a prefix '/' character -}
 pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
        (String → String) → α → ρ
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
@@ -383,10 +399,11 @@ pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
 instance Printable AbsDir where
   print = pDir ("/" ⊕)
 
--- Printable, Textual for NonRootAbsDir
+instance Printable NonRootAbsDir where
+  print = pDir ("/" ⊕)
 
 instance Printable RelDir where
-  print = P.string ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
+  print = pDir id
 
 ----------------------------------------
 --              Textual               --
@@ -395,14 +412,23 @@ instance Printable RelDir where
 instance Textual AbsDir where
   textual = fromList ⊳ (char '/' ⋫ endBy textual (char '/'))
 
+instance Textual NonRootAbsDir where
+  textual =
+    fromSeqNE ∘ fromNEList ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
+
+-- Textual for RelDir
+
 ----------------------------------------
 --              Arbitrary             --
 ----------------------------------------
 
 instance Arbitrary AbsDir where
   arbitrary = fromSeq ⊳ (arbitrary ∷ Gen (Seq PathComponent))
-  -- "standard" definition for lists:
-  shrink = fmap fromList ∘ shrinkList shrink ∘ toList ∘ toSeq 
+  shrink = fromSeq ⩺ shrink ∘ toSeq 
+
+instance Arbitrary NonRootAbsDir where
+  arbitrary = fromSeqNE ⊳ (arbitrary ∷ Gen (SeqNE PathComponent))
+  shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
 
 ----------------------------------------
 --            HasAbsOrRel             --

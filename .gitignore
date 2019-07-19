@@ -27,3 +27,4 @@ default.nix.orig
 default.nix.bak
 .ghc.environment.*
 cabal.project.local
+dist-newstyle/
