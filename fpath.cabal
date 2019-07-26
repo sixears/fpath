@@ -52,7 +52,9 @@ library
                  , NonEmptyContainers.T.SeqNE
 
   -- modules included in this library but not exported.
-  other-modules:   NonEmptyContainers.SeqNE
+  other-modules:   NonEmptyContainers.SeqConversions
+                 , NonEmptyContainers.SeqNEConversions
+                 , NonEmptyContainers.SeqNE
                  , FPath.PathComponent
 --                 , FPath.PathCTypes.ByteString
 --                 , FPath.PathCTypes.ByteStringUtf8

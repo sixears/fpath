@@ -3,7 +3,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.Util
-  ( QuasiQuoter, (⋕), __ERROR__, __ERROR'__, mkQuasiQuoterExp, mkVisS, mkVisT )
+  ( QuasiQuoter, __ERROR__, __ERROR'__, mkQuasiQuoterExp, mkVisS, mkVisT )
 where
 
 import Prelude  ( error, mod )
@@ -25,11 +25,6 @@ import Data.Monoid.Unicode    ( (⊕) )
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable, toString, toText )
-
--- lens --------------------------------
-
-import Control.Lens.Getter  ( (^.) )
-import Control.Lens.Review  ( AReview, re )
 
 -- template-haskell --------------------
 
@@ -59,11 +54,6 @@ mkQuasiQuoterExp (toText → n) f = let notImpl u = __ERROR__ $ n ⊕ " " ⊕ u 
                                        , quotePat  = notImpl "quotePat"
                                        , quoteExp = f
                                        }
-
-----------------------------------------
-
-(⋕) ∷ AReview t s → s → t
-x ⋕ y = y ^. re x
 
 ----------------------------------------
 

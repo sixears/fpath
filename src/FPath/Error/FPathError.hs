@@ -24,7 +24,8 @@ import Data.Textual  ( Printable( print ) )
 
 -- lens --------------------------------
 
-import Control.Lens.Prism  ( Prism' )
+import Control.Lens.Prism   ( Prism' )
+import Control.Lens.Review  ( (#) )
 
 -- mtl ---------------------------------
 
@@ -47,7 +48,6 @@ import Text.Fmt  ( fmt )
 ------------------------------------------------------------
 
 import FPath.Error.FPathComponentError ( FPathComponentError )
-import FPath.Util                      ( (⋕) )
 
 --------------------------------------------------------------------------------
 
@@ -77,38 +77,38 @@ instance Printable FPathError where
 ------------------------------------------------------------
 
 _FPathEmptyE ∷ AsFPathError ε ⇒ TypeRep → ε
-_FPathEmptyE = (_FPathError ⋕) ∘ FPathEmptyE
+_FPathEmptyE = (_FPathError #) ∘ FPathEmptyE
 
 __FPathEmptyE__ ∷ (AsFPathError ε, MonadError ε η) ⇒ TypeRep → η α
 __FPathEmptyE__ = throwError ∘ _FPathEmptyE
 
 _FPathNonAbsE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathNonAbsE r t = _FPathError ⋕ FPathNonAbsE r t
+_FPathNonAbsE r t = _FPathError # FPathNonAbsE r t
 
 __FPathNonAbsE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathNonAbsE__ r t = throwError $ _FPathNonAbsE r t
 
 _FPathAbsE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathAbsE r t = _FPathError ⋕ FPathAbsE r t
+_FPathAbsE r t = _FPathError # FPathAbsE r t
 
 __FPathAbsE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathAbsE__ r t = throwError $ _FPathAbsE r t
 
 _FPathNotADirE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathNotADirE r t = _FPathError ⋕ FPathNotADirE r t
+_FPathNotADirE r t = _FPathError # FPathNotADirE r t
 
 __FPathNotADirE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathNotADirE__ r t = throwError $ _FPathNotADirE r t
 
 _FPathComponentE ∷ AsFPathError ε ⇒ FPathComponentError → TypeRep → Text → ε
-_FPathComponentE ce r t = _FPathError ⋕ FPathComponentE ce r t
+_FPathComponentE ce r t = _FPathError # FPathComponentE ce r t
 
 __FPathComponentE__ ∷ (AsFPathError ε,MonadError ε η) ⇒
                       FPathComponentError → TypeRep → Text → η α
 __FPathComponentE__ ce r t = throwError $ _FPathComponentE ce r t
 
 _FPathRootDirE ∷ AsFPathError ε ⇒ TypeRep → ε
-_FPathRootDirE = (_FPathError ⋕) ∘ FPathRootDirE
+_FPathRootDirE = (_FPathError #) ∘ FPathRootDirE
 
 __FPathRootDirE__ ∷ (AsFPathError ε, MonadError ε η) ⇒ TypeRep → η α
 __FPathRootDirE__ = throwError ∘ _FPathRootDirE

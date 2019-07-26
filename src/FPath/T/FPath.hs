@@ -17,12 +17,12 @@ import Control.Monad        ( return )
 import Data.Bool            ( Bool( False ) )
 import Data.Either          ( Either( Left, Right  ) )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( toList )
 import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ), fromMaybe )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
+import GHC.Exts             ( fromList, toList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
 import Text.Show            ( Show( show ) )
@@ -46,7 +46,7 @@ import Data.Textual  ( Parsed( Parsed ), Textual, fromString, parseString
 
 -- fluffy ------------------------------
 
-import NonEmptyContainers.SeqNE  ( SeqNE, (⪪), (⋖) )
+import NonEmptyContainers.SeqNE  ( SeqNE, (⪬), (⋖) )
 
 -- genvalidity -------------------------
 
@@ -71,8 +71,9 @@ import Data.Sequences        ( reverse )
 
 import Data.MoreUnicode.Function        ( (⅋) )
 import Data.MoreUnicode.Functor         ( (⊳) )
-import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Lens            ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.Monad           ( (⪻) )
+import Data.MoreUnicode.Monoid          ( ф )
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup       ( (◇) )
 import Data.MoreUnicode.Tasty           ( (≟), (≣) )
@@ -80,6 +81,11 @@ import Data.MoreUnicode.Tasty           ( (≟), (≣) )
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.SeqConversions    ( fromSeq )
+import NonEmptyContainers.SeqNEConversions  ( fromSeqNE )
 
 -- QuickCheck --------------------------
 
@@ -166,16 +172,16 @@ wgmN ∷ NonRootAbsDir
 wgmN = [absdirN|/w/g/M/|]
 
 r0 ∷ RelDir
-r0 = pure [pc|.|] ⊣ from seqNE
+r0 = fromSeq ф
 
 r1 ∷ RelDir
-r1 = pure [pc|r|] ⊣ from seqNE
+r1 = fromSeqNE $ pure [pc|r|]
 
 r2 ∷ RelDir
-r2 = ([pc|r|] ⋖ [[pc|p|]]) ⊣ from seqNE
+r2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p|]]
 
 r3 ∷ RelDir
-r3 = ([pc|p|] ⋖ [[pc|q|], [pc|r|]]) ⊣ from seqNE
+r3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r|]]
 
 pathCArbitraryTests ∷ TestTree
 pathCArbitraryTests =
@@ -191,6 +197,18 @@ pathCTextualTests =
       fail s      = testCase s $ nothin'   ≟ fromString s
    in testGroup "Textual" [ success [pc|etc|]   "etc"
                           , success [pc|pam.d|] "pam.d"
+                          , success [pc|.d|] ".d"
+                          , success [pc|..d|] "..d"
+                          , success [pc|d..|] "d.."
+                          , success [pc|d.|] "d."
+                          , fail "."
+                          , fail "/."
+                          , fail "./"
+                          , fail "/./"
+                          , fail ".."
+                          , fail "/.."
+                          , fail "../"
+                          , fail "/../"
                           , fail "/etc"
                           , fail "etc/"
                           , fail "e/c"
@@ -530,30 +548,44 @@ relDirReldirTests =
 relDirIsMonoSeqGetterTests ∷ TestTree
 relDirIsMonoSeqGetterTests =
   testGroup "getter"
-            [ testCase "r0" $ [pc|.|] ⋖ []                 ≟ r0 ⊣ seqNE
-            , testCase "r1" $ [pc|r|] ⋖ []                 ≟ r1 ⊣ seqNE
-            , testCase "r2" $ [pc|r|] ⋖ [[pc|p|]]          ≟ r2  ⊣ seqNE
-            , testCase "r3" $ [pc|p|] ⋖ [[pc|q|], [pc|r|]] ≟ r3  ⊣ seqNE
+            [ testCase "r0" $ ф                                    ≟ r0 ⊣ seq
+            , testCase "r1" $ ([pc|r|] ⪬ ф)                        ≟ r1 ⊣ seq
+            , testCase "r2" $ Seq.fromList [[pc|r|], [pc|p|]]          ≟ r2 ⊣ seq
+            , testCase "r3" $ Seq.fromList [[pc|p|], [pc|q|], [pc|r|]] ≟ r3 ⊣ seq
             ]
+
+relDirIsListTests ∷ TestTree
+relDirIsListTests =
+  testGroup "IsList"
+    [ testGroup "fromList"
+                [ testCase "r0" $ r0 ≟ fromList []
+                , testCase "r1" $ r1 ≟ fromList [ [pc|r|] ]
+                , testCase "r2" $ r2 ≟ fromList [ [pc|r|], [pc|p|] ]
+                , testCase "r3" $ r3 ≟ fromList [ [pc|p|], [pc|q|], [pc|r|] ]
+                ]
+    , testGroup "toList"
+                [ testCase "r0" $ []                            ≟ toList r0
+                , testCase "r1" $ [ [pc|r|] ]                   ≟ toList r1
+                , testCase "r2" $ [ [pc|r|], [pc|p|] ]          ≟ toList r2
+                , testCase "r3" $ [ [pc|p|], [pc|q|], [pc|r|] ] ≟ toList r3
+                ]
+    ]
 
 relDirIsMonoSeqSetterTests ∷ TestTree
 relDirIsMonoSeqSetterTests =
-  let x ~~ y = x & seqNE ⊢ y
---      pqrSeqNE ∷ SeqNE PathComponent
---      pqrSeqNE = [pc|p|] ⪪ (Seq.fromList [[pc|q|],[pc|r|]])
-      pqrSeqNE = [pc|p|] ⋖ (Seq.fromList [[pc|q|],[pc|r|]])
+  let x ~!~ y = x & seq ⊢ fromList y
    in testGroup "setter"
-                [ testCase "r1" $ r1 ≟ r0 ~~ pure [pc|r|]
-                , testCase "r0" $ r0 ≟ r1 ~~ pure [pc|.|]
-                , testCase "r2" $ r2 ≟ r0 ~~ ([pc|r|] ⪪ (pure [pc|p|]))
-                , testCase "r3" $ r3 ≟ r2 ~~ pqrSeqNE
---                , testCase "r3'" $
---                     [reldir|p/t/r/|] ≟ (r3 & seqNE ⊥ 1 ⊢ [pc|t|])
+                [ testCase "r1"  $ r1 ≟ r0 ~!~ [[pc|r|]]
+                , testCase "r0"  $ r0 ≟ r1 ~!~ ф
+                , testCase "r2"  $ r2 ≟ r0 ~!~ [[pc|r|],[pc|p|]]
+                , testCase "r3"  $ r3 ≟ r2 ~!~ [[pc|p|],[pc|q|],[pc|r|]]
+                , testCase "r3'" $
+                     [reldir|p/t/r/|] ≟ (r3 & seq ⊥ 1 ⊢ [pc|t|])
                 ]
 
 relDirShowTests ∷ TestTree
 relDirShowTests =
-  let r0Show = "((^. from seq) ([pathComponent|.|] :<| Seq.Empty))"
+  let r0Show = "((^. from seq) (Seq.Empty))"
       r1Show  = "((^. from seq) ([pathComponent|r|] :<| Seq.Empty))"
       r2Show = "((^. from seq) ([pathComponent|r|] :<| "
              ⊕ "[pathComponent|p|] :<| Seq.Empty))"
@@ -578,6 +610,7 @@ relDirPrintableTests =
 relDirTests ∷ TestTree
 relDirTests =
   testGroup "RelDir" [ relParseDirTests, relDirReldirTests
+                     , relDirIsListTests
                      , relDirIsMonoSeqGetterTests, relDirIsMonoSeqSetterTests
                      , relDirShowTests, relDirPrintableTests
                      ]

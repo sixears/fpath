@@ -69,9 +69,10 @@ import Prelude  ( error )
 
 import Control.Applicative  ( pure )
 import Control.Monad        ( mapM, return )
+import Data.Bool            ( otherwise )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( concat, toList )
+import Data.Foldable        ( concat )
 import Data.Function        ( ($), id )
 import Data.Functor         ( fmap )
 import Data.List            ( intercalate )
@@ -79,6 +80,7 @@ import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 -- import Data.Traversable     ( Traversable )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Exts             ( IsList( fromList, toList ), Item )
 import System.IO            ( FilePath )
 import Text.Show            ( Show( show ) )
 
@@ -99,6 +101,7 @@ import System.IO      ( FilePath )
 
 -- base-unicode-symbols ----------------
 
+import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (∅), (⊕) )
 
@@ -106,8 +109,7 @@ import Data.Monoid.Unicode    ( (∅), (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
--- import Data.Sequence  ( Seq( (:<|), (:|>) ), ViewR( EmptyR ) )
-import Data.Sequence  ( Seq( (:<|) ) )
+import Data.Sequence  ( Seq( (:<|) ), (<|) )
 
 -- data-textual ------------------------
 
@@ -125,7 +127,7 @@ import System.Directory  ( withCurrentDirectory )
 -- lens --------------------------------
 
 import Control.Lens.Cons   ( unsnoc )
-import Control.Lens.Iso    ( Iso', iso )
+import Control.Lens.Iso    ( iso )
 import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
@@ -144,6 +146,7 @@ import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
 import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊣) )
+import Data.MoreUnicode.Monoid       ( ф )
 
 -- mtl ---------------------------------
 
@@ -151,10 +154,18 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import qualified  NonEmptyContainers.SeqNE  as  SeqNE
+import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
+import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 
-import NonEmptyContainers.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), (⋖)
+import NonEmptyContainers.SeqConversions
+                                 ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
+                                 , ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫)
                                  , fromNEList, onEmpty' )
+import NonEmptyContainers.SeqNEConversions
+                                 ( FromMonoSeqNonEmpty( fromSeqNE )
+                                 , IsMonoSeqNonEmpty( seqNE )
+                                 , ToMonoSeqNonEmpty( toSeqNE, toSeq_ ) )
 
 -- parsers -----------------------------
 
@@ -262,7 +273,7 @@ nonRootAbsDir = prism' AbsNonRootDir go
 ------------------------------------------------------------
 
 {- | a relative directory -}
-newtype RelDir = RelDir { unRelDir ∷ SeqNE PathComponent }
+newtype RelDir = RelDir (Seq PathComponent)
   deriving Eq
 
 type instance Element RelDir = PathComponent
@@ -279,10 +290,6 @@ data RelFile = RelFile PathComponent (Maybe RelDir)
 --        FromMonoSeqNonEmpty         --
 ----------------------------------------
 
-{- | α that may be constructed from a non-empty Sequence of `Element α` -}
-class FromMonoSeqNonEmpty α where
-  fromSeqNE ∷ SeqNE (Element α) → α
-
 instance FromMonoSeqNonEmpty NonRootAbsDir where
   fromSeqNE ∷ SeqNE PathComponent → NonRootAbsDir
   fromSeqNE (ps :⫸ p) = NonRootAbsDir p (onEmpty' AbsRootDir fromSeq ps)
@@ -292,17 +299,11 @@ instance FromMonoSeqNonEmpty AbsDir where
   fromSeqNE = AbsNonRootDir ∘ fromSeqNE
 
 instance FromMonoSeqNonEmpty RelDir where
-  fromSeqNE = RelDir
+  fromSeqNE = RelDir ∘ SeqNE.toSeq
 
 ----------------------------------------
 --         ToMonoSeqNonEmpty          --
 ----------------------------------------
-
-{- | α that may be converted to a non-empty Sequence of `Element α` -}
-class ToMonoSeqNonEmpty α where
-  toSeqNE ∷ α → SeqNE (Element α)
-  toSeq_ ∷ α → Seq (Element α)
-  toSeq_ = SeqNE.toSeq ∘ toSeqNE
 
 instance ToMonoSeqNonEmpty NonRootAbsDir where
   toSeqNE (NonRootAbsDir p d) =  -- /etc/pki/tls → NonRootAbsDir tls /etc/pki/
@@ -311,45 +312,35 @@ instance ToMonoSeqNonEmpty NonRootAbsDir where
       x :⪬ xs  → (x ⪪ xs) :⫸ p
 --      x :<| xs  → ncons x (xs :⫸ p) -- x ≡ etc/, xs = [ pki/ ], p = tls
 
-instance ToMonoSeqNonEmpty RelDir where
-  toSeqNE = unRelDir
+-- instance ToMonoSeqNonEmpty RelDir where
+--   toSeqNE = unRelDir
 
 ----------------------------------------
 --         IsMonoSeqNonEmpty          --
 ----------------------------------------
 
-{- | α that are isomorphic to a non-empty Sequence of `Element α` -}
-class IsMonoSeqNonEmpty α where
-  seqNE ∷ Iso' α (SeqNE (Element α))
-
 instance IsMonoSeqNonEmpty NonRootAbsDir where
   seqNE = iso toSeqNE fromSeqNE
 
-instance IsMonoSeqNonEmpty RelDir where
-  seqNE = iso toSeqNE fromSeqNE
+----------------------------------------
+--         AsMonoSeqNonEmpty          --
+----------------------------------------
 
 ----------------------------------------
 --            FromMonoSeq             --
 ----------------------------------------
-
-{- | α that may be constructed from a (empty?) Sequence of `Element α` -}
-class FromMonoSeq α where
-  fromSeq ∷ Seq (Element α) → α
-  fromList ∷ [Element α] → α
-  fromList = fromSeq ∘ Seq.fromList
 
 instance FromMonoSeq AbsDir where
   fromSeq xs = go (Seq.reverse $ xs)
                where go Seq.Empty = AbsRootDir
                      go (y :<| ys) = AbsNonRootDir (NonRootAbsDir y (go ys))
 
+instance FromMonoSeq RelDir where
+  fromSeq = RelDir
+
 ----------------------------------------
 --             ToMonoSeq              --
 ----------------------------------------
-
-{- | α that may be converted to a (empty?) Sequence of `Element α` -}
-class ToMonoSeq α where
-  toSeq ∷ α → Seq (Element α)
 
 instance ToMonoSeq AbsDir where
   toSeq AbsRootDir = (∅)
@@ -359,18 +350,26 @@ instance ToMonoSeq NonRootAbsDir where
   toSeq = toSeq_
 
 instance ToMonoSeq RelDir where
-  toSeq = toSeq_
+  toSeq (RelDir ps) = ps
 
 ----------------------------------------
 --             IsMonoSeq              --
 ----------------------------------------
 
-{- | α that are isomorphic to a (empty?) Sequence of `Element α` -}
-class IsMonoSeq α where
-  seq ∷ Iso' α (Seq (Element α))
-
 instance IsMonoSeq AbsDir where
   seq = iso toSeq fromSeq
+
+instance IsMonoSeq RelDir where
+  seq = iso toSeq fromSeq
+
+----------------------------------------
+--               IsList               --
+----------------------------------------
+
+instance IsList RelDir where
+  type instance Item RelDir = PathComponent
+  fromList = RelDir ∘ Seq.fromList
+  toList   = toList ∘ toSeq
 
 ----------------------------------------
 --                Show                --
@@ -403,20 +402,25 @@ instance Printable NonRootAbsDir where
   print = pDir ("/" ⊕)
 
 instance Printable RelDir where
-  print = pDir id
-
+--  print (RelDir ф) = traceShow ("print (1)") $ P.string "./"
+--  print (RelDir ps) = traceShow ("print (2)", ps) $ pDir id ps
+  print (RelDir ps) | ps ≡ ф = "./"
+                    | otherwise = pDir id ps
+  
 ----------------------------------------
 --              Textual               --
 ----------------------------------------
 
 instance Textual AbsDir where
-  textual = fromList ⊳ (char '/' ⋫ endBy textual (char '/'))
+  textual = SeqConversions.fromList ⊳ (char '/' ⋫ endBy textual (char '/'))
 
 instance Textual NonRootAbsDir where
   textual =
     fromSeqNE ∘ fromNEList ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
 
 -- Textual for RelDir
+-- instance Textual RelDir where
+--   textual = fromList ⊳ (endBy textual (char '/'))
 
 ----------------------------------------
 --              Arbitrary             --
@@ -557,11 +561,12 @@ reldirT ∷ TypeRep
 reldirT = typeRep (Proxy ∷ Proxy RelDir)
 
 parseRelDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
-parseRelDir (toText → t)= 
+parseRelDir (toText → t) =
   case unsnoc $ splitOn "/" t of
     Nothing           → error "cannot happen: splitOn always returns something"
     Just (("":_), _)  → __FPathAbsE__ reldirT t
     Just ([],"")      → __FPathEmptyE__ reldirT
+    Just (["."],"")   → return $ RelDir ф
     Just ((x:xs), "") → do let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
                                        FPathComponentError → η' α
                                mkCompE ce = __FPathComponentE__ ce reldirT t
@@ -571,7 +576,7 @@ parseRelDir (toText → t)=
                          
                            p  ← eCompE $ parsePathC x
                            ps ← eCompE $ mapM parsePathC xs
-                           return $ RelDir (p ⋖ ps)
+                           return $ RelDir (p <| Seq.fromList ps)
     _                 → __FPathNotADirE__ reldirT t
       
 

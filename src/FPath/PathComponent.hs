@@ -7,13 +7,17 @@
 {-# LANGUAGE UnicodeSyntax              #-}
 {-# LANGUAGE ViewPatterns               #-}
 
+{- | A permissable file name (excluding any directory part), thus a sequence of
+     characters excluding the null character (`\0`) or the slash character (`/`)
+     and also explicitly excluding the special components `.` and `..` .
+ -}
 module FPath.PathComponent
   ( PathComponent, parsePathC, pathComponent, pc, toLower, toUpper )
 where
 
 -- base --------------------------------
 
-import Control.Applicative  ( some )
+import Control.Applicative  ( many, some )
 import Control.Monad        ( return )
 import Data.Bool            ( otherwise )
 import Data.Either          ( either )
@@ -51,13 +55,18 @@ import Data.GenValidity.ByteString  ( )
 
 import Data.GenValidity.Text  ( )
 
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
+import Data.MoreUnicode.Functor      ( (⊳) )
+
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
 
 -- parsers -----------------------------
 
-import Text.Parser.Char  ( noneOf )
+import Text.Parser.Char  ( char, noneOf, string )
 
 -- QuickCheck --------------------------
 
@@ -75,7 +84,7 @@ import qualified  FPath.PathCTypes.String  as  PathCTypes
 
 import FPath.Error.FPathComponentError
            ( AsFPathComponentError, FPathComponentError
-           , __FPathCEmptyE__, __FPathCIllegalCharE__ )
+           , __FPathCEmptyE__, __FPathCIllegalE__, __FPathCIllegalCharE__ )
 import FPath.PathCTypes.String  ( PathCChar, PathCInner, pathCChar
                                 , to_inner, to_print, to_string )
 import FPath.Util               ( QuasiQuoter
@@ -103,14 +112,25 @@ instance Printable PathComponent where
 instance Validity PathComponent where
   validate p =
     let badCs = declare "has neither NUL nor /" $
-                    Nothing ≡ find (`elem` badChars) (toString p)
+                  Nothing ≡ find (`elem` badChars) (toString p)
         nonEmpty = declare "is not empty" $ "" ≢ toString p
-     in mconcat [ badCs, nonEmpty ]
+        nonDotties = declare "is not \".\" or \"..\"" $
+                       "." ≢ toString p ∧ ".." ≢ toString p
+          
+     in mconcat [ badCs, nonEmpty, nonDotties ]
 
 instance GenValid PathComponent where
 
 instance Textual PathComponent where
-  textual = PathComponent ∘ to_inner <$> some (noneOf badChars)
+  textual =
+    let parseChars = noneOf badChars
+        parseNoDotsNorBads = noneOf (badChars ⊕ ['.'])
+        jjoin a b ys = a : b : ys
+        matches =   ((:) ⊳ parseNoDotsNorBads ⊵ many parseChars)
+                  ∤ ((⊕) ⊳ string ".." ⊵ some parseChars)
+                  ∤ (jjoin ⊳ char '.' ⊵ parseNoDotsNorBads ⊵ many parseChars)
+                  
+     in PathComponent ∘ to_inner ⊳ matches
 
 instance Arbitrary PathComponent where
   arbitrary = genValid
@@ -132,6 +152,8 @@ instance Arbitrary PathComponent where
 parsePathC ∷ (Printable ρ, AsFPathComponentError ε, MonadError ε η) ⇒
              ρ → η PathComponent
 parsePathC (toString → "")                 = __FPathCEmptyE__
+parsePathC (toString → ".")                = __FPathCIllegalE__ "."
+parsePathC (toString → "..")               = __FPathCIllegalE__ ".."
 parsePathC (toString → t) | any (≡ '\0') t = __FPathCIllegalCharE__ '\0' t
                           | any (≡ '/')  t = __FPathCIllegalCharE__ '/' t
                           | otherwise      = return $ PathComponent (to_inner t)
