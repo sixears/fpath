@@ -25,6 +25,7 @@ import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import GHC.Exts             ( fromList, toList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
+import Text.Read            ( Read, read )
 import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
@@ -148,6 +149,9 @@ propInvertibleUtf8 ∷ (Eq α, Show α, Textual α) ⇒ α → Property
 propInvertibleUtf8 d =
   parseUtf8 (toUtf8 d) ≣ Parsed d
 
+propReadShow ∷ (Eq α, Show α, Read α) ⇒ α → Property
+propReadShow d = read (show d) ≣ d
+
 ----------------------------------------
 
 root ∷ AbsDir
@@ -229,10 +233,15 @@ pathCValidityTests =
                 , testProperty "arbitrary" $ genGeneratesValid arbPC      shrink
                 ]
 
+pathCReadShowTests ∷ TestTree
+pathCReadShowTests =
+  testProperty "read-show invertibility" (propReadShow @PathComponent)
+
+
 pathComponentTests ∷ TestTree
 pathComponentTests =
-  testGroup "PathComponent" [ pathCArbitraryTests, pathCTextualTests
-                            , pathCValidityTests ]
+  testGroup "PathComponent" [ pathCArbitraryTests, pathCReadShowTests
+                            , pathCTextualTests, pathCValidityTests ]
 
 absParseDirTests ∷ TestTree
 absParseDirTests =
@@ -509,8 +518,8 @@ nonRootAbsDirTests =
 
 ------------------------------------------------------------
 
-relParseDirTests ∷ TestTree
-relParseDirTests =
+relDirParseRelDirTests ∷ TestTree
+relDirParseRelDirTests =
   let reldirT     = typeRep (Proxy ∷ Proxy RelDir)
       pamF        = "etc/pam"
       illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
@@ -536,8 +545,8 @@ relParseDirTests =
                       Left (emptyCompCE "r//p/") ≟ parseRelDir_ "r//p/"
                 ]
 
-relDirReldirTests ∷ TestTree
-relDirReldirTests =
+relDirQuasiQuotesTests ∷ TestTree
+relDirQuasiQuotesTests =
   testGroup "reldir"
             [ testCase "r0" $ r0 ≟ [reldir|./|]
             , testCase "r1" $ r1 ≟ [reldir|r/|]
@@ -607,11 +616,17 @@ relDirPrintableTests =
             , testCase "r3" $ "p/q/r/" ≟ toText r3
             ]
 
+relDirIsMonoSeqTests ∷ TestTree
+relDirIsMonoSeqTests = testGroup "IsMonoSeq" [ relDirIsMonoSeqGetterTests
+                                             , relDirIsMonoSeqSetterTests ]
+relDirConstructionTests ∷ TestTree
+relDirConstructionTests = testGroup "construction" [ relDirParseRelDirTests
+                                                   , relDirQuasiQuotesTests ]
 relDirTests ∷ TestTree
 relDirTests =
-  testGroup "RelDir" [ relParseDirTests, relDirReldirTests
+  testGroup "RelDir" [ relDirConstructionTests
                      , relDirIsListTests
-                     , relDirIsMonoSeqGetterTests, relDirIsMonoSeqSetterTests
+                     , relDirIsMonoSeqTests
                      , relDirShowTests, relDirPrintableTests
                      ]
 

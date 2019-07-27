@@ -82,6 +82,7 @@ import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
 import System.IO            ( FilePath )
+import Text.Read            ( Read )
 import Text.Show            ( Show( show ) )
 
 {-
@@ -274,7 +275,7 @@ nonRootAbsDir = prism' AbsNonRootDir go
 
 {- | a relative directory -}
 newtype RelDir = RelDir (Seq PathComponent)
-  deriving Eq
+  deriving (Eq,Read)
 
 type instance Element RelDir = PathComponent
 

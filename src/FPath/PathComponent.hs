@@ -22,14 +22,17 @@ import Control.Monad        ( return )
 import Data.Bool            ( otherwise )
 import Data.Either          ( either )
 import Data.Eq              ( Eq )
-import Data.Function        ( ($), id )
+import Data.Function        ( ($), flip, id )
 import Data.Functor         ( (<$>), fmap )
-import Data.List            ( any, elem, filter, find, nub, subsequences )
-import Data.Maybe           ( Maybe( Nothing ) )
+import Data.List            ( any, elem, elemIndex, filter, find, isSuffixOf
+                            , length, nub, splitAt, subsequences, take )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Monoid          ( mconcat )
 import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
 import GHC.Generics         ( Generic )
+import GHC.Num              ( (+), (-) )
+import Text.Read            ( Read( readsPrec ) )
 import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
@@ -41,7 +44,8 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual ), toString )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , fromString, toString )
 
 -- genvalidity -------------------------
 
@@ -59,6 +63,7 @@ import Data.GenValidity.Text  ( )
 
 import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
 import Data.MoreUnicode.Functor      ( (⊳) )
+import Data.MoreUnicode.Monad        ( (≫) )
 
 -- mtl ---------------------------------
 
@@ -105,6 +110,22 @@ newtype PathComponent = PathComponent PathCInner
 
 instance Show PathComponent where
   show (PathComponent t) = "[pathComponent|" ⊕ to_string t ⊕ "|]"
+
+instance Read PathComponent where
+  readsPrec _ s = let takeBefore x t = if x `isSuffixOf` t
+                                       then Just $ take (length t - length x) t
+                                       else Nothing
+                      s' = takeBefore "|]" s
+                   in case s' ≫ \ t → flip splitAt t ∘ (+1) ⊳ elemIndex '|' t of
+                        Just ("[pathComponent|",t) → case fromString t of
+                                                       Just t' → [(t',"")]
+                                                       Nothing → []
+                        Just ("[pc|",t)            → case fromString t of
+                                                       Just t' → [(t',"")]
+                                                       Nothing → []
+                        Just (_,_)                 → []
+                        Nothing                    → []
+                             
 
 instance Printable PathComponent where
   print (PathComponent t) = to_print t
