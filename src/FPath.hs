@@ -75,14 +75,14 @@ import Data.Eq              ( Eq )
 import Data.Foldable        ( concat )
 import Data.Function        ( ($), id )
 import Data.Functor         ( fmap )
-import Data.List            ( intercalate )
+import Data.List            ( intercalate, isPrefixOf )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 -- import Data.Traversable     ( Traversable )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
 import System.IO            ( FilePath )
-import Text.Read            ( Read )
+import Text.Read            ( Read( readsPrec ) )
 import Text.Show            ( Show( show ) )
 
 {-
@@ -238,7 +238,7 @@ import FPath.Util              ( QuasiQuoter
 
 {- | The root directory, i.e., '/' -}
 data RootDir = RootDir
-  deriving Eq
+  deriving (Eq, Show)
 
 {- | A non-root absolute directory, e.g., /etc. -}
 -- a non-root dir is a path component appended to a (possibly-root) absolute
@@ -255,7 +255,7 @@ type instance Element NonRootAbsDir = PathComponent
 {- | An absolute directory is either the root directory, or a non-root absolute
      directory -}
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
-  deriving Eq
+  deriving (Eq, Show)
 
 type instance Element AbsDir = PathComponent
 
@@ -275,7 +275,7 @@ nonRootAbsDir = prism' AbsNonRootDir go
 
 {- | a relative directory -}
 newtype RelDir = RelDir (Seq PathComponent)
-  deriving (Eq,Read)
+  deriving (Eq, Show)
 
 type instance Element RelDir = PathComponent
 
@@ -367,23 +367,15 @@ instance IsMonoSeq RelDir where
 --               IsList               --
 ----------------------------------------
 
+instance IsList AbsDir where
+  type instance Item AbsDir = PathComponent
+  fromList = fromSeq ∘ Seq.fromList
+  toList   = toList ∘ toSeq
+
 instance IsList RelDir where
   type instance Item RelDir = PathComponent
   fromList = RelDir ∘ Seq.fromList
   toList   = toList ∘ toSeq
-
-----------------------------------------
---                Show                --
-----------------------------------------
-
-showSeq ∷ Show α ⇒ Seq α → String
-showSeq xs = intercalate " :<| " ((show ⊳ toList xs) ⊕ ["Seq.Empty"])
-
-instance Show AbsDir where
-  show ad = [fmt|((^. from seq) (%s))|] (showSeq (toSeq ad))
-
-instance Show RelDir where
-  show rd = [fmt|((^. from seq) (%s))|] (showSeq (toSeq rd))
 
 ----------------------------------------
 --             Printable              --

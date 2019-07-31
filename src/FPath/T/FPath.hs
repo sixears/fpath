@@ -25,7 +25,6 @@ import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import GHC.Exts             ( fromList, toList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
-import Text.Read            ( Read, read )
 import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
@@ -149,9 +148,6 @@ propInvertibleUtf8 ∷ (Eq α, Show α, Textual α) ⇒ α → Property
 propInvertibleUtf8 d =
   parseUtf8 (toUtf8 d) ≣ Parsed d
 
-propReadShow ∷ (Eq α, Show α, Read α) ⇒ α → Property
-propReadShow d = read (show d) ≣ d
-
 ----------------------------------------
 
 root ∷ AbsDir
@@ -233,14 +229,9 @@ pathCValidityTests =
                 , testProperty "arbitrary" $ genGeneratesValid arbPC      shrink
                 ]
 
-pathCReadShowTests ∷ TestTree
-pathCReadShowTests =
-  testProperty "read-show invertibility" (propReadShow @PathComponent)
-
-
 pathComponentTests ∷ TestTree
 pathComponentTests =
-  testGroup "PathComponent" [ pathCArbitraryTests, pathCReadShowTests
+  testGroup "PathComponent" [ pathCArbitraryTests
                             , pathCTextualTests, pathCValidityTests ]
 
 absParseDirTests ∷ TestTree
@@ -272,10 +263,13 @@ absParseDirTests =
 
 absDirShowTests ∷ TestTree
 absDirShowTests =
-  let rootShow = "((^. from seq) (Seq.Empty))"
-      etcShow  = "((^. from seq) ([pathComponent|etc|] :<| Seq.Empty))"
-      pamdShow = "((^. from seq) ([pathComponent|etc|] :<| "
-               ⊕ "[pathComponent|pam.d|] :<| Seq.Empty))"
+  let rootShow = "AbsRootDir"
+      etcShow  = "AbsNonRootDir (NonRootAbsDir (PathComponent \"etc\") "
+               ⊕ "AbsRootDir)"
+      pamdShow = "AbsNonRootDir (NonRootAbsDir (PathComponent \"pam.d\") "
+               ⊕ "(AbsNonRootDir (NonRootAbsDir (PathComponent \"etc\") "
+               ⊕ "AbsRootDir)))"
+
    in testGroup "show"
                 [ testCase "root"  $ rootShow ≟ show root
                 , testCase "etc"   $ etcShow  ≟ show etc
@@ -594,12 +588,12 @@ relDirIsMonoSeqSetterTests =
 
 relDirShowTests ∷ TestTree
 relDirShowTests =
-  let r0Show = "((^. from seq) (Seq.Empty))"
-      r1Show  = "((^. from seq) ([pathComponent|r|] :<| Seq.Empty))"
-      r2Show = "((^. from seq) ([pathComponent|r|] :<| "
-             ⊕ "[pathComponent|p|] :<| Seq.Empty))"
-      r3Show = "((^. from seq) ([pathComponent|p|] :<| "
-               ⊕ "[pathComponent|q|] :<| [pathComponent|r|] :<| Seq.Empty))"
+  let r0Show = "RelDir (fromList [])"
+      r1Show = "RelDir (fromList [PathComponent \"r\"])"
+      r2Show = "RelDir (fromList [PathComponent \"r\",PathComponent \"p\"])"
+      r3Show = "RelDir (fromList "
+             ⊕ "[PathComponent \"p\",PathComponent \"q\",PathComponent \"r\"])"
+
    in testGroup "show"
                 [ testCase "r0" $ r0Show ≟ show r0
                 , testCase "r1" $ r1Show ≟ show r1

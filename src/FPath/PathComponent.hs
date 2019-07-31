@@ -17,12 +17,14 @@ where
 
 -- base --------------------------------
 
+import qualified Text.Read.Lex  as  L
+
 import Control.Applicative  ( many, some )
-import Control.Monad        ( return )
-import Data.Bool            ( otherwise )
+import Control.Monad        ( Monad, return )
+import Data.Bool            ( Bool( False, True ), otherwise )
 import Data.Either          ( either )
 import Data.Eq              ( Eq )
-import Data.Function        ( ($), flip, id )
+import Data.Function        ( ($), const, flip, id )
 import Data.Functor         ( (<$>), fmap )
 import Data.List            ( any, elem, elemIndex, filter, find, isSuffixOf
                             , length, nub, splitAt, subsequences, take )
@@ -32,7 +34,8 @@ import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
 import GHC.Generics         ( Generic )
 import GHC.Num              ( (+), (-) )
-import Text.Read            ( Read( readsPrec ) )
+import GHC.Read             ( expectP, lexP )
+import Text.Read            ( Read( readPrec, readListPrec, readsPrec ), ReadPrec, (+++), parens, pfail, readListPrecDefault, readP_to_Prec, reset )
 import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
@@ -45,7 +48,7 @@ import Data.Monoid.Unicode    ( (⊕) )
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString )
+                     , fromString, parseString, toString )
 
 -- genvalidity -------------------------
 
@@ -61,9 +64,10 @@ import Data.GenValidity.Text  ( )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
+import Data.MoreUnicode.Applicative  ( (⊴), (⊵), (∤), (⋪), (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳) )
 import Data.MoreUnicode.Monad        ( (≫) )
+import Data.MoreUnicode.Monoid       ( ю )
 
 -- mtl ---------------------------------
 
@@ -71,11 +75,16 @@ import Control.Monad.Except  ( MonadError )
 
 -- parsers -----------------------------
 
-import Text.Parser.Char  ( char, noneOf, string )
+import Text.Parser.Char         ( CharParsing, char, noneOf, spaces, string )
+import Text.Parser.Combinators  ( between, sepBy )
 
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+
+-- text-printer ------------------------
+
+import qualified  Text.Printer  as  P
 
 -- validity ----------------------------
 
@@ -99,33 +108,13 @@ import FPath.Util               ( QuasiQuoter
 
 {-| file name components may contain any character 'cept NUL and SLASH -}
 badChars :: [PathCChar]
-badChars = pathCChar <$> [0,47] -- '\0', '/'
-
+badChars = pathCChar ⊳ [0,47] -- '\0', '/'
 
 {- | A single component in a Path, that is, a directory or file ---
      notably no slashes are allowed (or nul chars); must not be empty
  -}
 newtype PathComponent = PathComponent PathCInner
-  deriving (Eq, Generic, GenUnchecked, Semigroup)
-
-instance Show PathComponent where
-  show (PathComponent t) = "[pathComponent|" ⊕ to_string t ⊕ "|]"
-
-instance Read PathComponent where
-  readsPrec _ s = let takeBefore x t = if x `isSuffixOf` t
-                                       then Just $ take (length t - length x) t
-                                       else Nothing
-                      s' = takeBefore "|]" s
-                   in case s' ≫ \ t → flip splitAt t ∘ (+1) ⊳ elemIndex '|' t of
-                        Just ("[pathComponent|",t) → case fromString t of
-                                                       Just t' → [(t',"")]
-                                                       Nothing → []
-                        Just ("[pc|",t)            → case fromString t of
-                                                       Just t' → [(t',"")]
-                                                       Nothing → []
-                        Just (_,_)                 → []
-                        Nothing                    → []
-                             
+  deriving (Eq, Generic, GenUnchecked, Semigroup, Show)
 
 instance Printable PathComponent where
   print (PathComponent t) = to_print t
