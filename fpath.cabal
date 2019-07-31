@@ -47,7 +47,8 @@ library
   ghc-options:     -W -Wall -fhelpful-errors
   -- Modules exported by the library.
   exposed-modules: FPath, FPath.Error.FPathComponentError
-                 , FPath.Error.FPathError, FPath.T.FPath
+                 , FPath.Error.FPathError, FPath.T.Common, FPath.T.FPath
+                 , FPath.T.FPath.AbsDir, FPath.T.FPath.TestData
 
                  , NonEmptyContainers.T.SeqNE
 

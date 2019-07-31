@@ -75,15 +75,13 @@ import Data.Eq              ( Eq )
 import Data.Foldable        ( concat )
 import Data.Function        ( ($), id )
 import Data.Functor         ( fmap )
-import Data.List            ( intercalate, isPrefixOf )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 -- import Data.Traversable     ( Traversable )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
 import System.IO            ( FilePath )
-import Text.Read            ( Read( readsPrec ) )
-import Text.Show            ( Show( show ) )
+import Text.Show            ( Show )
 
 {-
 
@@ -185,10 +183,6 @@ import Data.Text  ( Text, breakOnEnd, splitOn )
 -- text-printer ------------------------
 
 import qualified  Text.Printer  as  P
-
--- tfmt --------------------------------
-
-import Text.Fmt  ( fmt )
 
 {-
 

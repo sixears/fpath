@@ -17,26 +17,20 @@ where
 
 -- base --------------------------------
 
-import qualified Text.Read.Lex  as  L
-
 import Control.Applicative  ( many, some )
-import Control.Monad        ( Monad, return )
-import Data.Bool            ( Bool( False, True ), otherwise )
+import Control.Monad        ( return )
+import Data.Bool            ( otherwise )
 import Data.Either          ( either )
 import Data.Eq              ( Eq )
-import Data.Function        ( ($), const, flip, id )
+import Data.Function        ( ($), id )
 import Data.Functor         ( (<$>), fmap )
-import Data.List            ( any, elem, elemIndex, filter, find, isSuffixOf
-                            , length, nub, splitAt, subsequences, take )
-import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.List            ( any, elem, filter, find, nub, subsequences )
+import Data.Maybe           ( Maybe( Nothing ) )
 import Data.Monoid          ( mconcat )
 import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
 import GHC.Generics         ( Generic )
-import GHC.Num              ( (+), (-) )
-import GHC.Read             ( expectP, lexP )
-import Text.Read            ( Read( readPrec, readListPrec, readsPrec ), ReadPrec, (+++), parens, pfail, readListPrecDefault, readP_to_Prec, reset )
-import Text.Show            ( Show( show ) )
+import Text.Show            ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -47,8 +41,7 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, parseString, toString )
+import Data.Textual  ( Printable( print ), Textual( textual ), toString )
 
 -- genvalidity -------------------------
 
@@ -64,10 +57,8 @@ import Data.GenValidity.Text  ( )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⊴), (⊵), (∤), (⋪), (⋫) )
+import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
 import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Monad        ( (≫) )
-import Data.MoreUnicode.Monoid       ( ю )
 
 -- mtl ---------------------------------
 
@@ -75,16 +66,11 @@ import Control.Monad.Except  ( MonadError )
 
 -- parsers -----------------------------
 
-import Text.Parser.Char         ( CharParsing, char, noneOf, spaces, string )
-import Text.Parser.Combinators  ( between, sepBy )
+import Text.Parser.Char         ( char, noneOf, string )
 
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
-
--- text-printer ------------------------
-
-import qualified  Text.Printer  as  P
 
 -- validity ----------------------------
 
