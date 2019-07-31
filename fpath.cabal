@@ -48,7 +48,8 @@ library
   -- Modules exported by the library.
   exposed-modules: FPath, FPath.Error.FPathComponentError
                  , FPath.Error.FPathError, FPath.T.Common, FPath.T.FPath
-                 , FPath.T.FPath.AbsDir, FPath.T.FPath.TestData
+                 , FPath.T.FPath.AbsDir, FPath.T.FPath.RelDir
+                 , FPath.T.FPath.TestData
 
                  , NonEmptyContainers.T.SeqNE
 
