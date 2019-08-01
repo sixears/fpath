@@ -16,7 +16,7 @@ import Data.Function        ( ($), (&) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
-import GHC.Exts             ( toList )
+import GHC.Exts             ( fromList, toList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
 import Text.Show            ( Show( show ) )
@@ -37,9 +37,9 @@ import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
 
 -- lens --------------------------------
 
-import Control.Lens.Getter     ( view )
-import Control.Lens.Iso        ( from )
-import Control.Lens.Setter     ( (?~) )
+import Control.Lens.Getter  ( view )
+import Control.Lens.Iso     ( from )
+import Control.Lens.Setter  ( (?~) )
 
 -- more-unicode ------------------------
 
@@ -91,8 +91,8 @@ import FPath.T.FPath.TestData  ( etc, etcN, pamd, pamdN, root, wgm, wgmN )
 
 --------------------------------------------------------------------------------
 
-absDirQuasiQuotesTests ∷ TestTree
-absDirQuasiQuotesTests =
+absdirQQTests ∷ TestTree
+absdirQQTests =
   testGroup "reldir"
             [ testCase "root" $ root ≟ [absdir|/|]
             , testCase "/etc" $ etc ≟ [absdir|/etc/|]
@@ -100,8 +100,8 @@ absDirQuasiQuotesTests =
             , testCase "/w/g/M" $ wgm ≟ [absdir|/w/g/M/|]
             ]
 
-absParseDirTests ∷ TestTree
-absParseDirTests =
+parseAbsDirTests ∷ TestTree
+parseAbsDirTests =
   let absdirT     = typeRep (Proxy ∷ Proxy AbsDir)
       pamNUL      = "/etc/pam\0/"
       pamF        = "/etc/pam"
@@ -151,6 +151,23 @@ absDirPrintableTests =
             , testCase "wgm"   $ "/w/g/M/"     ≟ toText wgm
             ]
 
+absDirIsListTests ∷ TestTree
+absDirIsListTests =
+  testGroup "IsList"
+    [ testGroup "fromList"
+                [ testCase "root"  $ root ≟ fromList []
+                , testCase "etc"   $ etc ≟ fromList [ [pc|r|] ]
+                , testCase "pam.d" $ pamd ≟ fromList [ [pc|r|], [pc|p|] ]
+                , testCase "wgm"   $ wgm ≟ fromList [ [pc|p|], [pc|q|], [pc|r|] ]
+                ]
+    , testGroup "toList"
+                [ testCase "root"  $ []                            ≟ toList root
+                , testCase "etc"   $ [ [pc|r|] ]                   ≟ toList etc
+                , testCase "pam.d" $ [ [pc|r|], [pc|p|] ]          ≟ toList pamd
+                , testCase "wgm"   $ [ [pc|p|], [pc|q|], [pc|r|] ] ≟ toList wgm
+                ]
+    ]
+
 absDirIsMonoSeqGetterTests ∷ TestTree
 absDirIsMonoSeqGetterTests =
   testGroup "getter"
@@ -177,7 +194,8 @@ absDirIsMonoSeqSetterTests =
 
 absDirIsMonoSeqTests ∷ TestTree
 absDirIsMonoSeqTests =
-  testGroup "asPCSeq"  [ absDirIsMonoSeqGetterTests, absDirIsMonoSeqSetterTests ]
+  testGroup "IsMonoSeq" [ absDirIsMonoSeqGetterTests
+                        , absDirIsMonoSeqSetterTests ]
 
 absDirParentMayTests ∷ TestTree
 absDirParentMayTests =
@@ -212,20 +230,20 @@ absDirParentTests =
   let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
       d ~~ d' = d & parent ⊢ d'
    in testGroup "parent"
-                [ testCase "root"   $ Nothing   ≟ par root
-                , testCase "etc"    $ Just root ≟ par etc
-                , testCase "pamd"  $ Just etc  ≟ par pamd
+                [ testCase "root"        $ Nothing   ≟ par root
+                , testCase "etc"         $ Just root ≟ par etc
+                , testCase "pamd"        $ Just etc  ≟ par pamd
 
-                , testCase "etc → root" $ etcN  ≟ etcN ~~ root
+                , testCase "etc → root"  $ etcN  ≟ etcN ~~ root
 
                 , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
 
-                , testCase "etc → wgm" $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm
-                , testCase "wgm → etc" $ [absdirN|/etc/M/|] ≟ wgmN ~~ etc
+                , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm
+                , testCase "wgm → etc"   $ [absdirN|/etc/M/|] ≟ wgmN ~~ etc
 
-                , testCase "wgm → root" $ [absdirN|/M/|] ≟ wgmN ~~ root
-                , testCase "pamd → etc" $ pamdN ≟ pamdN ~~ etc
-                , testCase "etc → pamd" $
+                , testCase "wgm → root"  $ [absdirN|/M/|] ≟ wgmN ~~ root
+                , testCase "pamd → etc"  $ pamdN ≟ pamdN ~~ etc
+                , testCase "etc → pamd"  $
                       [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamd
                 ]
 
@@ -263,29 +281,46 @@ absDirTextualPrintableTests =
 absDirFilepathTests ∷ TestTree
 absDirFilepathTests =
   let nothin' = Nothing ∷ Maybe AbsDir
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
    in testGroup "filepath"
             [ testCase "root"  $ "/"           ≟ root    ## filepath
             , testCase "etc"   $ "/etc/"       ≟ etc     ## filepath
             , testCase "pam.d" $ "/etc/pam.d/" ≟ pamd    ## filepath
             , testCase "wgm"   $ "/w/g/M/"     ≟ wgm     ## filepath
             , testCase "/etc/" $ Just etc      ≟ "/etc/" ⩼ filepath
-            , testCase "/etc"         $ nothin' ≟ "/etc" ⩼ filepath
-            , testCase "/etc/pam.d"   $ nothin' ≟ "/etc/pam.d" ⩼ filepath
-            , testCase "etc/"         $ nothin' ≟ "etc/" ⩼ filepath
-            , testCase "etc/pam.d"    $ nothin' ≟ "etc/pam.d" ⩼ filepath
-            , testCase "/etc//pam.d/" $ nothin' ≟ "/etc//pam.d/" ⩼ filepath
-            , testCase "e/c"          $ nothin' ≟ "e/c" ⩼ filepath
-            , testCase "\0etc"        $ nothin' ≟ "\0etc" ⩼ filepath
-            , testCase "etc\0"        $ nothin' ≟ "etc\0" ⩼ filepath
-            , testCase "e\0c"         $ nothin' ≟ "e\0c" ⩼ filepath
+            , fail "/etc"
+            , fail "/etc/pam.d"
+            , fail "etc/"
+            , fail "etc/pam.d"
+            , fail "/etc//pam.d/"
+            , fail "e/c"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
             ]
+
+absDirConstructionTests ∷ TestTree
+absDirConstructionTests = testGroup "construction" [ parseAbsDirTests
+                                                   , absdirQQTests ]
+
+absDirTextualGroupTests ∷ TestTree
+absDirTextualGroupTests =
+  testGroup "textual group" [ absDirTextualTests, absDirTextualPrintableTests
+                            , absDirPrintableTests ]
+
+absDirParentGroupTests ∷ TestTree
+absDirParentGroupTests =
+  testGroup "parent group" [ absDirParentTests, absDirParentMayTests ]
+
 
 tests ∷ TestTree
 tests =
-  testGroup "AbsDir" [ absParseDirTests, absDirQuasiQuotesTests, absDirShowTests, absDirPrintableTests
-                     , absDirIsMonoSeqTests, absDirTextualTests
-                     , absDirParentMayTests, absDirParentTests
-                     , absDirTextualPrintableTests, absDirFilepathTests
+  testGroup "AbsDir" [ absDirConstructionTests, absDirShowTests
+                     , absDirTextualGroupTests
+                     , absDirIsListTests
+                     , absDirIsMonoSeqTests
+                     , absDirParentGroupTests
+                     , absDirFilepathTests
                      ]
 
 ----------------------------------------

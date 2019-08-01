@@ -12,6 +12,8 @@ where
 
 import Data.Either      ( Either( Left, Right  ) )
 import Data.Function    ( ($), (&) )
+import Data.Functor     ( fmap )
+import Data.Maybe       ( Maybe( Just, Nothing ) )
 import Data.String      ( String )
 import Data.Typeable    ( Proxy( Proxy ), typeRep )
 import GHC.Exts         ( fromList, toList )
@@ -29,15 +31,20 @@ import qualified  Data.Sequence  as  Seq
 
 -- data-textual ------------------------
 
-import Data.Textual  ( toString, toText )
+import Data.Textual  ( Parsed( Parsed )
+                     , fromString, parseString, toString, toText )
 
 -- fluffy ------------------------------
 
 import NonEmptyContainers.SeqNE  ( (⪬) )
 
+-- lens --------------------------------
+
+import Control.Lens.Setter  ( (?~) )
+
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens    ( (⊣), (⊥), (⊢) )
+import Data.MoreUnicode.Lens    ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.Monoid  ( ф )
 import Data.MoreUnicode.Tasty   ( (≟) )
 
@@ -53,6 +60,10 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-quickcheck --------------------
+
+import Test.Tasty.QuickCheck  ( testProperty )
+
 -- text --------------------------------
 
 import Data.Text  ( Text )
@@ -61,7 +72,8 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( RelDir, parseRelDir', seq, reldir )
+import FPath                   ( RelDir, filepath, parentMay, parseRelDir', seq
+                               , reldir )
 import FPath.Error.FPathError  ( FPathError( FPathAbsE, FPathComponentE
                                            , FPathNotADirE )
                                )
@@ -72,13 +84,14 @@ import FPath.Error.FPathComponentError
                                )
 import FPath.PathComponent     ( pc )
 
-import FPath.T.Common          ( doTest, doTestR, doTestS )
+import FPath.T.Common          ( doTest, doTestR, doTestS, propInvertibleString
+                               , propInvertibleText, propInvertibleUtf8 )
 import FPath.T.FPath.TestData  ( r0, r1, r2, r3 )
 
 --------------------------------------------------------------------------------
 
-relDirParseRelDirTests ∷ TestTree
-relDirParseRelDirTests =
+parseRelDirTests ∷ TestTree
+parseRelDirTests =
   let reldirT     = typeRep (Proxy ∷ Proxy RelDir)
       pamF        = "etc/pam"
       illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
@@ -104,8 +117,8 @@ relDirParseRelDirTests =
                       Left (emptyCompCE "r//p/") ≟ parseRelDir_ "r//p/"
                 ]
 
-relDirQuasiQuotesTests ∷ TestTree
-relDirQuasiQuotesTests =
+reldirQQTests ∷ TestTree
+reldirQQTests =
   testGroup "reldir"
             [ testCase "r0" $ r0 ≟ [reldir|./|]
             , testCase "r1" $ r1 ≟ [reldir|r/|]
@@ -175,18 +188,129 @@ relDirPrintableTests =
             , testCase "r3" $ "p/q/r/" ≟ toText r3
             ]
 
+relDirTextualTests ∷ TestTree
+relDirTextualTests =
+  let nothin'     ∷ Maybe RelDir
+      nothin'     = Nothing
+      success e s = testCase s $ Parsed e  ≟ parseString s
+      fail s      = testCase s $ nothin'   ≟ fromString s
+   in testGroup "Textual" [ success r0 "./"
+                          , success r1 "r/"
+                          , success r2 "r/p/"
+                          , success r3 "p/q/r/"
+                          , fail "/etc"
+                          , fail "/etc/pam.d"
+                          , fail "etc"
+                          , fail "etc/pam.d"
+                          , fail "/etc//pam.d/"
+                          , fail "e/c"
+                          , fail "\0etc"
+                          , fail "etc\0"
+                          , fail "e\0c"
+                          ]
+
+relDirTextualPrintableTests ∷ TestTree
+relDirTextualPrintableTests =
+  testGroup "invertibility"
+            [ testProperty "parseString - toString"
+                           (propInvertibleString @RelDir)
+            , testProperty "parseText - toText" (propInvertibleText @RelDir)
+            , testProperty "parseUtf8 - toUtf8" (propInvertibleUtf8 @RelDir)
+            ]
+
 relDirIsMonoSeqTests ∷ TestTree
 relDirIsMonoSeqTests = testGroup "IsMonoSeq" [ relDirIsMonoSeqGetterTests
                                              , relDirIsMonoSeqSetterTests ]
+
+relDirParentMayGetterTests ∷ TestTree
+relDirParentMayGetterTests =
+   testGroup "getter" [ testCase "r0"  $ Nothing ≟ r0  ⊣ parentMay
+                      , testCase "r1"  $ Just r0 ≟ r1  ⊣ parentMay
+                      , testCase "r2"  $ Just r1 ≟ r2 ⊣ parentMay
+                      ]
+
+relDirParentMaySetterTests ∷ TestTree
+relDirParentMaySetterTests =
+  let d ~~ d' = d & parentMay ?~ d'
+   in testGroup "setter" [ testCase "r1 → r0" $ r1 ≟ r1 ~~ r0
+                         , testCase "r0 → r1" $ r1 ≟ r0 ~~ r1
+
+                         , testCase "r2 → r0" $ [reldir|p/|] ≟ r2 ~~ r0
+                         , testCase "r0 → r2" $ r2 ≟ r0 ~~ r2
+
+                         , testCase "r1 → r3" $ [reldir|p/q/r/r/|] ≟ r1 ~~ r3
+                         , testCase "r3 → r1" $ [reldir|r/r/|] ≟ r3 ~~ r1
+
+                         , testCase "r0 → r3" $ r3 ≟ r0 ~~ r3
+                         , testCase "r3 → r0" $ r1 ≟ r3 ~~ r0
+
+                         , testCase "r2 → r1" $ r2 ≟ r2 ~~ r1
+                         , testCase "r1 → r2" $ [reldir|r/p/r/|] ≟ r1 ~~ r2
+
+                         , testCase "r2 → r0 (Nothing)" $
+                              [reldir|p/|] ≟ (r2 & parentMay ⊢ Nothing)
+                         ]
+
+relDirParentMayAdjusterTests ∷ TestTree
+relDirParentMayAdjusterTests =
+  -- reverse the directories in the parent seq
+  testGroup "adjuster" [ testCase "r3 reverse" $ 
+                           let reverseP = fmap (& seq ⊧ Seq.reverse)
+                            in [reldir|q/p/r/|] ≟ (r3 & parentMay ⊧ reverseP)
+
+                       ]
+
+relDirParentMayTests ∷ TestTree
+relDirParentMayTests = testGroup "parentMay"
+                                 [ relDirParentMayGetterTests
+                                 , relDirParentMaySetterTests
+                                 , relDirParentMayAdjusterTests
+                                 ]
+
+relDirFilepathTests ∷ TestTree
+relDirFilepathTests =
+  let nothin' = Nothing ∷ Maybe RelDir
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+   in testGroup "filepath"
+            [ testCase "r0" $ "./"     ≟ r0 ## filepath
+            , testCase "r1" $ "r/"     ≟ r1 ## filepath
+            , testCase "r2" $ "r/p/"   ≟ r2 ## filepath
+            , testCase "r3" $ "p/q/r/" ≟ r3 ## filepath
+
+            , testCase "r0" $ Just r0 ≟ "./"     ⩼ filepath
+            , testCase "r1" $ Just r1 ≟ "r/"     ⩼ filepath
+            , testCase "r2" $ Just r2 ≟ "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just r3 ≟ "p/q/r/" ⩼ filepath
+
+            , fail "/etc"
+            , fail "/etc"
+            , fail "etc"
+            , fail "/etc/pam.d"
+            , fail "etc/pam.d"
+            , fail "/etc//pam.d/"
+            , fail "e/c"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
+            ]
+
 relDirConstructionTests ∷ TestTree
-relDirConstructionTests = testGroup "construction" [ relDirParseRelDirTests
-                                                   , relDirQuasiQuotesTests ]
+relDirConstructionTests = testGroup "construction" [ parseRelDirTests
+                                                   , reldirQQTests ]
+
+relDirTextualGroupTests ∷ TestTree
+relDirTextualGroupTests =
+  testGroup "textual group" [ relDirTextualTests, relDirTextualPrintableTests
+                            , relDirPrintableTests ]
+
 tests ∷ TestTree
 tests =
-  testGroup "RelDir" [ relDirConstructionTests
+  testGroup "RelDir" [ relDirConstructionTests, relDirShowTests
+                     , relDirTextualGroupTests
                      , relDirIsListTests
                      , relDirIsMonoSeqTests
-                     , relDirShowTests, relDirPrintableTests
+                     , relDirParentMayTests
+                     , relDirFilepathTests
                      ]
 
 ----------------------------------------

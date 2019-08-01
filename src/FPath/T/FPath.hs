@@ -27,7 +27,7 @@ import qualified  FPath.T.FPath.NonRootAbsDir
 import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
 
-import FPath.T.Common       ( doTest, doTestR, doTestS )
+import FPath.T.Common  ( doTest, doTestR, doTestS )
 
 --------------------------------------------------------------------------------
 

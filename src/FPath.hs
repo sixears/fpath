@@ -142,7 +142,7 @@ import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⋫) )
+import Data.MoreUnicode.Applicative  ( (⋫), (∤), (⋪) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊣) )
 import Data.MoreUnicode.Monoid       ( ф )
@@ -159,7 +159,7 @@ import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 import NonEmptyContainers.SeqConversions
                                  ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
                                  , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫)
+import NonEmptyContainers.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), pattern (:⪭), (⪪), (⪫)
                                  , fromNEList, onEmpty' )
 import NonEmptyContainers.SeqNEConversions
                                  ( FromMonoSeqNonEmpty( fromSeqNE )
@@ -168,13 +168,12 @@ import NonEmptyContainers.SeqNEConversions
 
 -- parsers -----------------------------
 
-import Text.Parser.Char         ( char )
+import Text.Parser.Char         ( char, string )
 import Text.Parser.Combinators  ( endBy, endByNonEmpty )
 
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
-import Test.QuickCheck.Gen        ( Gen )
 
 -- text --------------------------------
 
@@ -381,7 +380,7 @@ instance IsList RelDir where
 pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
        (String → String) → α → ρ
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
-            
+
 instance Printable AbsDir where
   print = pDir ("/" ⊕)
 
@@ -393,7 +392,20 @@ instance Printable RelDir where
 --  print (RelDir ps) = traceShow ("print (2)", ps) $ pDir id ps
   print (RelDir ps) | ps ≡ ф = "./"
                     | otherwise = pDir id ps
-  
+
+----------------------------------------
+--             AsFilePath             --
+----------------------------------------
+
+class AsFilePath α where
+  filepath ∷ Prism' FilePath α
+
+instance AsFilePath AbsDir where
+  filepath = prism' toString fromString
+
+instance AsFilePath RelDir where
+  filepath = prism' toString fromString
+
 ----------------------------------------
 --              Textual               --
 ----------------------------------------
@@ -405,31 +417,36 @@ instance Textual NonRootAbsDir where
   textual =
     fromSeqNE ∘ fromNEList ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
 
--- Textual for RelDir
--- instance Textual RelDir where
---   textual = fromList ⊳ (endBy textual (char '/'))
+instance Textual RelDir where
+  textual = return (fromList []) ⋪ (string "./")
+          ∤ fromList ⊳ (endBy textual (char '/'))
 
 ----------------------------------------
 --              Arbitrary             --
 ----------------------------------------
 
 instance Arbitrary AbsDir where
-  arbitrary = fromSeq ⊳ (arbitrary ∷ Gen (Seq PathComponent))
-  shrink = fromSeq ⩺ shrink ∘ toSeq 
+  arbitrary = fromSeq ⊳ arbitrary
+  shrink = fromSeq ⩺ shrink ∘ toSeq
 
 instance Arbitrary NonRootAbsDir where
-  arbitrary = fromSeqNE ⊳ (arbitrary ∷ Gen (SeqNE PathComponent))
+  arbitrary = fromSeqNE ⊳ arbitrary
   shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
+
+instance Arbitrary RelDir where
+  arbitrary = fromSeq ⊳ arbitrary
+  shrink = fromSeq ⩺ shrink ∘ toSeq
 
 ----------------------------------------
 --            HasAbsOrRel             --
 ----------------------------------------
 
--- data Rel = Rel
+data Rel = Rel
 data Abs = Abs
 
 type family DirType α where
   DirType Abs = AbsDir
+  DirType Rel = RelDir
 
 class HasAbsOrRel α where
   type AbsOrRel α
@@ -439,6 +456,9 @@ instance HasAbsOrRel AbsDir where
 
 instance HasAbsOrRel NonRootAbsDir where
   type AbsOrRel NonRootAbsDir = Abs
+
+instance HasAbsOrRel RelDir where
+  type AbsOrRel RelDir = Rel
 
 ----------------------------------------
 --             HasParent              --
@@ -474,17 +494,20 @@ instance HasMaybeParent AbsDir where
 
      in lens getParent setParent
 
-----------------------------------------
---             AsFilePath             --
-----------------------------------------
-
-class AsFilePath α where
-  filepath ∷ Prism' FilePath α
-
-instance AsFilePath AbsDir where
-  filepath = prism' toString fromString
-
-
+instance HasMaybeParent RelDir where
+  parentMay = lens getParentMay setParentMay
+              where getParentMay ∷ RelDir → Maybe RelDir
+                    getParentMay (RelDir (p :⪭ _)) = Just $ RelDir p
+                    getParentMay (RelDir _)        =  Nothing
+                    setParentMay  ∷ RelDir → Maybe RelDir → RelDir
+                    setParentMay orig par =
+                      case orig of
+                        RelDir (_ :⪭ d) → case par of
+                                            Just (RelDir p) → RelDir $ p ⪫ d
+                                            Nothing         → RelDir $ pure d
+                        RelDir _ → case par of
+                                            Just r → r
+                                            Nothing → RelDir Seq.Empty
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
@@ -560,12 +583,12 @@ parseRelDir (toText → t) =
                                eCompE ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
                                         Either FPathComponentError α → η'' α
                                eCompE = either mkCompE return
-                         
+
                            p  ← eCompE $ parsePathC x
                            ps ← eCompE $ mapM parsePathC xs
                            return $ RelDir (p <| Seq.fromList ps)
     _                 → __FPathNotADirE__ reldirT t
-      
+
 
 parseRelDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
 parseRelDir' = parseRelDir
