@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -21,8 +22,9 @@ module FPath
   , nonRootAbsDir
 
   , parent, parentMay
-  , parseAbsDir, parseAbsDir', __parseAbsDir__, __parseAbsDir'__
-  , parseRelDir, parseRelDir'
+  , parseAbsDir , parseAbsDir' , __parseAbsDir__ , __parseAbsDir'__
+  , parseAbsDirN, parseAbsDirN', __parseAbsDirN__, __parseAbsDirN'__
+  , parseRelDir , parseRelDir' , __parseRelDir__ , __parseRelDir'__
   , seq, seqNE
 
   , root
@@ -63,7 +65,7 @@ module FPath
   )
 where
 
-import Prelude  ( error )
+import Prelude  ( error, undefined )
 
 -- base --------------------------------
 
@@ -145,6 +147,7 @@ import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
 import Data.MoreUnicode.Applicative  ( (⋫), (∤), (⋪) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊣) )
+import Data.MoreUnicode.Monad        ( (≫) )
 import Data.MoreUnicode.Monoid       ( ф )
 
 -- mtl ---------------------------------
@@ -156,15 +159,20 @@ import Control.Monad.Except  ( MonadError )
 import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
 import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 
+import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
+                                      , IsNonEmpty( nonEmpty )
+                                      , ToNonEmpty( toNonEmpty )
+                                      , defaultNonEmpty
+                                      )
 import NonEmptyContainers.SeqConversions
-                                 ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
-                                 , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE  ( SeqNE( (:⫸) ), pattern (:⪬), pattern (:⪭), (⪪), (⪫)
-                                 , fromNEList, onEmpty' )
+                                    ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
+                                    , ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪬), pattern (:⪭)
+                                    , (⪪), (⪫), onEmpty' )
 import NonEmptyContainers.SeqNEConversions
-                                 ( FromMonoSeqNonEmpty( fromSeqNE )
-                                 , IsMonoSeqNonEmpty( seqNE )
-                                 , ToMonoSeqNonEmpty( toSeqNE, toSeq_ ) )
+                                    ( FromMonoSeqNonEmpty( fromSeqNE )
+                                    , IsMonoSeqNonEmpty( seqNE )
+                                    , ToMonoSeqNonEmpty( toSeqNE, toSeq_ ) )
 
 -- parsers -----------------------------
 
@@ -371,6 +379,27 @@ instance IsList RelDir where
   toList   = toList ∘ toSeq
 
 ----------------------------------------
+--            FromNonEmpty            --
+----------------------------------------
+
+instance FromNonEmpty NonRootAbsDir where
+  fromNonEmpty = fromSeqNE ∘ fromNonEmpty
+
+----------------------------------------
+--             ToNonEmpty             --
+----------------------------------------
+
+instance ToNonEmpty NonRootAbsDir where
+  toNonEmpty   = toNonEmpty ∘ toSeqNE
+
+----------------------------------------
+--             IsNonEmpty             --
+----------------------------------------
+
+instance IsNonEmpty NonRootAbsDir where
+  nonEmpty = defaultNonEmpty
+
+----------------------------------------
 --             Printable              --
 ----------------------------------------
 
@@ -415,7 +444,7 @@ instance Textual AbsDir where
 
 instance Textual NonRootAbsDir where
   textual =
-    fromSeqNE ∘ fromNEList ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
+    fromSeqNE ∘ fromNonEmpty ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
 
 instance Textual RelDir where
   textual = return (fromList []) ⋪ (string "./")
@@ -550,11 +579,25 @@ __parseAbsDir__ = either __ERROR'__ id ∘ parseAbsDir'
 __parseAbsDir'__ ∷ String → AbsDir
 __parseAbsDir'__ = __parseAbsDir__
 
+parseAbsDirN ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒
+               τ → η NonRootAbsDir
+parseAbsDirN t = do
+--  d ← parseAbsDir t
+  parseAbsDir t ≫ \ case
+    AbsRootDir → __FPathAbsE__ nrabsdirT (toText t)
+    AbsNonRootDir d' → return d'
+
+parseAbsDirN' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η NonRootAbsDir
+parseAbsDirN' = parseAbsDirN
+
 __parseAbsDirN__ ∷ String → NonRootAbsDir
 __parseAbsDirN__ s = case parseAbsDir' s of
                        Left e → __ERROR'__ e
                        Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
                        Right (AbsNonRootDir nr) → nr
+
+__parseAbsDirN'__ ∷ String → NonRootAbsDir
+__parseAbsDirN'__ = __parseAbsDirN__
 
 {- | quasi-quoter for AbsDir -}
 absdir ∷ QuasiQuoter

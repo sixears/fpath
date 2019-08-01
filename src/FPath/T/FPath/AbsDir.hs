@@ -23,7 +23,7 @@ import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Monoid.Unicode    ( (⊕) )
+import Data.Monoid.Unicode  ( (⊕) )
 
 -- containers --------------------------
 

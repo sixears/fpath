@@ -5,9 +5,8 @@
 {-# LANGUAGE ViewPatterns    #-}
 
 module NonEmptyContainers.SeqNE
-  ( FromNEList( fromNEList )
-    {-| A non-empty finite sequence of homogenous things -}
-  , SeqNE( SeqNE, (:|>), (:<|), (:<||), (:||>), (:⫸), (:⫷), unSeqNE )
+  ( {-| A non-empty finite sequence of homogenous things -}
+    SeqNE( SeqNE, (:|>), (:<|), (:<||), (:||>), (:⫸), (:⫷), unSeqNE )
   , Seqish( (<*|), (|*>) ), (<||), (||>), pattern (:⪬), pattern (:⪭), (⪬)
   , (⪭), (⪪), (⪫), (⫷), (⫸), (⋖), (⋗)
   , cons, snoc, toSeq, uncons, unsnoc
@@ -19,14 +18,15 @@ import Prelude  ( error )
 
 -- base --------------------------------
 
+import qualified  Data.List.NonEmpty  as  NonEmpty
+
 import Control.Applicative  ( Applicative( (<*>), pure ) )
 import Data.Bool            ( Bool )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( Foldable( foldr )  )
+import Data.Foldable        ( Foldable( foldr ), toList )
 import Data.Function        ( ($), id )
 import Data.Functor         ( Functor( fmap ) )
 import Data.List            ( filter )
-import Data.List.NonEmpty   ( NonEmpty )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering, (>) )
 import Data.Traversable     ( Traversable, traverse )
@@ -46,9 +46,11 @@ import Data.Sequence  ( Seq, ViewR( EmptyR ), ViewL( EmptyL ), viewr )
 
 -- mono-traversable --------------------
 
+import qualified  Data.NonNull  
+
 import Data.MonoTraversable  ( Element, GrowingAppend, MonoFunctor, MonoFoldable
                              , MonoTraversable )
-import Data.NonNull          ( NonNull, fromNonEmpty
+import Data.NonNull          ( NonNull
                              , impureNonNull, ncons, nuncons, toNullable )
 import Data.Sequences        ( Index, SemiSequence( cons, find, intersperse
                                                   , reverse, snoc, sortBy ) )
@@ -62,12 +64,14 @@ import Data.MoreUnicode.Functor  ( (⊳) )
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 import Test.QuickCheck.Gen        ( suchThat )
 
---------------------------------------------------------------------------------
-
-class FromNEList α where
-  fromNEList ∷ NonEmpty (Element α) → α
-
 ------------------------------------------------------------
+--                     local imports                      --
+------------------------------------------------------------
+
+import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
+                                      , ToNonEmpty( toNonEmpty ) )
+
+--------------------------------------------------------------------------------
 
 {- | Non-Empty Sequence, newtyped from NonNull (Seq α) to allow for additional
      interfaces -}
@@ -151,8 +155,13 @@ instance SemiSequence (SeqNE α) where
 
 ----------------------------------------
 
-instance FromNEList (SeqNE α) where
-  fromNEList xs = SeqNE (fromNonEmpty xs)
+instance FromNonEmpty (SeqNE α) where
+  fromNonEmpty = SeqNE ∘ Data.NonNull.fromNonEmpty
+
+----------------------------------------
+
+instance ToNonEmpty (SeqNE α) where
+  toNonEmpty = NonEmpty.fromList ∘ toList ∘ toNullable ∘ unSeqNE
 
 ----------------------------------------
 
