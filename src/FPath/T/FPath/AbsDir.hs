@@ -156,15 +156,15 @@ absDirIsListTests =
   testGroup "IsList"
     [ testGroup "fromList"
                 [ testCase "root"  $ root ≟ fromList []
-                , testCase "etc"   $ etc ≟ fromList [ [pc|r|] ]
-                , testCase "pam.d" $ pamd ≟ fromList [ [pc|r|], [pc|p|] ]
-                , testCase "wgm"   $ wgm ≟ fromList [ [pc|p|], [pc|q|], [pc|r|] ]
+                , testCase "etc"   $ etc  ≟ fromList [ [pc|etc|] ]
+                , testCase "pam.d" $ pamd ≟ fromList [ [pc|etc|], [pc|pam.d|] ]
+                , testCase "wgm"   $ wgm  ≟ fromList [ [pc|w|],[pc|g|],[pc|M|] ]
                 ]
     , testGroup "toList"
                 [ testCase "root"  $ []                            ≟ toList root
-                , testCase "etc"   $ [ [pc|r|] ]                   ≟ toList etc
-                , testCase "pam.d" $ [ [pc|r|], [pc|p|] ]          ≟ toList pamd
-                , testCase "wgm"   $ [ [pc|p|], [pc|q|], [pc|r|] ] ≟ toList wgm
+                , testCase "etc"   $ [ [pc|etc|] ]                 ≟ toList etc
+                , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ]    ≟ toList pamd
+                , testCase "wgm"   $ [ [pc|w|], [pc|g|], [pc|M|] ] ≟ toList wgm
                 ]
     ]
 
