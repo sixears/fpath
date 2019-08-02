@@ -30,6 +30,10 @@ import Data.Monoid.Unicode  ( (⊕) )
 
 import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
 
+-- lens --------------------------------
+
+import Control.Lens.Getter  ( view )
+
 -- mono-traversable --------------------
 
 import Data.MonoTraversable  ( omap )
@@ -38,7 +42,8 @@ import Data.Sequences        ( reverse )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Function        ( (⅋) )
-import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧) )
+import Data.MoreUnicode.Functor         ( (⊳) )
+import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼) )
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup       ( (◇) )
 import Data.MoreUnicode.Tasty           ( (≟) )
@@ -72,8 +77,8 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( AbsDir, NonRootAbsDir
-                               , absdirN, parseAbsDirN', seqNE )
+import FPath                   ( AbsDir, NonRootAbsDir, absdirN, nonRootAbsDir
+                               , parent, parentMay, parseAbsDirN', seqNE )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
                                            , FPathNonAbsE , FPathNotADirE )
@@ -140,8 +145,8 @@ absDirNShowTests =
                 , testCase "pam.d" $ pamdNShow ≟ show pamdN
                 ]
 
-absDirNSeqGetTests ∷ TestTree
-absDirNSeqGetTests =
+absDirNIsMonoSeqNEGetterTests ∷ TestTree
+absDirNIsMonoSeqNEGetterTests =
   let infix 4 ??
       (??) ∷ SeqNE PathComponent → NonRootAbsDir → Assertion
       e ?? g = e ≟ g ⊣ seqNE
@@ -150,17 +155,8 @@ absDirNSeqGetTests =
                         , testCase "wgM" $ [pc|w|] ⋖ [[pc|g|],[pc|M|]] ?? wgmN
                         ]
 
-absDirNMonoFunctorTests ∷ TestTree
-absDirNMonoFunctorTests =
-  testGroup "MonoFunctor"
-            [ testCase "usr" $
-                    [absdirN|/usr/|] ≟ omap (const [pc|usr|]) etcN
-            , testCase "wgm.d" $ [absdirN|/w.d/g.d/M.d/|] ≟ (◇ [pc|.d|]) ⪧ wgmN
-            , testCase "WGM" $ [absdirN|/W/G/M/|] ≟  wgmN ⪦ toUpper
-            ]
-
-absDirNSeqSetTests ∷ TestTree
-absDirNSeqSetTests =
+absDirNIsMonoSeqNESetterTests ∷ TestTree
+absDirNIsMonoSeqNESetterTests =
   testGroup "seqNE" [ testCase "usr" $
                             [absdirN|/usr/|] ≟ etcN ⅋ seqNE ⊢ pure [pc|usr|]
                     , testCase "dpam" $
@@ -173,10 +169,19 @@ absDirNSeqSetTests =
                             [absdirN|/W/G/M/|] ≟ wgmN ⅋ seqNE ⊧ fmap toUpper
                         ]
 
-absDirNSeqTests ∷ TestTree
-absDirNSeqTests =
-  testGroup "absDirNSeqTests" [ absDirNSeqGetTests, absDirNSeqSetTests
-                              , absDirNMonoFunctorTests ]
+absDirNMonoFunctorTests ∷ TestTree
+absDirNMonoFunctorTests =
+  testGroup "MonoFunctor"
+            [ testCase "usr" $
+                    [absdirN|/usr/|] ≟ omap (const [pc|usr|]) etcN
+            , testCase "wgm.d" $ [absdirN|/w.d/g.d/M.d/|] ≟ (◇ [pc|.d|]) ⪧ wgmN
+            , testCase "WGM" $ [absdirN|/W/G/M/|] ≟  wgmN ⪦ toUpper
+            ]
+
+absDirNIsMonoSeqNETests ∷ TestTree
+absDirNIsMonoSeqNETests =
+  testGroup "absDirNIsMonoSeqNETests" [ absDirNIsMonoSeqNEGetterTests
+                                      , absDirNIsMonoSeqNESetterTests ]
 
 absDirNPrintableTests ∷ TestTree
 absDirNPrintableTests =
@@ -239,9 +244,61 @@ absDirNIsNonEmptyTests =
                 [ testCase "wgm"   $
                     [pc|w|] :| [ [pc|g|], [pc|M|] ] ≟ wgmN ⊣ nonEmpty
                 , testCase "wgm"   $
-                    wgmN ≟ (etcN & nonEmpty ⊢ [pc|w|] :| [[pc|g|],[pc|M|]])
+                    wgmN ≟ etcN ⅋ nonEmpty ⊢ [pc|w|] :| [[pc|g|],[pc|M|]]
                 ]
     ]
+
+
+absDirNParentMayTests ∷ TestTree
+absDirNParentMayTests =
+  let d ~~ d' = d & parentMay ⊩ d'
+   in testGroup "parentMay"
+                [ {- testCase "root"   $ Nothing   ≟ root  ⊣ parentMay
+                , testCase "etc"    $ Just root ≟ etcN   ⊣ parentMay
+                , testCase "pamd"  $ Just etcN  ≟ pamdN ⊣ parentMay
+
+                , testCase "etc → root" $ etcN ≟ etcN ~~ root
+                , testCase "root → etc" $ etcN ≟ root ~~ etcN
+
+                , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
+                , testCase "root → pamd" $ pamdN ≟ root ~~ pamdN
+
+                , testCase "etc → wgm" $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgmN
+                , testCase "wgm → etc" $ [absdirN|/etc/M/|] ≟ wgmN ~~ etcN
+
+                , testCase "root → wgm" $ wgmN ≟ root ~~ wgmN
+                , testCase "wgm → root" $ [absdirN|/M/|] ≟ wgmN ~~ root
+
+                , testCase "pamd → etc" $ pamdN ≟ pamdN ~~ etcN
+                , testCase "etc → pamd" $
+                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamdN
+
+                , testCase "pamd → Nothing" $
+                      [absdirN|/pam.d/|]  ≟ pamdN ⅋ parentMay ⊢ Nothing
+-}
+                ]
+
+absDirNParentTests ∷ TestTree
+absDirNParentTests =
+  let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
+      d ~~ d' = d & parent ⊢ d'
+   in testGroup "parent"
+                [ {- testCase "root"        $ Nothing   ≟ par root
+                , testCase "etc"         $ Just root ≟ par etcN
+                , testCase "pamd"        $ Just etcN  ≟ par pamdN
+
+                , testCase "etc → root"  $ etcN  ≟ etcN ~~ root
+
+                , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
+
+                , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgmN
+                , testCase "wgm → etc"   $ [absdirN|/etc/M/|] ≟ wgmN ~~ etcN
+
+                , testCase "wgm → root"  $ [absdirN|/M/|] ≟ wgmN ~~ root
+                , testCase "pamd → etc"  $ pamdN ≟ pamdN ~~ etcN
+                , testCase "etc → pamd"  $
+                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamdN -}
+                ]
 
 absDirNConstructionTests ∷ TestTree
 absDirNConstructionTests = testGroup "construction" [ parseAbsDirNTests
@@ -252,14 +309,19 @@ absDirNTextualGroupTests =
   testGroup "textual group" [ absDirNTextualTests, absDirNTextualPrintableTests
                             , absDirNPrintableTests ]
 
+absDirNParentGroupTests ∷ TestTree
+absDirNParentGroupTests =
+  testGroup "parent group" [ absDirNParentTests, absDirNParentMayTests ]
+
 tests ∷ TestTree
 tests =
   testGroup "NonRootAbsDir" [ absDirNConstructionTests
                             , absDirNShowTests
                             , absDirNTextualGroupTests
                             , absDirNIsNonEmptyTests
+                            , absDirNIsMonoSeqNETests
 
-                            , absDirNSeqTests
+                            , absDirNMonoFunctorTests
                             ]
 
 ----------------------------------------
