@@ -418,8 +418,6 @@ instance Printable NonRootAbsDir where
   print = pDir ("/" ⊕)
 
 instance Printable RelDir where
---  print (RelDir ф) = traceShow ("print (1)") $ P.string "./"
---  print (RelDir ps) = traceShow ("print (2)", ps) $ pDir id ps
   print (RelDir ps) | ps ≡ ф = "./"
                     | otherwise = pDir id ps
 
@@ -431,6 +429,9 @@ class AsFilePath α where
   filepath ∷ Prism' FilePath α
 
 instance AsFilePath AbsDir where
+  filepath = prism' toString fromString
+
+instance AsFilePath NonRootAbsDir where
   filepath = prism' toString fromString
 
 instance AsFilePath RelDir where

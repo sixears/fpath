@@ -38,7 +38,7 @@ import Data.Sequences        ( reverse )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Function        ( (⅋) )
-import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩) )
+import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼), (##) )
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup       ( (◇) )
 import Data.MoreUnicode.Tasty           ( (≟) )
@@ -73,7 +73,7 @@ import Data.Text  ( Text )
 ------------------------------------------------------------
 
 import FPath                   ( AbsDir, NonRootAbsDir
-                               , absdirN, getParentMay, getParent
+                               , absdirN, filepath, getParentMay, getParent
                                , parent, parentMay, parseAbsDirN', seqNE
                                , setParentMay, setParent
                                )
@@ -290,6 +290,30 @@ absDirNParentTests =
                       [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamd
                 ]
 
+----------------------------------------
+
+absDirNFilepathTests ∷ TestTree
+absDirNFilepathTests =
+  let nothin' = Nothing ∷ Maybe NonRootAbsDir
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+   in testGroup "filepath"
+            [ testCase "etc"   $ "/etc/"       ≟ etcN     ## filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ pamdN    ## filepath
+            , testCase "wgm"   $ "/w/g/M/"     ≟ wgmN     ## filepath
+            , testCase "/etc/" $ Just etcN     ≟ "/etc/" ⩼ filepath
+            , fail "/etc"
+            , fail "/etc/pam.d"
+            , fail "etc/"
+            , fail "etc/pam.d"
+            , fail "/etc//pam.d/"
+            , fail "e/c"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
+            ]
+
+----------------------------------------
+
 absDirNConstructionTests ∷ TestTree
 absDirNConstructionTests = testGroup "construction" [ parseAbsDirNTests
                                                           , absdirNQQTests ]
@@ -311,6 +335,7 @@ tests =
                             , absDirNIsNonEmptyTests
                             , absDirNIsMonoSeqNETests
                             , absDirNParentGroupTests
+                            , absDirNFilepathTests
 
                             , absDirNMonoFunctorTests
                             ]
