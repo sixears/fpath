@@ -15,14 +15,10 @@ import Data.List.NonEmpty  ( NonEmpty )
 -- lens --------------------------------
 
 import Control.Lens.Iso   ( Iso', iso )
-import Control.Lens.Lens  ( Lens' )
 
 -- mono-traversable --------------------
 
 import Data.MonoTraversable  ( Element )
-
-import qualified Data.NonNull
-import qualified Data.Sequences
 
 ------------------------------------------------------------
 --                     local imports                      --

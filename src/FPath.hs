@@ -21,7 +21,8 @@ module FPath
 
   , nonRootAbsDir
 
-  , parent, parentMay
+  , getParent, parent, setParent
+  , getParentMay, parentMay, setParentMay
   , parseAbsDir , parseAbsDir' , __parseAbsDir__ , __parseAbsDir'__
   , parseAbsDirN, parseAbsDirN', __parseAbsDirN__, __parseAbsDirN'__
   , parseRelDir , parseRelDir' , __parseRelDir__ , __parseRelDir'__
@@ -65,7 +66,7 @@ module FPath
   )
 where
 
-import Prelude  ( error, undefined )
+import Prelude  ( error )
 
 -- base --------------------------------
 
@@ -494,49 +495,58 @@ instance HasAbsOrRel RelDir where
 ----------------------------------------
 
 class HasAbsOrRel α ⇒ HasParent α where
+  getParent ∷ α → DirType (AbsOrRel α)
+  setParent ∷ α → DirType (AbsOrRel α) → α
   parent ∷ Lens' α (DirType (AbsOrRel α))
+  parent = lens getParent setParent
 
 instance HasParent NonRootAbsDir where
-  parent = lens (\ (NonRootAbsDir _ d) → d)
-                (\ (NonRootAbsDir p _) d → NonRootAbsDir p d)
+  getParent (NonRootAbsDir _ d) = d
+  setParent (NonRootAbsDir p _) d = NonRootAbsDir p d
 
 ----------------------------------------
 --           HasMaybeParent           --
 ----------------------------------------
 
 class HasAbsOrRel α ⇒ HasMaybeParent α where
+  getParentMay ∷ α → Maybe (DirType (AbsOrRel α))
+  setParentMay ∷ α → Maybe (DirType (AbsOrRel α)) → α
   parentMay ∷ Lens' α (Maybe (DirType (AbsOrRel α)))
+  parentMay = lens getParentMay setParentMay
 
 instance HasMaybeParent AbsDir where
-  parentMay =
-    let getParent ∷ AbsDir → Maybe AbsDir
-        getParent AbsRootDir                          = Nothing
-        getParent (AbsNonRootDir (NonRootAbsDir _ d)) = Just d
+  getParentMay AbsRootDir                          = Nothing
+  getParentMay (AbsNonRootDir (NonRootAbsDir _ d)) = Just d
 
-        setParent ∷ AbsDir → Maybe AbsDir → AbsDir
-        setParent AbsRootDir (Just d) = d
-        setParent AbsRootDir Nothing  = AbsRootDir
-        setParent (AbsNonRootDir (NonRootAbsDir p _)) (Just d) =
-          AbsNonRootDir (NonRootAbsDir p d)
-        setParent (AbsNonRootDir (NonRootAbsDir p _)) Nothing =
-          AbsNonRootDir (NonRootAbsDir p AbsRootDir)
+  setParentMay AbsRootDir (Just d) = d
+  setParentMay AbsRootDir Nothing  = AbsRootDir
+  setParentMay (AbsNonRootDir (NonRootAbsDir p _)) (Just d) =
+    AbsNonRootDir (NonRootAbsDir p d)
+  setParentMay (AbsNonRootDir (NonRootAbsDir p _)) Nothing =
+    AbsNonRootDir (NonRootAbsDir p AbsRootDir)
 
-     in lens getParent setParent
+instance HasMaybeParent NonRootAbsDir where
+  getParentMay ∷ NonRootAbsDir → Maybe AbsDir
+  getParentMay (NonRootAbsDir _ d) = Just d
+
+  setParentMay ∷ NonRootAbsDir → Maybe AbsDir → NonRootAbsDir
+  setParentMay (NonRootAbsDir p _) (Just d) = NonRootAbsDir p d
+  setParentMay (NonRootAbsDir p _) Nothing  = NonRootAbsDir p AbsRootDir
 
 instance HasMaybeParent RelDir where
-  parentMay = lens getParentMay setParentMay
-              where getParentMay ∷ RelDir → Maybe RelDir
-                    getParentMay (RelDir (p :⪭ _)) = Just $ RelDir p
-                    getParentMay (RelDir _)        =  Nothing
-                    setParentMay  ∷ RelDir → Maybe RelDir → RelDir
-                    setParentMay orig par =
-                      case orig of
-                        RelDir (_ :⪭ d) → case par of
-                                            Just (RelDir p) → RelDir $ p ⪫ d
-                                            Nothing         → RelDir $ pure d
-                        RelDir _ → case par of
-                                            Just r → r
-                                            Nothing → RelDir Seq.Empty
+  getParentMay ∷ RelDir → Maybe RelDir
+  getParentMay (RelDir (p :⪭ _)) = Just $ RelDir p
+  getParentMay (RelDir _)        =  Nothing
+
+  setParentMay ∷ RelDir → Maybe RelDir → RelDir
+  setParentMay orig par =
+    case orig of
+      RelDir (_ :⪭ d) → case par of
+                          Just (RelDir p) → RelDir $ p ⪫ d
+                          Nothing         → RelDir $ pure d
+      RelDir _ → case par of
+                          Just r → r
+                          Nothing → RelDir Seq.Empty
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

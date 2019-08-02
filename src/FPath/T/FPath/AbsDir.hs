@@ -71,9 +71,8 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( AbsDir, absdir, absdirN, filepath
-                               , nonRootAbsDir, parent, parentMay, parseAbsDir'
-                               , seq )
+import FPath                   ( AbsDir, absdir, filepath, nonRootAbsDir, parent
+                               , parentMay, parseAbsDir', seq )
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
                                            , FPathNonAbsE , FPathNotADirE )
                                )
@@ -87,7 +86,7 @@ import FPath.PathComponent     ( pc )
 import FPath.T.Common          ( doTest, doTestR, doTestS
                                , propInvertibleString, propInvertibleText
                                , propInvertibleUtf8 )
-import FPath.T.FPath.TestData  ( etc, etcN, pamd, pamdN, root, wgm, wgmN )
+import FPath.T.FPath.TestData  ( etc, pamd, root, wgm )
 
 --------------------------------------------------------------------------------
 
@@ -228,23 +227,10 @@ absDirParentMayTests =
 absDirParentTests ∷ TestTree
 absDirParentTests =
   let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
-      d ~~ d' = d & parent ⊢ d'
    in testGroup "parent"
                 [ testCase "root"        $ Nothing   ≟ par root
                 , testCase "etc"         $ Just root ≟ par etc
                 , testCase "pamd"        $ Just etc  ≟ par pamd
-
-                , testCase "etc → root"  $ etcN  ≟ etcN ~~ root
-
-                , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
-
-                , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm
-                , testCase "wgm → etc"   $ [absdirN|/etc/M/|] ≟ wgmN ~~ etc
-
-                , testCase "wgm → root"  $ [absdirN|/M/|] ≟ wgmN ~~ root
-                , testCase "pamd → etc"  $ pamdN ≟ pamdN ~~ etc
-                , testCase "etc → pamd"  $
-                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamd
                 ]
 
 absDirTextualTests ∷ TestTree

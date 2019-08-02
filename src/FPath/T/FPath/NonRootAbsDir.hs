@@ -14,7 +14,7 @@ import Control.Applicative  ( pure )
 import Data.Either          ( Either( Left, Right ) )
 import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
-import Data.Maybe           ( Maybe( Nothing ) )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
@@ -30,10 +30,6 @@ import Data.Monoid.Unicode  ( (⊕) )
 
 import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
 
--- lens --------------------------------
-
-import Control.Lens.Getter  ( view )
-
 -- mono-traversable --------------------
 
 import Data.MonoTraversable  ( omap )
@@ -42,8 +38,7 @@ import Data.Sequences        ( reverse )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Function        ( (⅋) )
-import Data.MoreUnicode.Functor         ( (⊳) )
-import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼) )
+import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩) )
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup       ( (◇) )
 import Data.MoreUnicode.Tasty           ( (≟) )
@@ -77,14 +72,14 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( AbsDir, NonRootAbsDir, absdirN, nonRootAbsDir
-                               , parent, parentMay, parseAbsDirN', seqNE )
+import FPath                   ( AbsDir, NonRootAbsDir
+                               , absdirN, getParentMay, getParent
+                               , parent, parentMay, parseAbsDirN', seqNE
+                               , setParentMay, setParent
+                               )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
                                            , FPathNonAbsE , FPathNotADirE )
-                               , __FPathComponentE__, __FPathEmptyE__
-                               , __FPathAbsE__, __FPathNonAbsE__
-                               , __FPathNotADirE__
                                )
 import FPath.Error.FPathComponentError
                                ( FPathComponentError( FPathComponentEmptyE
@@ -95,7 +90,7 @@ import FPath.Error.FPathComponentError
 import FPath.T.Common          ( doTest, doTestR, doTestS
                                , propInvertibleString, propInvertibleText
                                , propInvertibleUtf8 )
-import FPath.T.FPath.TestData  ( etcN, pamdN, wgmN )
+import FPath.T.FPath.TestData  ( etc, etcN, pamd, pamdN, root, wgm, wgmN )
 
 --------------------------------------------------------------------------------
 
@@ -251,53 +246,48 @@ absDirNIsNonEmptyTests =
 
 absDirNParentMayTests ∷ TestTree
 absDirNParentMayTests =
-  let d ~~ d' = d & parentMay ⊩ d'
+  let -- set parent of d to d'
+      d ~~ d' = d & parentMay ⊩ d'
    in testGroup "parentMay"
-                [ {- testCase "root"   $ Nothing   ≟ root  ⊣ parentMay
-                , testCase "etc"    $ Just root ≟ etcN   ⊣ parentMay
-                , testCase "pamd"  $ Just etcN  ≟ pamdN ⊣ parentMay
+                [ testCase "etc → root"  $ Just root ≟ etcN   ⊣ parentMay
+                , testCase "pamd → etc"  $ Just etc  ≟ getParentMay pamdN
 
-                , testCase "etc → root" $ etcN ≟ etcN ~~ root
-                , testCase "root → etc" $ etcN ≟ root ~~ etcN
+                , testCase "etc → root"  $ etcN ≟ setParentMay etcN (Just root)
+                , testCase "etc → root"  $ etcN ≟ etcN ~~ root
 
                 , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
-                , testCase "root → pamd" $ pamdN ≟ root ~~ pamdN
 
-                , testCase "etc → wgm" $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgmN
-                , testCase "wgm → etc" $ [absdirN|/etc/M/|] ≟ wgmN ~~ etcN
+                , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm
+                , testCase "wgm → etc"   $ [absdirN|/etc/M/|] ≟ wgmN ~~ etc
 
-                , testCase "root → wgm" $ wgmN ≟ root ~~ wgmN
-                , testCase "wgm → root" $ [absdirN|/M/|] ≟ wgmN ~~ root
+                , testCase "wgm → root"  $ [absdirN|/M/|] ≟ wgmN ~~ root
 
-                , testCase "pamd → etc" $ pamdN ≟ pamdN ~~ etcN
-                , testCase "etc → pamd" $
-                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamdN
+                , testCase "pamd → etc"  $ pamdN ≟ pamdN ~~ etc
+                , testCase "etc → pamd"  $
+                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamd
 
                 , testCase "pamd → Nothing" $
                       [absdirN|/pam.d/|]  ≟ pamdN ⅋ parentMay ⊢ Nothing
--}
                 ]
 
 absDirNParentTests ∷ TestTree
 absDirNParentTests =
-  let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
-      d ~~ d' = d & parent ⊢ d'
+  let d ~~ d' = d & parent ⊢ d'
    in testGroup "parent"
-                [ {- testCase "root"        $ Nothing   ≟ par root
-                , testCase "etc"         $ Just root ≟ par etcN
-                , testCase "pamd"        $ Just etcN  ≟ par pamdN
-
-                , testCase "etc → root"  $ etcN  ≟ etcN ~~ root
-
+                [ testCase "etc → root"  $ root ≟ etcN ⊣ parent
+                , testCase "etc → root"  $ root ≟ getParent etcN
+                , testCase "etc"         $ root ≟ etcN ⊣ parent
+                , testCase "pamd"        $ etc  ≟ pamdN ⊣ parent
+                , testCase "etc → root"  $ etcN ≟ setParent etcN root
+                , testCase "etc → root"  $ etcN ≟ etcN ~~ root
                 , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
-
-                , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgmN
-                , testCase "wgm → etc"   $ [absdirN|/etc/M/|] ≟ wgmN ~~ etcN
+                , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm
+                , testCase "wgm → etc"   $ [absdirN|/etc/M/|] ≟ wgmN ~~ etc
 
                 , testCase "wgm → root"  $ [absdirN|/M/|] ≟ wgmN ~~ root
-                , testCase "pamd → etc"  $ pamdN ≟ pamdN ~~ etcN
+                , testCase "pamd → etc"  $ pamdN ≟ pamdN ~~ etc
                 , testCase "etc → pamd"  $
-                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamdN -}
+                      [absdirN|/etc/pam.d/etc/|] ≟ etcN ~~ pamd
                 ]
 
 absDirNConstructionTests ∷ TestTree
@@ -320,6 +310,7 @@ tests =
                             , absDirNTextualGroupTests
                             , absDirNIsNonEmptyTests
                             , absDirNIsMonoSeqNETests
+                            , absDirNParentGroupTests
 
                             , absDirNMonoFunctorTests
                             ]
