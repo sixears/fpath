@@ -11,7 +11,7 @@ where
 -- base --------------------------------
 
 import Data.Either      ( Either( Left, Right  ) )
-import Data.Function    ( ($), (&) )
+import Data.Function    ( ($), (&), const )
 import Data.Functor     ( fmap )
 import Data.Maybe       ( Maybe( Just, Nothing ) )
 import Data.String      ( String )
@@ -42,11 +42,17 @@ import NonEmptyContainers.SeqNE  ( (⪬) )
 
 import Control.Lens.Setter  ( (?~) )
 
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( omap )
+
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens    ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
-import Data.MoreUnicode.Monoid  ( ф )
-import Data.MoreUnicode.Tasty   ( (≟) )
+import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Monoid           ( ф )
+import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
+import Data.MoreUnicode.Semigroup        ( (◇) )
+import Data.MoreUnicode.Tasty            ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -82,7 +88,7 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalCharE
                                                     )
                                )
-import FPath.PathComponent     ( pc )
+import FPath.PathComponent     ( pc, toUpper )
 
 import FPath.T.Common          ( doTest, doTestR, doTestS, propInvertibleString
                                , propInvertibleText, propInvertibleUtf8 )
@@ -218,6 +224,17 @@ relDirTextualPrintableTests =
             , testProperty "parseUtf8 - toUtf8" (propInvertibleUtf8 @RelDir)
             ]
 
+relDirNMonoFunctorTests ∷ TestTree
+relDirNMonoFunctorTests =
+  testGroup "MonoFunctor"
+            [ testCase "r0 → r0" $
+                    [reldir|./|] ≟ omap (const [pc|usr|]) r0
+            , testCase "r1 → usr" $
+                    [reldir|usr/|] ≟ omap (const [pc|usr|]) r1
+            , testCase "r3.d" $ [reldir|p.d/q.d/r.d/|] ≟ (◇ [pc|.d|]) ⪧ r3
+            , testCase "r3 toUpper" $ [reldir|P/Q/R/|] ≟  r3 ⪦ toUpper
+            ]
+
 relDirIsMonoSeqTests ∷ TestTree
 relDirIsMonoSeqTests = testGroup "IsMonoSeq" [ relDirIsMonoSeqGetterTests
                                              , relDirIsMonoSeqSetterTests ]
@@ -311,6 +328,8 @@ tests =
                      , relDirIsMonoSeqTests
                      , relDirParentMayTests
                      , relDirFilepathTests
+
+                     , relDirNMonoFunctorTests
                      ]
 
 ----------------------------------------

@@ -78,6 +78,7 @@ import FPath                   ( AbsDir, NonRootAbsDir
                                , setParentMay, setParent
                                )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
+
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
                                            , FPathNonAbsE , FPathNotADirE )
                                )
@@ -336,7 +337,6 @@ tests =
                             , absDirNIsMonoSeqNETests
                             , absDirNParentGroupTests
                             , absDirNFilepathTests
-
                             , absDirNMonoFunctorTests
                             ]
 

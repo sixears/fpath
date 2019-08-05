@@ -12,7 +12,7 @@ where
 
 import Control.Applicative  ( pure )
 import Data.Either          ( Either( Left, Right  ) )
-import Data.Function        ( ($), (&) )
+import Data.Function        ( ($), (&), const )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
@@ -41,11 +41,17 @@ import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( from )
 import Control.Lens.Setter  ( (?~) )
 
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( omap )
+
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor         ( (⊳) )
-import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⩼), (##) )
-import Data.MoreUnicode.Tasty           ( (≟) )
+import Data.MoreUnicode.Functor          ( (⊳) )
+import Data.MoreUnicode.Lens             ( (⊣), (⊢), (⩼), (##) )
+import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
+import Data.MoreUnicode.Semigroup        ( (◇) )
+import Data.MoreUnicode.Tasty            ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -73,6 +79,8 @@ import Data.Text  ( Text )
 
 import FPath                   ( AbsDir, absdir, filepath, nonRootAbsDir, parent
                                , parentMay, parseAbsDir', seq )
+import FPath.PathComponent     ( pc, toUpper )
+
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
                                            , FPathNonAbsE , FPathNotADirE )
                                )
@@ -81,7 +89,6 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalCharE
                                                     )
                                )
-import FPath.PathComponent     ( pc )
 
 import FPath.T.Common          ( doTest, doTestR, doTestS
                                , propInvertibleString, propInvertibleText
@@ -190,6 +197,15 @@ absDirIsMonoSeqSetterTests =
                       wgm   ≟ (⊣ from seq)
                                    (Seq.fromList [[pc|w|],[pc|g|],[pc|M|]])
                 ]
+
+absDirMonoFunctorTests ∷ TestTree
+absDirMonoFunctorTests =
+  testGroup "MonoFunctor"
+            [ testCase "usr" $
+                    [absdir|/usr/|] ≟ omap (const [pc|usr|]) etc
+            , testCase "wgm.d" $ [absdir|/w.d/g.d/M.d/|] ≟ (◇ [pc|.d|]) ⪧ wgm
+            , testCase "WGM" $ [absdir|/W/G/M/|] ≟ wgm ⪦ toUpper
+            ]
 
 absDirIsMonoSeqTests ∷ TestTree
 absDirIsMonoSeqTests =
@@ -307,6 +323,7 @@ tests =
                      , absDirIsMonoSeqTests
                      , absDirParentGroupTests
                      , absDirFilepathTests
+                     , absDirMonoFunctorTests
                      ]
 
 ----------------------------------------

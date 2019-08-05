@@ -289,6 +289,10 @@ data RelFile = RelFile PathComponent (Maybe RelDir)
 
 -}
 
+instance MonoFunctor RelDir where
+  omap ∷ (PathComponent → PathComponent) → RelDir → RelDir
+  omap f (RelDir ps) = RelDir (omap f ps)
+
 ----------------------------------------
 --        FromMonoSeqNonEmpty         --
 ----------------------------------------
