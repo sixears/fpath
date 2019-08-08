@@ -71,8 +71,7 @@ import Prelude  ( error )
 -- base --------------------------------
 
 import Control.Applicative  ( pure )
-import Control.Monad        ( mapM, return )
-import Data.Bool            ( otherwise )
+import Control.Monad        ( return )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
 import Data.Foldable        ( concat )
@@ -83,7 +82,6 @@ import Data.String          ( String )
 -- import Data.Traversable     ( Traversable )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
-import System.IO            ( FilePath )
 import Text.Show            ( Show )
 
 {-
@@ -103,7 +101,6 @@ import System.IO      ( FilePath )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (∅), (⊕) )
 
@@ -111,7 +108,7 @@ import Data.Monoid.Unicode    ( (∅), (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
-import Data.Sequence  ( Seq( (:<|) ), (<|) )
+import Data.Sequence  ( Seq( (:<|) ) )
 
 -- data-textual ------------------------
 
@@ -145,11 +142,10 @@ import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⋫), (∤), (⋪) )
+import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊣) )
 import Data.MoreUnicode.Monad        ( (≫) )
-import Data.MoreUnicode.Monoid       ( ф )
 
 -- mtl ---------------------------------
 
@@ -158,7 +154,6 @@ import Control.Monad.Except  ( MonadError )
 -- non-empty-containers ----------------
 
 import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
-import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 
 import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
                                       , IsNonEmpty( nonEmpty )
@@ -168,8 +163,7 @@ import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
 import NonEmptyContainers.SeqConversions
                                     ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
                                     , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪬), pattern (:⪭)
-                                    , (⪪), (⪫), onEmpty' )
+import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), onEmpty' )
 import NonEmptyContainers.SeqNEConversions
                                     ( FromMonoSeqNonEmpty( fromSeqNE )
                                     , IsMonoSeqNonEmpty( seqNE )
@@ -177,7 +171,7 @@ import NonEmptyContainers.SeqNEConversions
 
 -- parsers -----------------------------
 
-import Text.Parser.Char         ( char, string )
+import Text.Parser.Char         ( char )
 import Text.Parser.Combinators  ( endBy, endByNonEmpty )
 
 -- QuickCheck --------------------------
@@ -186,7 +180,7 @@ import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, breakOnEnd, splitOn )
+import Data.Text  ( Text, breakOnEnd )
 
 -- text-printer ------------------------
 
@@ -221,14 +215,19 @@ import Fluffy.Text           ( last )
 ------------------------------------------------------------
 
 
-import FPath.Error.FPathComponentError
-                               ( FPathComponentError )
+import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.DirType           ( DirType )
 import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
                                , __FPathComponentE__, __FPathEmptyE__
                                , __FPathAbsE__, __FPathNonAbsE__
                                , __FPathNotADirE__
                                )
+import FPath.HasAbsOrRel       ( Abs, HasAbsOrRel( AbsOrRel ), Rel )
+import FPath.HasParent         ( HasMaybeParent( getParentMay, parentMay
+                                               , setParentMay ) )
 import FPath.PathComponent     ( PathComponent, parsePathC )
+import FPath.RelDir            ( RelDir, parseRelDir, parseRelDir'
+                               , __parseRelDir'__, __parseRelDir__, reldir )
 import FPath.Util              ( QuasiQuoter
                                , __ERROR'__, mkQuasiQuoterExp )
 
@@ -271,27 +270,6 @@ nonRootAbsDir = prism' AbsNonRootDir go
                 where go AbsRootDir        = Nothing
                       go (AbsNonRootDir d) = Just d
 
-------------------------------------------------------------
---                         RelDir                         --
-------------------------------------------------------------
-
-{- | a relative directory -}
-newtype RelDir = RelDir (Seq PathComponent)
-  deriving (Eq, Show)
-
-type instance Element RelDir = PathComponent
-
-{-
-
-data AbsFile = AbsFile PathComponent AbsDir
-
-data RelFile = RelFile PathComponent (Maybe RelDir)
-
--}
-
-instance MonoFunctor RelDir where
-  omap ∷ (PathComponent → PathComponent) → RelDir → RelDir
-  omap f (RelDir ps) = RelDir (omap f ps)
 
 ----------------------------------------
 --        FromMonoSeqNonEmpty         --
@@ -304,9 +282,6 @@ instance FromMonoSeqNonEmpty NonRootAbsDir where
 
 instance FromMonoSeqNonEmpty AbsDir where
   fromSeqNE = AbsNonRootDir ∘ fromSeqNE
-
-instance FromMonoSeqNonEmpty RelDir where
-  fromSeqNE = RelDir ∘ SeqNE.toSeq
 
 ----------------------------------------
 --         ToMonoSeqNonEmpty          --
@@ -342,9 +317,6 @@ instance FromMonoSeq AbsDir where
                where go Seq.Empty = AbsRootDir
                      go (y :<| ys) = AbsNonRootDir (NonRootAbsDir y (go ys))
 
-instance FromMonoSeq RelDir where
-  fromSeq = RelDir
-
 ----------------------------------------
 --             ToMonoSeq              --
 ----------------------------------------
@@ -356,17 +328,11 @@ instance ToMonoSeq AbsDir where
 instance ToMonoSeq NonRootAbsDir where
   toSeq = toSeq_
 
-instance ToMonoSeq RelDir where
-  toSeq (RelDir ps) = ps
-
 ----------------------------------------
 --             IsMonoSeq              --
 ----------------------------------------
 
 instance IsMonoSeq AbsDir where
-  seq = iso toSeq fromSeq
-
-instance IsMonoSeq RelDir where
   seq = iso toSeq fromSeq
 
 ----------------------------------------
@@ -376,11 +342,6 @@ instance IsMonoSeq RelDir where
 instance IsList AbsDir where
   type instance Item AbsDir = PathComponent
   fromList = fromSeq ∘ Seq.fromList
-  toList   = toList ∘ toSeq
-
-instance IsList RelDir where
-  type instance Item RelDir = PathComponent
-  fromList = RelDir ∘ Seq.fromList
   toList   = toList ∘ toSeq
 
 ----------------------------------------
@@ -421,24 +382,14 @@ instance Printable AbsDir where
 instance Printable NonRootAbsDir where
   print = pDir ("/" ⊕)
 
-instance Printable RelDir where
-  print (RelDir ps) | ps ≡ ф = "./"
-                    | otherwise = pDir id ps
-
 ----------------------------------------
 --             AsFilePath             --
 ----------------------------------------
-
-class AsFilePath α where
-  filepath ∷ Prism' FilePath α
 
 instance AsFilePath AbsDir where
   filepath = prism' toString fromString
 
 instance AsFilePath NonRootAbsDir where
-  filepath = prism' toString fromString
-
-instance AsFilePath RelDir where
   filepath = prism' toString fromString
 
 ----------------------------------------
@@ -452,10 +403,6 @@ instance Textual NonRootAbsDir where
   textual =
     fromSeqNE ∘ fromNonEmpty ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
 
-instance Textual RelDir where
-  textual = return (fromList []) ⋪ (string "./")
-          ∤ fromList ⊳ (endBy textual (char '/'))
-
 ----------------------------------------
 --              Arbitrary             --
 ----------------------------------------
@@ -468,32 +415,18 @@ instance Arbitrary NonRootAbsDir where
   arbitrary = fromSeqNE ⊳ arbitrary
   shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
 
-instance Arbitrary RelDir where
-  arbitrary = fromSeq ⊳ arbitrary
-  shrink = fromSeq ⩺ shrink ∘ toSeq
-
 ----------------------------------------
 --            HasAbsOrRel             --
 ----------------------------------------
 
-data Rel = Rel
-data Abs = Abs
-
-type family DirType α where
-  DirType Abs = AbsDir
-  DirType Rel = RelDir
-
-class HasAbsOrRel α where
-  type AbsOrRel α
+type instance DirType Abs = AbsDir
+type instance DirType Rel = RelDir
 
 instance HasAbsOrRel AbsDir where
   type AbsOrRel AbsDir = Abs
 
 instance HasAbsOrRel NonRootAbsDir where
   type AbsOrRel NonRootAbsDir = Abs
-
-instance HasAbsOrRel RelDir where
-  type AbsOrRel RelDir = Rel
 
 ----------------------------------------
 --             HasParent              --
@@ -513,12 +446,6 @@ instance HasParent NonRootAbsDir where
 --           HasMaybeParent           --
 ----------------------------------------
 
-class HasAbsOrRel α ⇒ HasMaybeParent α where
-  getParentMay ∷ α → Maybe (DirType (AbsOrRel α))
-  setParentMay ∷ α → Maybe (DirType (AbsOrRel α)) → α
-  parentMay ∷ Lens' α (Maybe (DirType (AbsOrRel α)))
-  parentMay = lens getParentMay setParentMay
-
 instance HasMaybeParent AbsDir where
   getParentMay AbsRootDir                          = Nothing
   getParentMay (AbsNonRootDir (NonRootAbsDir _ d)) = Just d
@@ -537,21 +464,6 @@ instance HasMaybeParent NonRootAbsDir where
   setParentMay ∷ NonRootAbsDir → Maybe AbsDir → NonRootAbsDir
   setParentMay (NonRootAbsDir p _) (Just d) = NonRootAbsDir p d
   setParentMay (NonRootAbsDir p _) Nothing  = NonRootAbsDir p AbsRootDir
-
-instance HasMaybeParent RelDir where
-  getParentMay ∷ RelDir → Maybe RelDir
-  getParentMay (RelDir (p :⪭ _)) = Just $ RelDir p
-  getParentMay (RelDir _)        =  Nothing
-
-  setParentMay ∷ RelDir → Maybe RelDir → RelDir
-  setParentMay orig par =
-    case orig of
-      RelDir (_ :⪭ d) → case par of
-                          Just (RelDir p) → RelDir $ p ⪫ d
-                          Nothing         → RelDir $ pure d
-      RelDir _ → case par of
-                          Just r → r
-                          Nothing → RelDir Seq.Empty
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
@@ -622,44 +534,6 @@ absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parseAbsDir'__ s ⟧)
 
 absdirN ∷ QuasiQuoter
 absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parseAbsDirN__ s ⟧)
-
--- RelDir ------------------------------
-
-reldirT ∷ TypeRep
-reldirT = typeRep (Proxy ∷ Proxy RelDir)
-
-parseRelDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
-parseRelDir (toText → t) =
-  case unsnoc $ splitOn "/" t of
-    Nothing           → error "cannot happen: splitOn always returns something"
-    Just (("":_), _)  → __FPathAbsE__ reldirT t
-    Just ([],"")      → __FPathEmptyE__ reldirT
-    Just (["."],"")   → return $ RelDir ф
-    Just ((x:xs), "") → do let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
-                                       FPathComponentError → η' α
-                               mkCompE ce = __FPathComponentE__ ce reldirT t
-                               eCompE ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
-                                        Either FPathComponentError α → η'' α
-                               eCompE = either mkCompE return
-
-                           p  ← eCompE $ parsePathC x
-                           ps ← eCompE $ mapM parsePathC xs
-                           return $ RelDir (p <| Seq.fromList ps)
-    _                 → __FPathNotADirE__ reldirT t
-
-
-parseRelDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
-parseRelDir' = parseRelDir
-
-__parseRelDir__ ∷ Printable τ ⇒ τ → RelDir
-__parseRelDir__ = either __ERROR'__ id ∘ parseRelDir'
-
-__parseRelDir'__ ∷ String → RelDir
-__parseRelDir'__ = __parseRelDir__
-
-{- | quasi-quoter for RelDir -}
-reldir ∷ QuasiQuoter
-reldir = mkQuasiQuoterExp "reldir" (\ s → ⟦ __parseRelDir'__ s ⟧)
 
 ----------------------------------------
 --             constants              --
