@@ -3,7 +3,7 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.HasParent
-  ( HasMaybeParent(..) )
+  ( HasParentMay(..), HasParent(..) )
 where
 
 -- base --------------------------------
@@ -12,7 +12,7 @@ import Data.Maybe  ( Maybe )
 
 -- lens --------------------------------
 
-import Control.Lens.Lens  ( Lens', lens )
+import Control.Lens.Lens  ( Lens' )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -23,10 +23,18 @@ import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ) )
 
 --------------------------------------------------------------------------------
 
-class HasAbsOrRel α ⇒ HasMaybeParent α where
-  getParentMay ∷ α → Maybe (DirType (AbsOrRel α))
-  setParentMay ∷ α → Maybe (DirType (AbsOrRel α)) → α
+------------------------------------------------------------
+--                       HasParent                        --
+------------------------------------------------------------
+
+class HasAbsOrRel α ⇒ HasParent α where
+  parent ∷ Lens' α (DirType (AbsOrRel α))
+
+------------------------------------------------------------
+--                    HasMaybeParent                      --
+------------------------------------------------------------
+
+class HasAbsOrRel α ⇒ HasParentMay α where
   parentMay ∷ Lens' α (Maybe (DirType (AbsOrRel α)))
-  parentMay = lens getParentMay setParentMay
 
 -- that's all, folks! ----------------------------------------------------------

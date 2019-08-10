@@ -57,6 +57,10 @@ import Data.MoreUnicode.Tasty            ( (≟) )
 
 import Control.Monad.Except  ( MonadError )
 
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.SeqConversions ( IsMonoSeq( seq ) )
+
 -- tasty -------------------------------
 
 import Test.Tasty           ( TestTree, testGroup )
@@ -77,8 +81,10 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( AbsDir, absdir, filepath, nonRootAbsDir, parent
-                               , parentMay, parseAbsDir', seq )
+
+import FPath.AbsDir            ( AbsDir, absdir, nonRootAbsDir, parseAbsDir' )
+import FPath.AsFilePath        ( filepath )
+import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( pc, toUpper )
 
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE

@@ -58,6 +58,10 @@ import Data.MoreUnicode.Tasty            ( (≟) )
 
 import Control.Monad.Except  ( MonadError )
 
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.SeqConversions ( IsMonoSeq( seq ) )
+
 -- tasty -------------------------------
 
 import Test.Tasty  ( TestTree, testGroup )
@@ -78,8 +82,7 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( RelDir, filepath, parentMay, parseRelDir', seq
-                               , reldir )
+import FPath.AsFilePath        ( filepath )
 import FPath.Error.FPathError  ( FPathError( FPathAbsE, FPathComponentE
                                            , FPathNotADirE )
                                )
@@ -88,7 +91,9 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalCharE
                                                     )
                                )
+import FPath.HasParent         ( parentMay )
 import FPath.PathComponent     ( pc, toUpper )
+import FPath.RelDir            ( RelDir, parseRelDir', reldir )
 
 import FPath.T.Common          ( doTest, doTestR, doTestS, propInvertibleString
                                , propInvertibleText, propInvertibleUtf8 )
@@ -224,8 +229,8 @@ relDirTextualPrintableTests =
             , testProperty "parseUtf8 - toUtf8" (propInvertibleUtf8 @RelDir)
             ]
 
-relDirNMonoFunctorTests ∷ TestTree
-relDirNMonoFunctorTests =
+relDirMonoFunctorTests ∷ TestTree
+relDirMonoFunctorTests =
   testGroup "MonoFunctor"
             [ testCase "r0 → r0" $
                     [reldir|./|] ≟ omap (const [pc|usr|]) r0
@@ -329,12 +334,10 @@ tests =
                      , relDirParentMayTests
                      , relDirFilepathTests
 
-                     , relDirNMonoFunctorTests
+                     , relDirMonoFunctorTests
                      ]
 
 ----------------------------------------
-
--- Cannot use Fluffy.Tasty here, as we will be a dependency of Fluffy...
 
 _test ∷ IO ()
 _test = doTest tests

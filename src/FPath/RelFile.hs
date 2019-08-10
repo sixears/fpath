@@ -9,27 +9,28 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module FPath.RelDir
-  ( RelDir
+module FPath.RelFile
+  ( RelDir, RelFile
 
   -- quasi-quoters
-  , reldir
+  , relfile
 
-  , parseRelDir , parseRelDir' , __parseRelDir__ , __parseRelDir'__
+  , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
   )
 where
 
-import Prelude  ( error )
+import Prelude  ( error, undefined )
 
 -- base --------------------------------
 
 import Control.Applicative  ( pure )
 import Control.Monad        ( mapM, return )
+import Data.Bifunctor       ( first )
 import Data.Bool            ( otherwise )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
 import Data.Foldable        ( concat )
-import Data.Function        ( ($), id )
+import Data.Function        ( ($), const, id )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.String          ( String )
@@ -97,7 +98,7 @@ import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
 -- text --------------------------------
 
-import Data.Text  ( splitOn )
+import Data.Text  ( Text, dropEnd, intercalate, length, splitOn, stripSuffix )
 
 -- text-printer ------------------------
 
@@ -115,52 +116,57 @@ import FPath.HasParent    ( HasParentMay( parentMay ) )
 import FPath.Error.FPathComponentError  ( FPathComponentError )
 import FPath.Error.FPathError           ( AsFPathError, FPathError
                                         , __FPathComponentE__, __FPathEmptyE__
-                                        , __FPathAbsE__, __FPathNotADirE__
+                                        , __FPathAbsE__, __FPathNotAFileE__
+                                        , mapTypeRepE, mapTextE
                                         )
 import FPath.PathComponent              ( PathComponent, parsePathC )
+import FPath.RelDir                     ( RelDir, parseRelDir )
 import FPath.Util                       ( QuasiQuoter
                                         , __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
 {- | a relative directory -}
-newtype RelDir = RelDir (Seq PathComponent)
+data RelFile = RelFile RelDir PathComponent
   deriving (Eq, Show)
 
-type instance Element RelDir = PathComponent
+type instance Element RelFile = PathComponent
 
 ----------------------------------------
 
-instance MonoFunctor RelDir where
-  omap ∷ (PathComponent → PathComponent) → RelDir → RelDir
-  omap f (RelDir ps) = RelDir (omap f ps)
+instance MonoFunctor RelFile where
+  omap ∷ (PathComponent → PathComponent) → RelFile → RelFile
+--  omap f (RelFile ps) = RelFile (omap f ps)
+  omap = undefined
 
 ----------------------------------------
 
-instance FromMonoSeqNonEmpty RelDir where
-  fromSeqNE = RelDir ∘ SeqNE.toSeq
+instance FromMonoSeqNonEmpty RelFile where
+  fromSeqNE (ps :⪭ f) = RelFile (fromSeq ps) f
 
 ----------------------------------------
 
-instance FromMonoSeq RelDir where
-  fromSeq = RelDir
+instance FromMonoSeq RelFile where
+--  fromSeq = RelFile
 
 ----------------------------------------
 
-instance ToMonoSeq RelDir where
-  toSeq (RelDir ps) = ps
+instance ToMonoSeq RelFile where
+--  toSeq (RelFile ps) = ps
 
 ----------------------------------------
 
-instance IsMonoSeq RelDir where
+instance IsMonoSeq RelFile where
   seq = iso toSeq fromSeq
 
 ----------------------------------------
 
-instance IsList RelDir where
-  type instance Item RelDir = PathComponent
-  fromList = RelDir ∘ Seq.fromList
+instance IsList RelFile where
+  type instance Item RelFile = PathComponent
+{-
+  fromList = RelFile ∘ Seq.fromList
   toList   = toList ∘ toSeq
+-}
 
 ----------------------------------------
 
@@ -171,89 +177,108 @@ pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
        (String → String) → α → ρ
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
 
-instance Printable RelDir where
-  print (RelDir ps) | ps ≡ ф = "./"
-                    | otherwise = pDir id ps
+instance Printable RelFile where
+{-
+  print (RelFile ps) | ps ≡ ф = "./"
+                     | otherwise = pDir id ps
+-}
 
 ----------------------------------------
 
-instance AsFilePath RelDir where
+instance AsFilePath RelFile where
   filepath = prism' toString fromString
 
 ----------------------------------------
 
-instance Textual RelDir where
+instance Textual RelFile where
   textual = return (fromList []) ⋪ (string "./")
           ∤ fromList ⊳ (endBy textual (char '/'))
 
 ----------------------------------------
 
-instance Arbitrary RelDir where
+instance Arbitrary RelFile where
   arbitrary = fromSeq ⊳ arbitrary
   shrink = fromSeq ⩺ shrink ∘ toSeq
 
 ----------------------------------------
 
-type instance DirType Rel = RelDir
-
-instance HasAbsOrRel RelDir where
-  type AbsOrRel RelDir = Rel
+instance HasAbsOrRel RelFile where
+  type AbsOrRel RelFile = Rel
 
 ----------------------------------------
 
-instance HasParentMay RelDir where
-  parentMay = lens getParentMay setParentMay
-              where getParentMay (RelDir (p :⪭ _)) = Just $ RelDir p
-                    getParentMay (RelDir _)        =  Nothing
+instance HasParentMay RelFile where
+  parentMay = undefined
+          {- lens getParentMay setParentMay
+              where getParentMay (RelFile (p :⪭ _)) = Just $ RelFile p
+                    getParentMay (RelFile _)        =  Nothing
 
                     setParentMay orig par =
                       case orig of
-                        RelDir (_ :⪭ d) → case par of
-                                            Just (RelDir p) → RelDir $ p ⪫ d
-                                            Nothing         → RelDir $ pure d
-                        RelDir _ → case par of
+                        RelFile (_ :⪭ d) → case par of
+                                            Just (RelFile p) → RelFile $ p ⪫ d
+                                            Nothing         → RelFile $ pure d
+                        RelFile _ → case par of
                                             Just r → r
-                                            Nothing → RelDir Seq.Empty
+                                            Nothing → RelFile Seq.Empty
+            -}
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
 
-reldirT ∷ TypeRep
-reldirT = typeRep (Proxy ∷ Proxy RelDir)
+relfileT ∷ TypeRep
+relfileT = typeRep (Proxy ∷ Proxy RelFile)
 
 {- | try to parse a `Textual` as a relative directory -}
-parseRelDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
-parseRelDir (toText → t) =
-  case unsnoc $ splitOn "/" t of
-    Nothing           → error "cannot happen: splitOn always returns something"
-    Just (("":_), _)  → __FPathAbsE__ reldirT t
-    Just ([],"")      → __FPathEmptyE__ reldirT
-    Just (["."],"")   → return $ RelDir ф
+parseRelFile ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelFile
+parseRelFile (toText → t) =
+  let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                   FPathComponentError → η' α
+      mkCompE ce = __FPathComponentE__ ce relfileT t
+      eCompE     ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
+                   Either FPathComponentError α → η'' α
+      eCompE = either mkCompE return
+      -- map the type marker on FPathError
+      mapFPCE ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                (Text → Text) → Either FPathError α → η' α
+      mapFPCE f = mapTextE f ∘ mapTypeRepE (const relfileT)
+   in case unsnoc $ splitOn "/" t of
+        Nothing           → error "error: splitOn always returns something"
+        Just ([],"")      → __FPathEmptyE__ relfileT
+        Just (_, "")      → __FPathNotAFileE__ relfileT t
+        Just (("":_), _)  → __FPathAbsE__ relfileT t
+        Just ([], f)      → do f' ← eCompE $ parsePathC f
+                               return $ RelFile (fromSeq ф) f'
+        Just (ps, f)      → do f' ← eCompE $ parsePathC f
+                               ps' ← mapFPCE (⊕ f) $ parseRelDir (dropEnd (length f) t)
+                               return $ RelFile ps' f'
+{-
+    Just (["."],"")   → return $ RelFile ф
     Just ((x:xs), "") → do let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
                                        FPathComponentError → η' α
-                               mkCompE ce = __FPathComponentE__ ce reldirT t
+                               mkCompE ce = __FPathComponentE__ ce relfileT t
                                eCompE ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
                                         Either FPathComponentError α → η'' α
                                eCompE = either mkCompE return
 
                            p  ← eCompE $ parsePathC x
                            ps ← eCompE $ mapM parsePathC xs
-                           return $ RelDir (p <| Seq.fromList ps)
-    _                 → __FPathNotADirE__ reldirT t
+                           return $ RelFile (p <| Seq.fromList ps)
+    _                 → __FPathNotADirE__ relfileT t
+-}
 
+parseRelFile' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelFile
+parseRelFile' = parseRelFile
 
-parseRelDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
-parseRelDir' = parseRelDir
+__parseRelFile__ ∷ Printable τ ⇒ τ → RelFile
+__parseRelFile__ = either __ERROR'__ id ∘ parseRelFile'
 
-__parseRelDir__ ∷ Printable τ ⇒ τ → RelDir
-__parseRelDir__ = either __ERROR'__ id ∘ parseRelDir'
-
-__parseRelDir'__ ∷ String → RelDir
-__parseRelDir'__ = __parseRelDir__
+__parseRelFile'__ ∷ String → RelFile
+__parseRelFile'__ = __parseRelFile__
 
 {- | quasi-quotation -}
-reldir ∷ QuasiQuoter
-reldir = mkQuasiQuoterExp "reldir" (\ s → ⟦ __parseRelDir'__ s ⟧)
+relfile ∷ QuasiQuoter
+relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parseRelFile'__ s ⟧)
 
 -- that's all, folks! ----------------------------------------------------------

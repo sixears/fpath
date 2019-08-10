@@ -49,8 +49,9 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.IsNonEmpty  ( fromNonEmpty, nonEmpty, toNonEmpty )
-import NonEmptyContainers.SeqNE       ( SeqNE, (⋖) )
+import NonEmptyContainers.IsNonEmpty        ( fromNonEmpty,nonEmpty,toNonEmpty )
+import NonEmptyContainers.SeqNE             ( SeqNE, (⋖) )
+import NonEmptyContainers.SeqNEConversions  ( seqNE )
 
 -- tasty -------------------------------
 
@@ -72,11 +73,9 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                   ( AbsDir, NonRootAbsDir
-                               , absdirN, filepath, getParentMay, getParent
-                               , parent, parentMay, parseAbsDirN', seqNE
-                               , setParentMay, setParent
-                               )
+import FPath.AsFilePath        ( filepath )
+import FPath.AbsDir            ( AbsDir, NonRootAbsDir, absdirN, parseAbsDirN' )
+import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 
 import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
@@ -250,10 +249,9 @@ absDirNParentMayTests =
   let -- set parent of d to d'
       d ~~ d' = d & parentMay ⊩ d'
    in testGroup "parentMay"
-                [ testCase "etc → root"  $ Just root ≟ etcN   ⊣ parentMay
-                , testCase "pamd → etc"  $ Just etc  ≟ getParentMay pamdN
+                [ testCase "etc → root"  $ Just root ≟ etcN  ⊣ parentMay
+                , testCase "pamd → etc"  $ Just etc  ≟ pamdN ⊣ parentMay
 
-                , testCase "etc → root"  $ etcN ≟ setParentMay etcN (Just root)
                 , testCase "etc → root"  $ etcN ≟ etcN ~~ root
 
                 , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
@@ -276,10 +274,8 @@ absDirNParentTests =
   let d ~~ d' = d & parent ⊢ d'
    in testGroup "parent"
                 [ testCase "etc → root"  $ root ≟ etcN ⊣ parent
-                , testCase "etc → root"  $ root ≟ getParent etcN
                 , testCase "etc"         $ root ≟ etcN ⊣ parent
                 , testCase "pamd"        $ etc  ≟ pamdN ⊣ parent
-                , testCase "etc → root"  $ etcN ≟ setParent etcN root
                 , testCase "etc → root"  $ etcN ≟ etcN ~~ root
                 , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
                 , testCase "etc → wgm"   $ [absdirN|/w/g/M/etc/|] ≟ etcN ~~ wgm

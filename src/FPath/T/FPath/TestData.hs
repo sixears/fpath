@@ -28,7 +28,9 @@ import NonEmptyContainers.SeqNEConversions  ( fromSeqNE )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath                ( AbsDir, NonRootAbsDir, RelDir )
+import FPath.AbsDir         ( AbsDir, NonRootAbsDir )
+import FPath.RelDir         ( RelDir )
+import FPath.RelFile        ( RelFile )
 import FPath.PathComponent  ( pc )
 
 --------------------------------------------------------------------------------
@@ -54,6 +56,8 @@ pamdN = fromSeqNE $ [pc|etc|] ⪪ pure [pc|pam.d|]
 wgmN ∷ NonRootAbsDir
 wgmN = fromSeqNE $ [pc|w|] ⪪ [pc|g|] ⪪ pure [pc|M|]
 
+----------------------------------------
+
 r0 ∷ RelDir
 r0 = fromSeq ф
 
@@ -65,5 +69,19 @@ r2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p|]]
 
 r3 ∷ RelDir
 r3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r|]]
+
+----------------------------------------
+
+rf1 ∷ RelFile
+rf1 = fromSeqNE $ pure [pc|r.e|]
+
+rf2 ∷ RelFile
+rf2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p.x|]]
+
+rf3 ∷ RelFile
+rf3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r.mp3|]]
+
+rf4 ∷ RelFile
+rf4 = fromSeqNE $ pure [pc|.x|]
 
 -- that's all, folks! ----------------------------------------------------------
