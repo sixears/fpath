@@ -225,16 +225,17 @@ relFileTextualTests =
       nothin'     = Nothing
       success e s = testCase s $ Parsed e  ≟ parseString s
       fail s      = testCase s $ nothin'   ≟ fromString s
-   in testGroup "Textual" [ success r0 "./"
-                          , success rf1 "r/"
+   in testGroup "Textual" [ success rf1 "r/"
                           , success rf2 "r/p/"
                           , success rf3 "p/q/r/"
+                          , success rf4 "./"
                           , fail "/etc"
                           , fail "/etc/pam.d"
-                          , fail "etc"
-                          , fail "etc/pam.d"
+                          , success [relfile|etc|] "etc"
+                          , success [relfile|etc/pam.d|] "etc/pam.d"
                           , fail "/etc//pam.d/"
-                          , fail "e/c"
+                          , success [relfile|e/c|] "e/c"
+                          , fail "e/c/"
                           , fail "\0etc"
                           , fail "etc\0"
                           , fail "e\0c"

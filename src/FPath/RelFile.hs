@@ -90,7 +90,7 @@ import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE ) )
 -- parsers -----------------------------
 
 import Text.Parser.Char         ( char, string )
-import Text.Parser.Combinators  ( endBy )
+import Text.Parser.Combinators  ( endBy, sepBy1 )
 
 -- QuickCheck --------------------------
 
@@ -190,8 +190,7 @@ instance AsFilePath RelFile where
 ----------------------------------------
 
 instance Textual RelFile where
-  textual = return (fromList []) ⋪ (string "./")
-          ∤ fromList ⊳ (endBy textual (char '/'))
+  textual = fromList ⊳ (sepBy1 textual (char '/'))
 
 ----------------------------------------
 
