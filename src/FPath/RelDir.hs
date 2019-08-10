@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving        #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -32,6 +33,8 @@ import Data.Foldable        ( concat )
 import Data.Function        ( ($), id )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Monoid          ( Monoid )
+import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
@@ -125,7 +128,7 @@ import FPath.Util                       ( QuasiQuoter
 
 {- | a relative directory -}
 newtype RelDir = RelDir (Seq PathComponent)
-  deriving (Eq, Show)
+  deriving (Eq, Monoid, Semigroup, Show)
 
 type instance Element RelDir = PathComponent
 

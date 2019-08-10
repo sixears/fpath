@@ -98,7 +98,7 @@ import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, dropEnd, intercalate, length, splitOn, stripSuffix )
+import Data.Text  ( Text, dropEnd, length, splitOn )
 
 -- text-printer ------------------------
 
@@ -109,7 +109,6 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
-import FPath.DirType      ( DirType )
 import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ), Rel )
 import FPath.HasParent    ( HasParentMay( parentMay ) )
 
@@ -250,7 +249,7 @@ parseRelFile (toText → t) =
         Just (("":_), _)  → __FPathAbsE__ relfileT t
         Just ([], f)      → do f' ← eCompE $ parsePathC f
                                return $ RelFile (fromSeq ф) f'
-        Just (ps, f)      → do f' ← eCompE $ parsePathC f
+        Just (_, f)       → do f' ← eCompE $ parsePathC f
                                ps' ← mapFPCE (⊕ f) $ parseRelDir (dropEnd (length f) t)
                                return $ RelFile ps' f'
 {-

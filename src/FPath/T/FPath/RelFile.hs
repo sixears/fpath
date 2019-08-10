@@ -150,10 +150,9 @@ parseRelFileTests =
 relfileQQTests ∷ TestTree
 relfileQQTests =
   testGroup "relfile"
-            [ -- testCase "r0" $ r0 ≟ [relfile|./|]
-             testCase "rf1" $ rf1 ≟ [relfile|r/|]
-            , testCase "rf2" $ rf2 ≟ [relfile|r/p/|]
-            , testCase "rf3" $ rf3 ≟ [relfile|p/q/r/|]
+            [ testCase "rf1" $ rf1 ≟ [relfile|r.e|]
+            , testCase "rf2" $ rf2 ≟ [relfile|r/p.x|]
+            , testCase "rf3" $ rf3 ≟ [relfile|p/q/r.mp3|]
             ]
 
 relFileIsMonoSeqGetterTests ∷ TestTree
@@ -196,17 +195,19 @@ relFileIsMonoSeqSetterTests =
 
 relFileShowTests ∷ TestTree
 relFileShowTests =
-  let r0Show = "RelFile (fromList [])"
-      r1Show = "RelFile (fromList [PathComponent \"r\"])"
-      r2Show = "RelFile (fromList [PathComponent \"r\",PathComponent \"p\"])"
-      r3Show = "RelFile (fromList "
-             ⊕ "[PathComponent \"p\",PathComponent \"q\",PathComponent \"r\"])"
+  let rf1Show = "RelFile (RelDir (fromList [])) (PathComponent \"r.e\")"
+      rf2Show = "RelFile (RelDir (fromList [PathComponent \"r\"])) "
+              ⊕ "(PathComponent \"p.x\")"
+      rf3Show = let pq = "[PathComponent \"p\",PathComponent \"q\"]"
+                    r  = "PathComponent \"r.mp3\""
+                 in "RelFile (RelDir (fromList "⊕ pq ⊕")) ("⊕ r ⊕")"
+      rf4Show = "RelFile (RelDir (fromList [])) (PathComponent \".x\")"
 
    in testGroup "show"
-                [ testCase "r0" $ r0Show ≟ show r0
-                , testCase "rf1" $ r1Show ≟ show rf1
-                , testCase "rf2" $ r2Show ≟ show rf2
-                , testCase "rf3" $ r3Show ≟ show rf3
+                [ testCase "rf1" $ rf1Show ≟ show rf1
+                , testCase "rf2" $ rf2Show ≟ show rf2
+                , testCase "rf3" $ rf3Show ≟ show rf3
+                , testCase "rf4" $ rf4Show ≟ show rf4
                 ]
 
 relFilePrintableTests ∷ TestTree

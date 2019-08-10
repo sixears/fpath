@@ -26,6 +26,7 @@ import qualified  FPath.T.FPath.AbsDir
 import qualified  FPath.T.FPath.NonRootAbsDir
 import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
+import qualified  FPath.T.FPath.RelFile
 
 import FPath.T.Common  ( doTest, doTestR, doTestS )
 
@@ -36,6 +37,7 @@ tests = testGroup "FPath" [ FPath.T.FPath.PathComponent.tests
                           , FPath.T.FPath.AbsDir.tests
                           , FPath.T.FPath.NonRootAbsDir.tests
                           , FPath.T.FPath.RelDir.tests
+                          , FPath.T.FPath.RelFile.tests
                           ]
 
 ----------------------------------------
