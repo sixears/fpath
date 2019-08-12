@@ -11,9 +11,11 @@ where
 -- base --------------------------------
 
 import Control.Applicative  ( pure )
+import Data.Bool            ( Bool( False, True ) )
 import Data.Either          ( Either( Left, Right  ) )
 import Data.Function        ( ($), (&), const )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import GHC.Exts             ( fromList, toList )
@@ -23,7 +25,9 @@ import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Monoid.Unicode  ( (⊕) )
+import Data.Eq.Unicode        ( (≡) )
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
 
 -- containers --------------------------
 
@@ -43,7 +47,11 @@ import Control.Lens.Setter  ( (?~) )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( omap )
+import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
+                             , ocompareLength, oelem, ofoldl', ofoldl1Ex'
+                             , ofoldlM, ofoldMap, ofoldMap1Ex, ofoldr, ofoldr1Ex
+                             , olength, olength64, omap, onotElem, onull
+                             , otoList, unsafeHead, unsafeLast )
 
 -- more-unicode ------------------------
 
@@ -51,7 +59,7 @@ import Data.MoreUnicode.Functor          ( (⊳) )
 import Data.MoreUnicode.Lens             ( (⊣), (⊢), (⩼), (##) )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟) )
+import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
 -- mtl ---------------------------------
 
@@ -75,6 +83,7 @@ import Test.Tasty.QuickCheck  ( testProperty )
 
 -- text --------------------------------
 
+import qualified  Data.Text  as  Text
 import Data.Text  ( Text )
 
 ------------------------------------------------------------
@@ -179,6 +188,57 @@ absDirIsListTests =
                 , testCase "wgm"   $ [ [pc|w|], [pc|g|], [pc|M|] ] ≟ toList wgm
                 ]
     ]
+
+absDirMonoFoldableTests ∷ TestTree
+absDirMonoFoldableTests =
+  testGroup "MonoFoldable"
+            [ testCase "ofoldMap" $
+                "w-g-M-" ≟ ofoldMap ((⊕ "-") ∘ toText) wgm
+            , testCase "ofoldr" $
+                "w-g-M-ф" ≟ ofoldr (\ a b → toText a ⊕ "-" ⊕ b) "ф" wgm
+            , testCase "ofoldl'" $
+                "ф-w-g-M" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" wgm
+            , testCase "otoList" $
+                [ [pc|w|], [pc|g|], [pc|M|] ] ≟ otoList wgm
+            , testCase "oall (F)" $
+                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) wgm
+            , testCase "oall (T)" $
+                True ≟ oall ((< 6) ∘ Text.length ∘ toText) wgm
+            , testCase "oany (F)" $
+                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) wgm
+            , testProperty "onull" (\ x → (x ≡ [absdir|/|]) ≣ onull x)
+            , testCase "olength" $
+                3 ≟ olength wgm
+            , testCase "olength64" $
+                0 ≟ olength64 root
+            , testCase "ocompareLength" $
+               GT ≟ ocompareLength wgm 2
+            , testCase "ofoldlM" $
+                  Just [[pc|M|],[pc|g|],[pc|w|]]
+                ≟ ofoldlM (\ a e → Just $ e : a) [] wgm
+            , testCase "ofoldMap1Ex" $
+                [[pc|w|],[pc|g|],[pc|M|]] ≟ ofoldMap1Ex pure wgm
+            , testCase "ofoldr1Ex" $
+                [pc|wgM|] ≟ ofoldr1Ex (◇) wgm
+            , testCase "ofoldl1Ex'" $
+                [pc|wgM|] ≟ ofoldl1Ex' (◇) wgm
+            , testCase "unsafeHead" $
+                [pc|w|] ≟ unsafeHead wgm
+            , testCase "unsafeLast" $
+                [pc|M|] ≟ unsafeLast wgm
+            , testCase "maximumByEx" $
+                [pc|w|] ≟ maximumByEx (comparing toText) wgm
+            , testCase "minimumByEx" $
+                [pc|M|] ≟ minimumByEx (comparing toText) wgm
+            , testCase "oelem (T)" $
+                True ≟ oelem [pc|g|] wgm
+            , testCase "oelem (F)" $
+                False ≟ oelem [pc|x|] wgm
+            , testCase "onotElem (T)" $
+                True ≟ onotElem [pc|x|] wgm
+            , testCase "onotElem (F)" $
+                False ≟ onotElem [pc|g|] wgm
+            ]
 
 absDirIsMonoSeqGetterTests ∷ TestTree
 absDirIsMonoSeqGetterTests =
@@ -326,6 +386,7 @@ tests =
   testGroup "AbsDir" [ absDirConstructionTests, absDirShowTests
                      , absDirTextualGroupTests
                      , absDirIsListTests
+                     , absDirMonoFoldableTests
                      , absDirIsMonoSeqTests
                      , absDirParentGroupTests
                      , absDirFilepathTests

@@ -31,10 +31,11 @@ import Control.Applicative  ( pure )
 import Control.Monad        ( return )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( concat )
+import Data.Foldable        ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
 import Data.Function        ( ($), id )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Monoid          ( Monoid )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
@@ -65,7 +66,11 @@ import Control.Lens.Prism  ( Prism', prism' )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
 
 -- more-unicode ------------------------
 
@@ -167,6 +172,25 @@ nonRootAbsDir ∷ Prism' AbsDir NonRootAbsDir
 nonRootAbsDir = prism' AbsNonRootDir go
                 where go AbsRootDir        = Nothing
                       go (AbsNonRootDir d) = Just d
+
+----------------------------------------
+
+instance MonoFoldable AbsDir where
+  otoList ∷ AbsDir → [PathComponent]
+  otoList = toList
+  ofoldl' ∷ (α → PathComponent → α) → α → AbsDir → α 
+  ofoldl' f x r = foldl' f x (toList r)
+
+  ofoldr ∷ (PathComponent → α → α) → α → AbsDir → α
+  ofoldr f x r = foldr f x (toList r)
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → AbsDir → ν
+  ofoldMap f r = foldMap f (toList r)
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
+            → PathComponent
+  ofoldr1Ex f r = foldr1 f (toList r)
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
+             → PathComponent
+  ofoldl1Ex' f r = foldl1 f (toList r)
 
 ----------------------------------------
 
