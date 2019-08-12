@@ -336,8 +336,7 @@ absDirNParentTests ∷ TestTree
 absDirNParentTests =
   let d ~~ d' = d & parent ⊢ d'
    in testGroup "parent"
-                [ testCase "etc → root"  $ root ≟ etcN ⊣ parent
-                , testCase "etc"         $ root ≟ etcN ⊣ parent
+                [ testCase "etc"         $ root ≟ etcN ⊣ parent
                 , testCase "pamd"        $ etc  ≟ pamdN ⊣ parent
                 , testCase "etc → root"  $ etcN ≟ etcN ~~ root
                 , testCase "pamd → root" $ [absdirN|/pam.d/|] ≟ pamdN ~~ root
@@ -380,8 +379,8 @@ absDirNConstructionTests = testGroup "construction" [ parseAbsDirNTests
 
 absDirNTextualGroupTests ∷ TestTree
 absDirNTextualGroupTests =
-  testGroup "textual group" [ absDirNTextualTests, absDirNTextualPrintableTests
-                            , absDirNPrintableTests ]
+  testGroup "textual group" [ absDirNTextualTests, absDirNPrintableTests
+                            , absDirNTextualPrintableTests ]
 
 absDirNParentGroupTests ∷ TestTree
 absDirNParentGroupTests =

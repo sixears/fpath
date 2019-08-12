@@ -72,8 +72,9 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.IsNonEmpty      ( fromNonEmpty, toNonEmpty )
-import NonEmptyContainers.SeqConversions  ( IsMonoSeq( seq ) )
+import NonEmptyContainers.IsNonEmpty        ( fromNonEmpty, toNonEmpty )
+import NonEmptyContainers.SeqConversions    ( IsMonoSeq( seq ) )
+import NonEmptyContainers.SeqNEConversions  ( seqNE )
 
 -- tasty -------------------------------
 
@@ -106,10 +107,10 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
-import FPath.HasParent         ( parentMay )
-import FPath.PathComponent     ( pc, toUpper )
-import FPath.RelFile           ( RelDir, RelFile, parseRelFile', relfile )
-
+import FPath.HasParent         ( parent, parentMay )
+import FPath.PathComponent     ( PathComponent, pc, toUpper )
+import FPath.RelDir            ( RelDir, reldir )
+import FPath.RelFile           ( RelFile, parseRelFile', relfile )
 import FPath.T.Common          ( doTest, doTestR, doTestS, propInvertibleString
                                , propInvertibleText, propInvertibleUtf8 )
 import FPath.T.FPath.TestData  ( rf1, rf2, rf3, rf4, r0, r1, r2, r3 )
@@ -169,15 +170,6 @@ relfileQQTests =
             , testCase "rf3" $ rf3 ≟ [relfile|p/q/r.mp3|]
             ]
 
-relFileIsMonoSeqGetterTests ∷ TestTree
-relFileIsMonoSeqGetterTests =
-  testGroup "getter"
-            [ testCase "r0" $ ф                                    ≟ r0 ⊣ seq
-            , testCase "rf1" $ ([pc|r|] ⪬ ф)                        ≟ rf1 ⊣ seq
-            , testCase "rf2" $ Seq.fromList [[pc|r|], [pc|p|]]          ≟ rf2 ⊣ seq
-            , testCase "rf3" $ Seq.fromList [[pc|p|], [pc|q|], [pc|r|]] ≟ rf3 ⊣ seq
-            ]
-
 relFileIsNonEmptyTests ∷ TestTree
 relFileIsNonEmptyTests =
   testGroup "IsNonEmpty"
@@ -197,16 +189,27 @@ relFileIsNonEmptyTests =
                 ]
     ]
 
-relFileIsMonoSeqSetterTests ∷ TestTree
-relFileIsMonoSeqSetterTests =
-  let x ~!~ y = x & seq ⊢ fromList y
+relFileIsMonoSeqNEGetterTests ∷ TestTree
+relFileIsMonoSeqNEGetterTests =
+  testGroup "getter"
+            [ testCase "rf1" $ ([pc|r.e|] ⪬ ф)                     ≟ rf1 ⊣ seqNE
+            , testCase "rf2" $ fromNonEmpty ([pc|r|]:|[[pc|p.x|]]) ≟ rf2 ⊣ seqNE
+            , testCase "rf3" $
+                fromNonEmpty ([pc|p|] :| [[pc|q|],[pc|r.mp3|]])    ≟ rf3 ⊣ seqNE
+            , testCase "rf4" $ fromNonEmpty (pure [pc|.x|])        ≟ rf4 ⊣ seqNE
+            ]
+
+relFileIsMonoSeqNESetterTests ∷ TestTree
+relFileIsMonoSeqNESetterTests =
+  let (~!~) ∷ RelFile → NonEmpty PathComponent → RelFile
+      x ~!~ y = x & seqNE ⊢ fromNonEmpty y
    in testGroup "setter"
-                [ -- testCase "rf1"  $ rf1 ≟ r0 ~!~ [[pc|r|]]
+                [ testCase "rf1"  $ rf1 ≟ rf4 ~!~ pure [pc|r.e|]
 --                , testCase "r0"  $ r0 ≟ rf1 ~!~ ф
---                , testCase "rf2"  $ rf2 ≟ r0 ~!~ [[pc|r|],[pc|p|]]
-                 testCase "rf3"  $ rf3 ≟ rf2 ~!~ [[pc|p|],[pc|q|],[pc|r|]]
+                , testCase "rf2"  $ rf2 ≟ rf4 ~!~ ([pc|r|] :| [[pc|p.x|]])
+                , testCase "rf3"  $ rf3 ≟ rf2 ~!~ ([pc|p|] :| [[pc|q|],[pc|r.mp3|]])
                 , testCase "rf3'" $
-                     [relfile|p/t/r/|] ≟ (rf3 & seq ⊥ 1 ⊢ [pc|t|])
+                     [relfile|p/t/r.mp3|] ≟ (rf3 & seqNE ⊥ 1 ⊢ [pc|t|])
                 ]
 
 relFileShowTests ∷ TestTree
@@ -229,10 +232,10 @@ relFileShowTests =
 relFilePrintableTests ∷ TestTree
 relFilePrintableTests =
   testGroup "printable"
-            [ testCase "r0" $ "./"     ≟ toText r0
-            , testCase "rf1" $ "r/"     ≟ toText rf1
-            , testCase "rf2" $ "r/p/"   ≟ toText rf2
-            , testCase "rf3" $ "p/q/r/" ≟ toText rf3
+            [ testCase "rf1" $ "r.e"       ≟ toText rf1
+            , testCase "rf2" $ "r/p.x"     ≟ toText rf2
+            , testCase "rf3" $ "p/q/r.mp3" ≟ toText rf3
+            , testCase "rf4" $ ".x"        ≟ toText rf4
             ]
 
 relFileTextualTests ∷ TestTree
@@ -242,9 +245,9 @@ relFileTextualTests =
       success e s = testCase s $ Parsed e  ≟ parseString s
       fail s      = testCase s $ nothin'   ≟ fromString s
    in testGroup "Textual" [ success rf1 "r.e"
-                          , success rf2 "r/p/"
-                          , success rf3 "p/q/r/"
-                          , success rf4 "./"
+                          , success rf2 "r/p.x"
+                          , success rf3 "p/q/r.mp3"
+                          , success rf4 ".x"
                           , fail "/etc"
                           , fail "/etc/pam.d"
                           , success [relfile|etc|] "etc"
@@ -270,14 +273,15 @@ relFileMonoFunctorTests ∷ TestTree
 relFileMonoFunctorTests =
   testGroup "MonoFunctor"
             [ testCase "rf1 → usr" $
-                    [relfile|usr/|] ≟ omap (const [pc|usr|]) rf1
-            , testCase "rf3.d" $ [relfile|p.d/q.d/r.d/|] ≟ (◇ [pc|.d|]) ⪧ rf3
-            , testCase "rf3 toUpper" $ [relfile|P/Q/R/|] ≟  rf3 ⪦ toUpper
+                    [relfile|usr|] ≟ omap (const [pc|usr|]) rf1
+            , testCase "rf3.d" $ [relfile|p.d/q.d/r.mp3.d|] ≟ (◇ [pc|.d|]) ⪧ rf3
+            , testCase "rf3 toUpper" $ [relfile|P/Q/R.MP3|] ≟  rf3 ⪦ toUpper
             ]
 
-relFileIsMonoSeqTests ∷ TestTree
-relFileIsMonoSeqTests = testGroup "IsMonoSeq" [ relFileIsMonoSeqGetterTests
-                                             , relFileIsMonoSeqSetterTests ]
+relFileIsMonoSeqNETests ∷ TestTree
+relFileIsMonoSeqNETests =
+  testGroup "IsMonoSeqNE" [ relFileIsMonoSeqNEGetterTests
+                          , relFileIsMonoSeqNESetterTests ]
 
 relFileParentMayGetterTests ∷ TestTree
 relFileParentMayGetterTests =
@@ -324,6 +328,26 @@ relFileParentMayTests = testGroup "parentMay"
                                  , relFileParentMaySetterTests
                                  , relFileParentMayAdjusterTests
                                  ]
+
+
+relFileParentTests ∷ TestTree
+relFileParentTests =
+  let (~~) ∷ RelFile → RelDir → RelFile
+      f ~~ d' = f & parent ⊢ d'
+   in testGroup "parent"
+                [ testCase "rf1"       $ [reldir|./|]   ≟ rf1 ⊣ parent
+                , testCase "rf2"       $ [reldir|r/|]   ≟ rf2 ⊣ parent
+                , testCase "rf3"       $ [reldir|p/q/|] ≟ rf3 ⊣ parent
+                , testCase "rf4"       $ [reldir|./|]   ≟ rf4 ⊣ parent
+                , testCase "rf1 → r0"  $ rf1 ≟ rf1 ~~ r0
+                , testCase "rf2 → p.x" $ [relfile|p.x|] ≟ rf2 ~~ r0
+                , testCase "rf1 → r3"  $ [relfile|p/q/r/r.e|] ≟ rf1 ~~ r3
+                , testCase "rf3 → r1"  $ [relfile|r/r.mp3|] ≟ rf3 ~~ r1
+
+                , testCase "rf3 → r0"  $ [relfile|r.mp3|] ≟ rf3 ~~ r0
+                , testCase "rf2 → r1"  $ rf2 ≟ rf2 ~~ r1
+                , testCase "rf1 → r2"  $ [relfile|r/p/r.e|] ≟ rf1 ~~ r2
+                ]
 
 relFileFilepathTests ∷ TestTree
 relFileFilepathTests =
@@ -409,8 +433,12 @@ relFileMonoFoldableTests =
 
 relFileTextualGroupTests ∷ TestTree
 relFileTextualGroupTests =
-  testGroup "textual group" [ relFileTextualTests, relFileTextualPrintableTests
-                            , relFilePrintableTests ]
+  testGroup "textual group" [ relFileTextualTests, relFilePrintableTests
+                            , relFileTextualPrintableTests ]
+
+relFileParentGroupTests ∷ TestTree
+relFileParentGroupTests =
+  testGroup "parent group" [ relFileParentTests, relFileParentMayTests ]
 
 tests ∷ TestTree
 tests =
@@ -419,8 +447,8 @@ tests =
                       , relFileMonoFunctorTests
                       , relFileMonoFoldableTests
                       , relFileTextualGroupTests
-                      , relFileIsMonoSeqTests
-                      , relFileParentMayTests
+                      , relFileIsMonoSeqNETests
+                      , relFileParentGroupTests
                       , relFileFilepathTests
                       ]
 

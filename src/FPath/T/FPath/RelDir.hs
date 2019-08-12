@@ -403,8 +403,8 @@ relDirConstructionTests = testGroup "construction" [ parseRelDirTests
 
 relDirTextualGroupTests ∷ TestTree
 relDirTextualGroupTests =
-  testGroup "textual group" [ relDirTextualTests, relDirTextualPrintableTests
-                            , relDirPrintableTests ]
+  testGroup "textual group" [ relDirTextualTests, relDirPrintableTests
+                            , relDirTextualPrintableTests ]
 
 tests ∷ TestTree
 tests =

@@ -95,8 +95,12 @@ import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , IsMonoSeq( seq )
                                             , ToMonoSeq( toSeq )
                                             )
-import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪫) )
-import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE ) )
+import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪫), (⪭) )
+import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
+                                            , IsMonoSeqNonEmpty( seqNE )
+                                            , ToMonoSeqNonEmpty( toSeqNE
+                                                               , toSeq_ )
+                                            )
 
 -- parsers -----------------------------
 
@@ -109,7 +113,7 @@ import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, dropEnd, length, splitOn )
+import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
 
 -- text-printer ------------------------
 
@@ -121,7 +125,7 @@ import qualified  Text.Printer  as  P
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
 import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ), Rel )
-import FPath.HasParent    ( HasParentMay( parentMay ) )
+import FPath.HasParent    ( HasParent( parent ), HasParentMay( parentMay ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
 import FPath.Error.FPathError           ( AsFPathError, FPathError
@@ -137,7 +141,7 @@ import FPath.Util                       ( QuasiQuoter
 -------------------------------------------------------------------------------
 
 {- | a relative directory -}
-data RelFile = RelFile RelDir PathComponent
+data RelFile = RelFile { _parent ∷ RelDir, _local ∷ PathComponent }
   deriving (Eq, Show)
 
 type instance Element RelFile = PathComponent
@@ -146,8 +150,8 @@ type instance Element RelFile = PathComponent
 
 instance MonoFunctor RelFile where
   omap ∷ (PathComponent → PathComponent) → RelFile → RelFile
---  omap f (RelFile ps) = RelFile (omap f ps)
-  omap = undefined
+  omap f (RelFile ps b) = RelFile (omap f ps) (f b)
+--  omap = undefined
 
 ----------------------------------------
 
@@ -179,18 +183,21 @@ instance FromMonoSeqNonEmpty RelFile where
 
 ----------------------------------------
 
-instance FromMonoSeq RelFile where
+-- instance FromMonoSeq RelFile where
 --  fromSeq = RelFile
 
 ----------------------------------------
 
+instance ToMonoSeqNonEmpty RelFile where
+  toSeqNE (RelFile ps f) = toSeq ps ⪭ f
+
 instance ToMonoSeq RelFile where
---  toSeq (RelFile ps) = ps
+  toSeq = toSeq_
 
 ----------------------------------------
 
-instance IsMonoSeq RelFile where
-  seq = iso toSeq fromSeq
+instance IsMonoSeqNonEmpty RelFile where
+  seqNE = iso toSeqNE fromSeqNE
 
 ----------------------------------------
 
@@ -209,19 +216,8 @@ instance IsNonEmpty RelFile where
 
 ----------------------------------------
 
-{- | Convert a sequence of printable elements to strings by intercalating '/'
-     characters; with a post-fact string transformation for extra bells (e.g.,
-     a prefix '/' character -}
-pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
-       (String → String) → α → ρ
-pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
-
 instance Printable RelFile where
-  print = error "not defined"
-{-
-  print (RelFile ps) | ps ≡ ф = "./"
-                     | otherwise = pDir id ps
--}
+  print r = P.text $ intercalate "/" (toText ⊳ otoList r)
 
 ----------------------------------------
 
@@ -236,13 +232,18 @@ instance Textual RelFile where
 ----------------------------------------
 
 instance Arbitrary RelFile where
-  arbitrary = fromSeq ⊳ arbitrary
-  shrink = fromSeq ⩺ shrink ∘ toSeq
+  arbitrary = fromSeqNE ⊳ arbitrary
+  shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
 
 ----------------------------------------
 
 instance HasAbsOrRel RelFile where
   type AbsOrRel RelFile = Rel
+
+----------------------------------------
+
+instance HasParent RelFile where
+  parent = lens _parent (\ r p → r { _parent = p })
 
 ----------------------------------------
 

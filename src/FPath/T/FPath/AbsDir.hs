@@ -373,8 +373,8 @@ absDirConstructionTests = testGroup "construction" [ parseAbsDirTests
 
 absDirTextualGroupTests ∷ TestTree
 absDirTextualGroupTests =
-  testGroup "textual group" [ absDirTextualTests, absDirTextualPrintableTests
-                            , absDirPrintableTests ]
+  testGroup "textual group" [ absDirTextualTests, absDirPrintableTests
+                            , absDirTextualPrintableTests ]
 
 absDirParentGroupTests ∷ TestTree
 absDirParentGroupTests =
