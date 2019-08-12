@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE UnicodeSyntax     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE UnicodeSyntax       #-}
 
 module FPath.T.FPath.RelFile
   ( tests )
@@ -10,20 +11,26 @@ where
 
 -- base --------------------------------
 
-import Data.Either      ( Either( Left, Right  ) )
-import Data.Function    ( ($), (&), const )
-import Data.Functor     ( fmap )
-import Data.Maybe       ( Maybe( Just, Nothing ) )
-import Data.String      ( String )
-import Data.Typeable    ( Proxy( Proxy ), typeRep )
-import GHC.Exts         ( fromList, toList )
-import Numeric.Natural  ( Natural )
-import System.IO        ( IO )
-import Text.Show        ( Show( show ) )
+import Control.Applicative  ( pure )
+import Data.Bool            ( Bool( False, True ) )
+import Data.Either          ( Either( Left, Right  ) )
+import Data.Function        ( ($), (&), const )
+import Data.Functor         ( fmap )
+import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Ord             ( Ordering( GT ), (<), compare, comparing )
+import Data.String          ( String )
+import Data.Typeable        ( Proxy( Proxy ), typeRep )
+import GHC.Exts             ( fromList )
+import Numeric.Natural      ( Natural )
+import System.IO            ( IO )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Monoid.Unicode  ( (⊕) )
+import Data.Eq.Unicode        ( (≡) )
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
 
 -- containers --------------------------
 
@@ -44,7 +51,12 @@ import Control.Lens.Setter  ( (?~) )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( omap )
+import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
+                             , ocompareLength, oelem, ofoldMap, ofoldl', ofoldlM
+                             , ofoldl1Ex', ofoldMap1Ex, ofoldr, ofoldr1Ex
+                             , olength, olength64, omap, onotElem, onull
+                             , otoList, otraverse_, unsafeHead, unsafeLast
+                             )
 
 -- more-unicode ------------------------
 
@@ -52,7 +64,7 @@ import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (#
 import Data.MoreUnicode.Monoid           ( ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟) )
+import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
 -- mtl ---------------------------------
 
@@ -60,7 +72,8 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions ( IsMonoSeq( seq ) )
+import NonEmptyContainers.IsNonEmpty      ( fromNonEmpty, toNonEmpty )
+import NonEmptyContainers.SeqConversions  ( IsMonoSeq( seq ) )
 
 -- tasty -------------------------------
 
@@ -68,7 +81,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( assertFailure, testCase )
 
 -- tasty-quickcheck --------------------
 
@@ -76,7 +89,8 @@ import Test.Tasty.QuickCheck  ( testProperty )
 
 -- text --------------------------------
 
-import Data.Text  ( Text )
+import qualified  Data.Text  as  Text
+import Data.Text  ( Text, length )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -164,20 +178,22 @@ relFileIsMonoSeqGetterTests =
             , testCase "rf3" $ Seq.fromList [[pc|p|], [pc|q|], [pc|r|]] ≟ rf3 ⊣ seq
             ]
 
-relFileIsListTests ∷ TestTree
-relFileIsListTests =
-  testGroup "IsList"
-    [ testGroup "fromList"
-                [ testCase "r0" $ r0 ≟ fromList []
-                , testCase "rf1" $ rf1 ≟ fromList [ [pc|r|] ]
-                , testCase "rf2" $ rf2 ≟ fromList [ [pc|r|], [pc|p|] ]
-                , testCase "rf3" $ rf3 ≟ fromList [ [pc|p|], [pc|q|], [pc|r|] ]
+relFileIsNonEmptyTests ∷ TestTree
+relFileIsNonEmptyTests =
+  testGroup "IsNonEmpty"
+    [ testGroup "fromNonEmpty"
+                [ testCase "rf1" $ rf1 ≟ fromNonEmpty (pure [pc|r.e|])
+                , testCase "rf2" $ rf2 ≟ fromNonEmpty ([pc|r|] :| [ [pc|p.x|] ])
+                , testCase "rf3" $ rf3 ≟
+                    fromNonEmpty ([pc|p|] :| [ [pc|q|], [pc|r.mp3|] ])
+                , testCase "rf4" $ rf4 ≟ fromNonEmpty (pure [pc|.x|])
                 ]
-    , testGroup "toList"
-                [ testCase "r0" $ []                            ≟ toList r0
-                , testCase "rf1" $ [ [pc|r|] ]                   ≟ toList rf1
-                , testCase "rf2" $ [ [pc|r|], [pc|p|] ]          ≟ toList rf2
-                , testCase "rf3" $ [ [pc|p|], [pc|q|], [pc|r|] ] ≟ toList rf3
+    , testGroup "toNonEmpty"
+                [ testCase "rf1" $ pure [pc|r.e|]           ≟ toNonEmpty rf1
+                , testCase "rf2" $ [pc|r|] :| [ [pc|p.x|] ] ≟ toNonEmpty rf2
+                , testCase "rf3" $
+                    [pc|p|] :| [ [pc|q|], [pc|r.mp3|] ]     ≟ toNonEmpty rf3
+                , testCase "rf4" $ pure [pc|.x|]            ≟ toNonEmpty rf4
                 ]
     ]
 
@@ -225,7 +241,7 @@ relFileTextualTests =
       nothin'     = Nothing
       success e s = testCase s $ Parsed e  ≟ parseString s
       fail s      = testCase s $ nothin'   ≟ fromString s
-   in testGroup "Textual" [ success rf1 "r/"
+   in testGroup "Textual" [ success rf1 "r.e"
                           , success rf2 "r/p/"
                           , success rf3 "p/q/r/"
                           , success rf4 "./"
@@ -296,7 +312,7 @@ relFileParentMaySetterTests =
 relFileParentMayAdjusterTests ∷ TestTree
 relFileParentMayAdjusterTests =
   -- reverse the directories in the parent seq
-  testGroup "adjuster" [ testCase "rf3 reverse" $ 
+  testGroup "adjuster" [ testCase "rf3 reverse" $
                            let reverseP = fmap (& seq ⊧ Seq.reverse)
                             in [relfile|q/p/r/|] ≟ (rf3 & parentMay ⊧ reverseP)
 
@@ -339,6 +355,58 @@ relFileConstructionTests ∷ TestTree
 relFileConstructionTests = testGroup "construction" [ parseRelFileTests
                                                    , relfileQQTests ]
 
+relFileMonoFoldableTests ∷ TestTree
+relFileMonoFoldableTests =
+  testGroup "MonoFoldable"
+            [ testCase "ofoldMap" $
+                "p-q-r.mp3-" ≟ ofoldMap ((⊕ "-") ∘ toText) rf3
+            , testCase "ofoldr" $
+                "p-q-r.mp3-ф" ≟ ofoldr (\ a b → toText a ⊕ "-" ⊕ b) "ф" rf3
+            , testCase "ofoldl'" $
+                "ф-p-q-r.mp3" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" rf3
+            , testCase "otoList" $
+                [ [pc|p|], [pc|q|], [pc|r.mp3|] ] ≟ otoList rf3
+            , testCase "oall (F)" $
+                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) rf3
+            , testCase "oall (T)" $
+                True ≟ oall ((< 6) ∘ Text.length ∘ toText) rf3
+            , testCase "oany (F)" $
+                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) rf3
+            , testProperty "onull" (\ (x ∷ RelFile) → False ≣ onull x)
+            , testCase "olength" $
+                3 ≟ olength rf3
+            , testCase "olength64" $
+                1 ≟ olength64 rf4
+            , testCase "ocompareLength" $
+               GT ≟ ocompareLength rf3 2
+            , testCase "ofoldlM" $
+                  Just [[pc|r.mp3|],[pc|q|],[pc|p|]]
+                ≟ ofoldlM (\ a e → Just $ e : a) [] rf3
+            , testCase "ofoldMap1Ex" $
+                [[pc|p|],[pc|q|],[pc|r.mp3|]] ≟ ofoldMap1Ex pure rf3
+            , testCase "ofoldr1Ex" $
+                [pc|pqr.mp3|] ≟ ofoldr1Ex (◇) rf3
+            , testCase "ofoldl1Ex'" $
+                [pc|pqr.mp3|] ≟ ofoldl1Ex' (◇) rf3
+            , testCase "unsafeHead" $
+                [pc|p|] ≟ unsafeHead rf3
+            , testCase "unsafeLast" $
+                [pc|r.mp3|] ≟ unsafeLast rf3
+            , testCase "maximumByEx" $
+                [pc|r.mp3|] ≟ maximumByEx (comparing toText) rf3
+            , testCase "minimumByEx" $
+                [pc|p|] ≟ minimumByEx (comparing toText) rf3
+            , testCase "oelem (T)" $
+                True ≟ oelem [pc|q|] rf3
+            , testCase "oelem (F)" $
+                False ≟ oelem [pc|x|] rf3
+            , testCase "onotElem (T)" $
+                True ≟ onotElem [pc|x|] rf3
+            , testCase "onotElem (F)" $
+                False ≟ onotElem [pc|q|] rf3
+            ]
+
+
 relFileTextualGroupTests ∷ TestTree
 relFileTextualGroupTests =
   testGroup "textual group" [ relFileTextualTests, relFileTextualPrintableTests
@@ -347,14 +415,15 @@ relFileTextualGroupTests =
 tests ∷ TestTree
 tests =
   testGroup "RelFile" [ relFileConstructionTests, relFileShowTests
-                     , relFileTextualGroupTests
-                     , relFileIsListTests
-                     , relFileIsMonoSeqTests
-                     , relFileParentMayTests
-                     , relFileFilepathTests
+                      , relFileIsNonEmptyTests
+                      , relFileMonoFoldableTests
+                      , relFileTextualGroupTests
+                      , relFileIsMonoSeqTests
+                      , relFileParentMayTests
+                      , relFileFilepathTests
 
-                     , relFileMonoFunctorTests
-                     ]
+                      , relFileMonoFunctorTests
+                      ]
 
 ----------------------------------------
 

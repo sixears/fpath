@@ -5,8 +5,8 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.T.Common
-  ( doTest, doTestR, doTestS
-  , propInvertibleString, propInvertibleText, propInvertibleUtf8 )
+  ( doTest, doTestR, doTestS, propAssociative, propInvertibleString
+  , propInvertibleText, propInvertibleUtf8 )
 where
 
 import Prelude  ( fromIntegral )
@@ -62,6 +62,9 @@ propInvertibleText d =
 propInvertibleUtf8 ∷ (Eq α, Show α, Textual α) ⇒ α → Property
 propInvertibleUtf8 d =
   parseUtf8 (toUtf8 d) ≣ Parsed d
+
+propAssociative ∷ (Eq α, Show α) ⇒ (α → α → α) → α → α → α → Property
+propAssociative f a b c = f a (f b c)  ≣ f (f a b) c
 
 ----------------------------------------
 

@@ -23,16 +23,20 @@ import Prelude  ( error, undefined )
 
 -- base --------------------------------
 
+import qualified  Data.List.NonEmpty  as  NonEmpty
+
 import Control.Applicative  ( pure )
 import Control.Monad        ( mapM, return )
 import Data.Bifunctor       ( first )
 import Data.Bool            ( otherwise )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( concat )
+import Data.Foldable        ( concat, foldMap, foldl1, foldl', foldr, foldr1 )
 import Data.Function        ( ($), const, id )
 import Data.Functor         ( fmap )
+import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Monoid          ( Monoid )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
@@ -64,7 +68,11 @@ import Control.Lens.Prism  ( prism' )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
 
 -- more-unicode ------------------------
 
@@ -80,6 +88,9 @@ import Control.Monad.Except  ( MonadError )
 
 import qualified  NonEmptyContainers.SeqNE  as  SeqNE
 
+import NonEmptyContainers.IsNonEmpty        ( FromNonEmpty( fromNonEmpty )
+                                            , IsNonEmpty( nonEmpty )
+                                            , ToNonEmpty( toNonEmpty ) )
 import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , IsMonoSeq( seq )
                                             , ToMonoSeq( toSeq )
@@ -90,7 +101,7 @@ import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE ) )
 -- parsers -----------------------------
 
 import Text.Parser.Char         ( char, string )
-import Text.Parser.Combinators  ( endBy, sepBy1 )
+import Text.Parser.Combinators  ( endBy, sepByNonEmpty )
 
 -- QuickCheck --------------------------
 
@@ -140,6 +151,30 @@ instance MonoFunctor RelFile where
 
 ----------------------------------------
 
+instance MonoFoldable RelFile where
+  otoList ∷ RelFile → [PathComponent]
+  otoList (RelFile ps f) = otoList ps ⊕ [f]
+
+  ofoldl' ∷ (α → PathComponent → α) → α → RelFile → α 
+  ofoldl' f x r = foldl' f x (toNonEmpty r)
+
+  ofoldr ∷ (PathComponent → α → α) → α → RelFile → α
+  ofoldr f x r = foldr f x (toNonEmpty r)
+
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → RelFile → ν
+  ofoldMap f r = foldMap f (toNonEmpty r)
+
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → RelFile
+            → PathComponent
+  ofoldr1Ex f r = foldr1 f (toNonEmpty r)
+
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → RelFile
+             → PathComponent
+  ofoldl1Ex' f r = foldl1 f (toNonEmpty r)
+
+
+----------------------------------------
+
 instance FromMonoSeqNonEmpty RelFile where
   fromSeqNE (ps :⪭ f) = RelFile (fromSeq ps) f
 
@@ -160,12 +195,18 @@ instance IsMonoSeq RelFile where
 
 ----------------------------------------
 
-instance IsList RelFile where
-  type instance Item RelFile = PathComponent
-{-
-  fromList = RelFile ∘ Seq.fromList
-  toList   = toList ∘ toSeq
--}
+instance FromNonEmpty RelFile where
+  fromNonEmpty (x :| xs) = case NonEmpty.nonEmpty xs of
+                             Nothing  → RelFile (fromList ф) x
+                             Just xs' → let pcs = x : NonEmpty.init xs'
+                                            f   = NonEmpty.last xs'
+                                         in RelFile (fromList pcs) f
+
+instance ToNonEmpty RelFile where
+  toNonEmpty (RelFile ps f) = NonEmpty.fromList $ toList ps ⊕ [f]
+
+instance IsNonEmpty RelFile where
+  nonEmpty = iso toNonEmpty fromNonEmpty
 
 ----------------------------------------
 
@@ -177,6 +218,7 @@ pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
 
 instance Printable RelFile where
+  print = error "not defined"
 {-
   print (RelFile ps) | ps ≡ ф = "./"
                      | otherwise = pDir id ps
@@ -190,7 +232,7 @@ instance AsFilePath RelFile where
 ----------------------------------------
 
 instance Textual RelFile where
-  textual = fromList ⊳ (sepBy1 textual (char '/'))
+  textual = fromNonEmpty ⊳ (sepByNonEmpty textual (char '/'))
 
 ----------------------------------------
 

@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE UnicodeSyntax     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE UnicodeSyntax       #-}
 
 module FPath.T.FPath.RelDir
   ( tests )
@@ -11,6 +12,7 @@ where
 -- base --------------------------------
 
 import Data.Either      ( Either( Left, Right  ) )
+import Data.Foldable    ( foldr )
 import Data.Function    ( ($), (&), const )
 import Data.Functor     ( fmap )
 import Data.Maybe       ( Maybe( Just, Nothing ) )
@@ -49,10 +51,10 @@ import Data.MonoTraversable  ( omap )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
-import Data.MoreUnicode.Monoid           ( ф )
+import Data.MoreUnicode.Monoid           ( ю, ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟) )
+import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
 -- mtl ---------------------------------
 
@@ -95,8 +97,10 @@ import FPath.HasParent         ( parentMay )
 import FPath.PathComponent     ( pc, toUpper )
 import FPath.RelDir            ( RelDir, parseRelDir', reldir )
 
-import FPath.T.Common          ( doTest, doTestR, doTestS, propInvertibleString
-                               , propInvertibleText, propInvertibleUtf8 )
+import FPath.T.Common          ( doTest, doTestR, doTestS
+                               , propAssociative, propInvertibleString
+                               , propInvertibleText, propInvertibleUtf8
+                               )
 import FPath.T.FPath.TestData  ( r0, r1, r2, r3 )
 
 --------------------------------------------------------------------------------
@@ -144,6 +148,21 @@ relDirIsMonoSeqGetterTests =
             , testCase "r1" $ ([pc|r|] ⪬ ф)                        ≟ r1 ⊣ seq
             , testCase "r2" $ Seq.fromList [[pc|r|], [pc|p|]]          ≟ r2 ⊣ seq
             , testCase "r3" $ Seq.fromList [[pc|p|], [pc|q|], [pc|r|]] ≟ r3 ⊣ seq
+            ]
+
+relDirSemigroupTests ∷ TestTree
+relDirSemigroupTests =
+  testGroup "Semigroup"
+            [ testProperty "associativity" (propAssociative @RelDir (◇))
+            ]
+
+relDirMonoidTests ∷ TestTree
+relDirMonoidTests =
+  testGroup "Monoid"
+            [ testProperty "left identity"  (\ (x ∷ RelDir) → ф ⊕ x ≣ x)
+            , testProperty "right identity" (\ (x ∷ RelDir) → x ⊕ ф ≣ x)
+            , testProperty "associativity"  (propAssociative @RelDir (⊕))
+            , testProperty "mconcat"  (\ (x ∷ [RelDir]) → ю x ≣ foldr (⊕) ф x)
             ]
 
 relDirIsListTests ∷ TestTree
@@ -276,7 +295,7 @@ relDirParentMaySetterTests =
 relDirParentMayAdjusterTests ∷ TestTree
 relDirParentMayAdjusterTests =
   -- reverse the directories in the parent seq
-  testGroup "adjuster" [ testCase "r3 reverse" $ 
+  testGroup "adjuster" [ testCase "r3 reverse" $
                            let reverseP = fmap (& seq ⊧ Seq.reverse)
                             in [reldir|q/p/r/|] ≟ (r3 & parentMay ⊧ reverseP)
 
@@ -328,8 +347,10 @@ relDirTextualGroupTests =
 tests ∷ TestTree
 tests =
   testGroup "RelDir" [ relDirConstructionTests, relDirShowTests
-                     , relDirTextualGroupTests
+                     , relDirSemigroupTests
+                     , relDirMonoidTests
                      , relDirIsListTests
+                     , relDirTextualGroupTests
                      , relDirIsMonoSeqTests
                      , relDirParentMayTests
                      , relDirFilepathTests

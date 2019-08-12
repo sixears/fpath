@@ -20,7 +20,7 @@ module FPath.RelDir
   )
 where
 
-import Prelude  ( error )
+import Prelude  ( error, undefined )
 
 -- base --------------------------------
 
@@ -66,7 +66,11 @@ import Control.Lens.Prism  ( prism' )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element, MonoFunctor( omap ) )
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
 
 -- more-unicode ------------------------
 
@@ -137,6 +141,25 @@ type instance Element RelDir = PathComponent
 instance MonoFunctor RelDir where
   omap ∷ (PathComponent → PathComponent) → RelDir → RelDir
   omap f (RelDir ps) = RelDir (omap f ps)
+
+----------------------------------------
+
+instance MonoFoldable RelDir where
+  otoList ∷ RelDir → [PathComponent]
+  otoList (RelDir ps) = toList ps
+  ofoldl' ∷ (α → PathComponent → α) → α → RelDir → α 
+  ofoldl' = undefined
+
+  ofoldr ∷ (PathComponent → α → α) → α → RelDir → α
+  ofoldr = undefined
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → RelDir → ν
+  ofoldMap = undefined
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → RelDir
+            → PathComponent
+  ofoldr1Ex = undefined
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → RelDir
+             → PathComponent
+  ofoldl1Ex' = undefined
 
 ----------------------------------------
 
