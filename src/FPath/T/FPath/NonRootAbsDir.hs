@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE UnicodeSyntax     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE UnicodeSyntax       #-}
 
 module FPath.T.FPath.NonRootAbsDir
   ( tests )
@@ -11,11 +12,13 @@ where
 -- base --------------------------------
 
 import Control.Applicative  ( pure )
+import Data.Bool            ( Bool( False, True ) )
 import Data.Either          ( Either( Left, Right ) )
 import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
+import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import Numeric.Natural      ( Natural )
@@ -24,7 +27,9 @@ import Text.Show            ( show )
 
 -- base-unicode-symbols ----------------
 
-import Data.Monoid.Unicode  ( (⊕) )
+import Data.Eq.Unicode        ( (≡) )
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
@@ -32,7 +37,12 @@ import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( omap )
+import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
+                             , ocompareLength, oelem, ofoldl', ofoldl1Ex'
+                             , ofoldlM, ofoldMap, ofoldMap1Ex, ofoldr, ofoldr1Ex
+                             , olength, olength64, omap, onotElem, onull
+                             , otoList, unsafeHead, unsafeLast
+                             )
 import Data.Sequences        ( reverse )
 
 -- more-unicode ------------------------
@@ -40,8 +50,9 @@ import Data.Sequences        ( reverse )
 import Data.MoreUnicode.Function        ( (⅋) )
 import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼), (##) )
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
+import Data.MoreUnicode.Natural         ( ℕ )
 import Data.MoreUnicode.Semigroup       ( (◇) )
-import Data.MoreUnicode.Tasty           ( (≟) )
+import Data.MoreUnicode.Tasty           ( (≟), (≣) )
 
 -- mtl ---------------------------------
 
@@ -67,6 +78,7 @@ import Test.Tasty.QuickCheck  ( testProperty )
 
 -- text --------------------------------
 
+import qualified  Data.Text  as  Text
 import Data.Text  ( Text )
 
 ------------------------------------------------------------
@@ -171,6 +183,57 @@ absDirNMonoFunctorTests =
                     [absdirN|/usr/|] ≟ omap (const [pc|usr|]) etcN
             , testCase "wgm.d" $ [absdirN|/w.d/g.d/M.d/|] ≟ (◇ [pc|.d|]) ⪧ wgmN
             , testCase "WGM" $ [absdirN|/W/G/M/|] ≟  wgmN ⪦ toUpper
+            ]
+
+absDirNMonoFoldableTests ∷ TestTree
+absDirNMonoFoldableTests =
+  testGroup "MonoFoldable"
+            [ testCase "ofoldMap" $
+                "w-g-M-" ≟ ofoldMap ((⊕ "-") ∘ toText) wgmN
+            , testCase "ofoldr" $
+                "w-g-M-ф" ≟ ofoldr (\ a b → toText a ⊕ "-" ⊕ b) "ф" wgmN
+            , testCase "ofoldl'" $
+                "ф-w-g-M" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" wgmN
+            , testCase "otoList" $
+                [ [pc|w|], [pc|g|], [pc|M|] ] ≟ otoList wgmN
+            , testCase "oall (F)" $
+                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) wgmN
+            , testCase "oall (T)" $
+                True ≟ oall ((< 6) ∘ Text.length ∘ toText) wgmN
+            , testCase "oany (F)" $
+                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) wgmN
+            , testProperty "onull" (\ (x ∷ NonRootAbsDir) → False ≣ onull x)
+            , testCase "olength" $
+                3 ≟ olength wgmN
+            , testCase "olength64" $
+                1 ≟ olength64 etcN
+            , testCase "ocompareLength" $
+               GT ≟ ocompareLength wgmN (2 ∷ ℕ)
+            , testCase "ofoldlM" $
+                  Just [[pc|M|],[pc|g|],[pc|w|]]
+                ≟ ofoldlM (\ a e → Just $ e : a) [] wgmN
+            , testCase "ofoldMap1Ex" $
+                [[pc|w|],[pc|g|],[pc|M|]] ≟ ofoldMap1Ex pure wgmN
+            , testCase "ofoldr1Ex" $
+                [pc|wgM|] ≟ ofoldr1Ex (◇) wgmN
+            , testCase "ofoldl1Ex'" $
+                [pc|wgM|] ≟ ofoldl1Ex' (◇) wgmN
+            , testCase "unsafeHead" $
+                [pc|w|] ≟ unsafeHead wgmN
+            , testCase "unsafeLast" $
+                [pc|M|] ≟ unsafeLast wgmN
+            , testCase "maximumByEx" $
+                [pc|w|] ≟ maximumByEx (comparing toText) wgmN
+            , testCase "minimumByEx" $
+                [pc|M|] ≟ minimumByEx (comparing toText) wgmN
+            , testCase "oelem (T)" $
+                True ≟ oelem [pc|g|] wgmN
+            , testCase "oelem (F)" $
+                False ≟ oelem [pc|x|] wgmN
+            , testCase "onotElem (T)" $
+                True ≟ onotElem [pc|x|] wgmN
+            , testCase "onotElem (F)" $
+                False ≟ onotElem [pc|g|] wgmN
             ]
 
 absDirNIsMonoSeqNETests ∷ TestTree
@@ -326,14 +389,14 @@ absDirNParentGroupTests =
 
 tests ∷ TestTree
 tests =
-  testGroup "NonRootAbsDir" [ absDirNConstructionTests
-                            , absDirNShowTests
-                            , absDirNTextualGroupTests
+  testGroup "NonRootAbsDir" [ absDirNConstructionTests, absDirNShowTests
                             , absDirNIsNonEmptyTests
+                            , absDirNMonoFunctorTests
+                            , absDirNMonoFoldableTests
+                            , absDirNTextualGroupTests
                             , absDirNIsMonoSeqNETests
                             , absDirNParentGroupTests
                             , absDirNFilepathTests
-                            , absDirNMonoFunctorTests
                             ]
 
 ----------------------------------------

@@ -412,13 +412,12 @@ tests =
                      , relDirSemigroupTests
                      , relDirMonoidTests
                      , relDirIsListTests
+                     , relDirMonoFunctorTests
                      , relDirMonoFoldableTests
                      , relDirTextualGroupTests
                      , relDirIsMonoSeqTests
                      , relDirParentMayTests
                      , relDirFilepathTests
-
-                     , relDirMonoFunctorTests
                      ]
 
 ----------------------------------------

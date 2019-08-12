@@ -27,6 +27,8 @@ import Prelude  ( error )
 
 -- base --------------------------------
 
+import qualified  Data.List.NonEmpty  as  NonEmpty
+
 import Control.Applicative  ( pure )
 import Control.Monad        ( return )
 import Data.Either          ( Either( Left, Right ), either )
@@ -95,7 +97,8 @@ import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
 import NonEmptyContainers.SeqConversions
                                     ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
                                     , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫), onEmpty' )
+import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪬), (⪪), (⪫)
+                                    , onEmpty' )
 import NonEmptyContainers.SeqNEConversions
                                     ( FromMonoSeqNonEmpty( fromSeqNE )
                                     , IsMonoSeqNonEmpty( seqNE )
@@ -191,6 +194,25 @@ instance MonoFoldable AbsDir where
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → AbsDir
              → PathComponent
   ofoldl1Ex' f r = foldl1 f (toList r)
+
+----------------------------------------
+
+instance MonoFoldable NonRootAbsDir where
+  otoList ∷ NonRootAbsDir → [PathComponent]
+  otoList = NonEmpty.toList ∘ toNonEmpty
+  ofoldl' ∷ (α → PathComponent → α) → α → NonRootAbsDir → α 
+  ofoldl' f x r = foldl' f x (toNonEmpty r)
+
+  ofoldr ∷ (PathComponent → α → α) → α → NonRootAbsDir → α
+  ofoldr f x r = foldr f x (toNonEmpty r)
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → NonRootAbsDir → ν
+  ofoldMap f r = foldMap f (toNonEmpty r)
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → NonRootAbsDir
+            → PathComponent
+  ofoldr1Ex f r = foldr1 f (toNonEmpty r)
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → NonRootAbsDir
+             → PathComponent
+  ofoldl1Ex' f r = foldl1 f (toNonEmpty r)
 
 ----------------------------------------
 

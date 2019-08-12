@@ -416,13 +416,12 @@ tests ∷ TestTree
 tests =
   testGroup "RelFile" [ relFileConstructionTests, relFileShowTests
                       , relFileIsNonEmptyTests
+                      , relFileMonoFunctorTests
                       , relFileMonoFoldableTests
                       , relFileTextualGroupTests
                       , relFileIsMonoSeqTests
                       , relFileParentMayTests
                       , relFileFilepathTests
-
-                      , relFileMonoFunctorTests
                       ]
 
 ----------------------------------------

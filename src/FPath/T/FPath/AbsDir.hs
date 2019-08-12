@@ -384,13 +384,13 @@ absDirParentGroupTests =
 tests ∷ TestTree
 tests =
   testGroup "AbsDir" [ absDirConstructionTests, absDirShowTests
-                     , absDirTextualGroupTests
                      , absDirIsListTests
+                     , absDirMonoFunctorTests
                      , absDirMonoFoldableTests
+                     , absDirTextualGroupTests
                      , absDirIsMonoSeqTests
                      , absDirParentGroupTests
                      , absDirFilepathTests
-                     , absDirMonoFunctorTests
                      ]
 
 ----------------------------------------
