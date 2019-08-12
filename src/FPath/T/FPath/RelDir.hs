@@ -11,21 +11,26 @@ where
 
 -- base --------------------------------
 
-import Data.Either      ( Either( Left, Right  ) )
-import Data.Foldable    ( foldr )
-import Data.Function    ( ($), (&), const )
-import Data.Functor     ( fmap )
-import Data.Maybe       ( Maybe( Just, Nothing ) )
-import Data.String      ( String )
-import Data.Typeable    ( Proxy( Proxy ), typeRep )
-import GHC.Exts         ( fromList, toList )
-import Numeric.Natural  ( Natural )
-import System.IO        ( IO )
-import Text.Show        ( Show( show ) )
+import Control.Applicative  ( pure )
+import Data.Bool            ( Bool( False, True ) )
+import Data.Either          ( Either( Left, Right  ) )
+import Data.Foldable        ( foldr )
+import Data.Function        ( ($), (&), const )
+import Data.Functor         ( fmap )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Ord             ( Ordering( GT ), (<), comparing )
+import Data.String          ( String )
+import Data.Typeable        ( Proxy( Proxy ), typeRep )
+import GHC.Exts             ( fromList, toList )
+import Numeric.Natural      ( Natural )
+import System.IO            ( IO )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Monoid.Unicode  ( (⊕) )
+import Data.Eq.Unicode        ( (≡) )
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
 
 -- containers --------------------------
 
@@ -46,7 +51,12 @@ import Control.Lens.Setter  ( (?~) )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( omap )
+import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
+                             , ocompareLength, oelem, ofoldl', ofoldl1Ex'
+                             , ofoldlM, ofoldMap, ofoldMap1Ex, ofoldr, ofoldr1Ex
+                             , olength, olength64, omap, onotElem, onull
+                             , otoList, unsafeHead, unsafeLast
+                             )
 
 -- more-unicode ------------------------
 
@@ -78,6 +88,7 @@ import Test.Tasty.QuickCheck  ( testProperty )
 
 -- text --------------------------------
 
+import qualified  Data.Text  as  Text
 import Data.Text  ( Text )
 
 ------------------------------------------------------------
@@ -181,6 +192,57 @@ relDirIsListTests =
                 , testCase "r3" $ [ [pc|p|], [pc|q|], [pc|r|] ] ≟ toList r3
                 ]
     ]
+
+relDirMonoFoldableTests ∷ TestTree
+relDirMonoFoldableTests =
+  testGroup "MonoFoldable"
+            [ testCase "ofoldMap" $
+                "p-q-r-" ≟ ofoldMap ((⊕ "-") ∘ toText) r3
+            , testCase "ofoldr" $
+                "p-q-r-ф" ≟ ofoldr (\ a b → toText a ⊕ "-" ⊕ b) "ф" r3
+            , testCase "ofoldl'" $
+                "ф-p-q-r" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" r3
+            , testCase "otoList" $
+                [ [pc|p|], [pc|q|], [pc|r|] ] ≟ otoList r3
+            , testCase "oall (F)" $
+                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) r3
+            , testCase "oall (T)" $
+                True ≟ oall ((< 6) ∘ Text.length ∘ toText) r3
+            , testCase "oany (F)" $
+                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) r3
+            , testProperty "onull" (\ x → (x ≡ [reldir|./|]) ≣ onull x)
+            , testCase "olength" $
+                3 ≟ olength r3
+            , testCase "olength64" $
+                0 ≟ olength64 r0
+            , testCase "ocompareLength" $
+               GT ≟ ocompareLength r3 2
+            , testCase "ofoldlM" $
+                  Just [[pc|r|],[pc|q|],[pc|p|]]
+                ≟ ofoldlM (\ a e → Just $ e : a) [] r3
+            , testCase "ofoldMap1Ex" $
+                [[pc|p|],[pc|q|],[pc|r|]] ≟ ofoldMap1Ex pure r3
+            , testCase "ofoldr1Ex" $
+                [pc|pqr|] ≟ ofoldr1Ex (◇) r3
+            , testCase "ofoldl1Ex'" $
+                [pc|pqr|] ≟ ofoldl1Ex' (◇) r3
+            , testCase "unsafeHead" $
+                [pc|p|] ≟ unsafeHead r3
+            , testCase "unsafeLast" $
+                [pc|r|] ≟ unsafeLast r3
+            , testCase "maximumByEx" $
+                [pc|r|] ≟ maximumByEx (comparing toText) r3
+            , testCase "minimumByEx" $
+                [pc|p|] ≟ minimumByEx (comparing toText) r3
+            , testCase "oelem (T)" $
+                True ≟ oelem [pc|q|] r3
+            , testCase "oelem (F)" $
+                False ≟ oelem [pc|x|] r3
+            , testCase "onotElem (T)" $
+                True ≟ onotElem [pc|x|] r3
+            , testCase "onotElem (F)" $
+                False ≟ onotElem [pc|q|] r3
+            ]
 
 relDirIsMonoSeqSetterTests ∷ TestTree
 relDirIsMonoSeqSetterTests =
@@ -350,6 +412,7 @@ tests =
                      , relDirSemigroupTests
                      , relDirMonoidTests
                      , relDirIsListTests
+                     , relDirMonoFoldableTests
                      , relDirTextualGroupTests
                      , relDirIsMonoSeqTests
                      , relDirParentMayTests

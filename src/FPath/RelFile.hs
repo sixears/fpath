@@ -172,7 +172,6 @@ instance MonoFoldable RelFile where
              → PathComponent
   ofoldl1Ex' f r = foldl1 f (toNonEmpty r)
 
-
 ----------------------------------------
 
 instance FromMonoSeqNonEmpty RelFile where

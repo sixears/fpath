@@ -20,7 +20,7 @@ module FPath.RelDir
   )
 where
 
-import Prelude  ( error, undefined )
+import Prelude  ( error )
 
 -- base --------------------------------
 
@@ -29,7 +29,7 @@ import Control.Monad        ( mapM, return )
 import Data.Bool            ( otherwise )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( concat )
+import Data.Foldable        ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
 import Data.Function        ( ($), id )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
@@ -148,18 +148,18 @@ instance MonoFoldable RelDir where
   otoList ∷ RelDir → [PathComponent]
   otoList (RelDir ps) = toList ps
   ofoldl' ∷ (α → PathComponent → α) → α → RelDir → α 
-  ofoldl' = undefined
+  ofoldl' f x r = foldl' f x (toList r)
 
   ofoldr ∷ (PathComponent → α → α) → α → RelDir → α
-  ofoldr = undefined
+  ofoldr f x r = foldr f x (toList r)
   ofoldMap ∷ Monoid ν => (PathComponent → ν) → RelDir → ν
-  ofoldMap = undefined
+  ofoldMap f r = foldMap f (toList r)
   ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → RelDir
             → PathComponent
-  ofoldr1Ex = undefined
+  ofoldr1Ex f r = foldr1 f (toList r)
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → RelDir
              → PathComponent
-  ofoldl1Ex' = undefined
+  ofoldl1Ex' f r = foldl1 f (toList r)
 
 ----------------------------------------
 
