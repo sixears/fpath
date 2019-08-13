@@ -203,7 +203,6 @@ relFileIsMonoSeqNESetterTests =
       x ~!~ y = x & seqNE ⊢ fromNonEmpty y
    in testGroup "setter"
                 [ testCase "rf1"  $ rf1 ≟ rf4 ~!~ pure [pc|r.e|]
---                , testCase "r0"  $ r0 ≟ rf1 ~!~ ф
                 , testCase "rf2"  $ rf2 ≟ rf4 ~!~ ([pc|r|] :| [[pc|p.x|]])
                 , testCase "rf3"  $ rf3 ≟ rf2 ~!~ ([pc|p|] :| [[pc|q|],[pc|r.mp3|]])
                 , testCase "rf3'" $
@@ -310,7 +309,8 @@ relFileParentMayAdjusterTests =
   -- reverse the directories in the parent seq
   testGroup "adjuster" [ testCase "rf3 reverse" $
                            let reverseP = fmap (& seq ⊧ Seq.reverse)
-                            in [relfile|q/p/r.mp3|] ≟ (rf3 & parentMay ⊧ reverseP)
+                            in   [relfile|q/p/r.mp3|]
+                               ≟ (rf3 & parentMay ⊧ reverseP)
 
                        ]
 

@@ -48,6 +48,7 @@ library
   -- Modules exported by the library.
   exposed-modules: FPath
                  , FPath.AbsDir, FPath.T.FPath.AbsDir
+                 , FPath.AbsFile, FPath.T.FPath.AbsFile
                  , FPath.HasAbsOrRel
                  , FPath.HasParent
                  , FPath.RelDir, FPath.T.FPath.RelDir

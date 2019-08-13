@@ -29,6 +29,7 @@ import NonEmptyContainers.SeqNEConversions  ( fromSeqNE )
 ------------------------------------------------------------
 
 import FPath.AbsDir         ( AbsDir, NonRootAbsDir )
+import FPath.AbsFile        ( AbsFile )
 import FPath.RelDir         ( RelDir )
 import FPath.RelFile        ( RelFile )
 import FPath.PathComponent  ( pc )
@@ -83,5 +84,33 @@ rf3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r.mp3|]]
 
 rf4 ∷ RelFile
 rf4 = fromSeqNE $ pure [pc|.x|]
+
+----------------------------------------
+
+a0 ∷ AbsDir
+a0 = fromSeq ф
+
+a1 ∷ AbsDir
+a1 = fromSeqNE $ pure [pc|r|]
+
+a2 ∷ AbsDir
+a2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p|]]
+
+a3 ∷ AbsDir
+a3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r|]]
+
+----------------------------------------
+
+af1 ∷ AbsFile
+af1 = fromSeqNE $ pure [pc|r.e|]
+
+af2 ∷ AbsFile
+af2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p.x|]]
+
+af3 ∷ AbsFile
+af3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r.mp3|]]
+
+af4 ∷ AbsFile
+af4 = fromSeqNE $ pure [pc|.x|]
 
 -- that's all, folks! ----------------------------------------------------------

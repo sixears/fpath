@@ -9,13 +9,13 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module FPath.RelFile
-  ( RelDir, RelFile
+module FPath.AbsFile
+  ( AbsDir, AbsFile
 
   -- quasi-quoters
-  , relfile
+  , absfile
 
-  , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
+  , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
   )
 where
 
@@ -65,6 +65,7 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
+import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Monoid       ( ф )
 
@@ -110,174 +111,174 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
-import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ), Rel )
+import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ), Abs )
 import FPath.HasParent    ( HasParent( parent ), HasParentMay( parentMay ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
 import FPath.Error.FPathError           ( AsFPathError, FPathError
                                         , __FPathComponentE__, __FPathEmptyE__
-                                        , __FPathAbsE__, __FPathNotAFileE__
+                                        , __FPathNonAbsE__, __FPathNotAFileE__
                                         , mapTypeRepE, mapTextE
                                         )
 import FPath.PathComponent              ( PathComponent, parsePathC )
-import FPath.RelDir                     ( RelDir, parseRelDir )
+import FPath.AbsDir                     ( AbsDir, parseAbsDir, root )
 import FPath.Util                       ( QuasiQuoter
                                         , __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
-{- | a relative file -}
-data RelFile = RelFile RelDir PathComponent
+{- | an absolute file -}
+data AbsFile = AbsFile AbsDir PathComponent
   deriving (Eq, Show)
 
-type instance Element RelFile = PathComponent
+type instance Element AbsFile = PathComponent
 
 ----------------------------------------
 
-instance MonoFunctor RelFile where
-  omap ∷ (PathComponent → PathComponent) → RelFile → RelFile
-  omap f (RelFile ps b) = RelFile (omap f ps) (f b)
+instance MonoFunctor AbsFile where
+  omap ∷ (PathComponent → PathComponent) → AbsFile → AbsFile
+  omap f (AbsFile ps b) = AbsFile (omap f ps) (f b)
 
 ----------------------------------------
 
-instance MonoFoldable RelFile where
-  otoList ∷ RelFile → [PathComponent]
-  otoList (RelFile ps f) = otoList ps ⊕ [f]
+instance MonoFoldable AbsFile where
+  otoList ∷ AbsFile → [PathComponent]
+  otoList (AbsFile ps f) = otoList ps ⊕ [f]
 
-  ofoldl' ∷ (α → PathComponent → α) → α → RelFile → α 
+  ofoldl' ∷ (α → PathComponent → α) → α → AbsFile → α 
   ofoldl' f x r = foldl' f x (toNonEmpty r)
 
-  ofoldr ∷ (PathComponent → α → α) → α → RelFile → α
+  ofoldr ∷ (PathComponent → α → α) → α → AbsFile → α
   ofoldr f x r = foldr f x (toNonEmpty r)
 
-  ofoldMap ∷ Monoid ν => (PathComponent → ν) → RelFile → ν
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → AbsFile → ν
   ofoldMap f r = foldMap f (toNonEmpty r)
 
-  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → RelFile
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → AbsFile
             → PathComponent
   ofoldr1Ex f r = foldr1 f (toNonEmpty r)
 
-  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → RelFile
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → AbsFile
              → PathComponent
   ofoldl1Ex' f r = foldl1 f (toNonEmpty r)
 
 ----------------------------------------
 
-instance FromMonoSeqNonEmpty RelFile where
-  fromSeqNE (ps :⪭ f) = RelFile (fromSeq ps) f
-  fromSeqNE _         = error "RelFile.fromSeqNE pattern match can't get here"
+instance FromMonoSeqNonEmpty AbsFile where
+  fromSeqNE (ps :⪭ f) = AbsFile (fromSeq ps) f
+  fromSeqNE _         = error "AbsFile.fromSeqNE pattern match can't get here"
 
 ----------------------------------------
 
-instance ToMonoSeqNonEmpty RelFile where
-  toSeqNE (RelFile ps f) = toSeq ps ⪭ f
+instance ToMonoSeqNonEmpty AbsFile where
+  toSeqNE (AbsFile ps f) = toSeq ps ⪭ f
 
-instance ToMonoSeq RelFile where
+instance ToMonoSeq AbsFile where
   toSeq = toSeq_
 
 ----------------------------------------
 
-instance IsMonoSeqNonEmpty RelFile where
+instance IsMonoSeqNonEmpty AbsFile where
   seqNE = iso toSeqNE fromSeqNE
 
 ----------------------------------------
 
-instance FromNonEmpty RelFile where
+instance FromNonEmpty AbsFile where
   fromNonEmpty (x :| xs) = case NonEmpty.nonEmpty xs of
-                             Nothing  → RelFile (fromList ф) x
+                             Nothing  → AbsFile (fromList ф) x
                              Just xs' → let pcs = x : NonEmpty.init xs'
                                             f   = NonEmpty.last xs'
-                                         in RelFile (fromList pcs) f
+                                         in AbsFile (fromList pcs) f
 
-instance ToNonEmpty RelFile where
-  toNonEmpty (RelFile ps f) = NonEmpty.fromList $ toList ps ⊕ [f]
+instance ToNonEmpty AbsFile where
+  toNonEmpty (AbsFile ps f) = NonEmpty.fromList $ toList ps ⊕ [f]
 
-instance IsNonEmpty RelFile where
+instance IsNonEmpty AbsFile where
   nonEmpty = iso toNonEmpty fromNonEmpty
 
 ----------------------------------------
 
-instance Printable RelFile where
-  print r = P.text $ intercalate "/" (toText ⊳ otoList r)
+instance Printable AbsFile where
+  print r = P.text $ "/" ⊕ intercalate "/" (toText ⊳ otoList r)
 
 ----------------------------------------
 
-instance AsFilePath RelFile where
+instance AsFilePath AbsFile where
   filepath = prism' toString fromString
 
 ----------------------------------------
 
-instance Textual RelFile where
-  textual = fromNonEmpty ⊳ (sepByNonEmpty textual (char '/'))
+instance Textual AbsFile where
+  textual = fromNonEmpty ⊳ (char '/' ⋫ sepByNonEmpty textual (char '/'))
 
 ----------------------------------------
 
-instance Arbitrary RelFile where
+instance Arbitrary AbsFile where
   arbitrary = fromSeqNE ⊳ arbitrary
   shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
 
 ----------------------------------------
 
-instance HasAbsOrRel RelFile where
-  type AbsOrRel RelFile = Rel
+instance HasAbsOrRel AbsFile where
+  type AbsOrRel AbsFile = Abs
 
 ----------------------------------------
 
-instance HasParent RelFile where
-  parent = lens (\ (RelFile p _) → p) (\ (RelFile _ f) p → RelFile p f)
+instance HasParent AbsFile where
+  parent = lens (\ (AbsFile p _) → p) (\ (AbsFile _ f) p → AbsFile p f)
 
 ----------------------------------------
 
-instance HasParentMay RelFile where
-  parentMay = lens (\ (RelFile p _) → Just p)
-                   (\ (RelFile _ f) md → case md of
-                                           Just  d → RelFile d f
-                                           Nothing → RelFile ф f
+instance HasParentMay AbsFile where
+  parentMay = lens (\ (AbsFile p _) → Just p)
+                   (\ (AbsFile _ f) md → case md of
+                                           Just  d → AbsFile d f
+                                           Nothing → AbsFile root f
                    )
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
 
-relfileT ∷ TypeRep
-relfileT = typeRep (Proxy ∷ Proxy RelFile)
+absfileT ∷ TypeRep
+absfileT = typeRep (Proxy ∷ Proxy AbsFile)
 
-{- | try to parse a `Textual` as a relative file -}
-parseRelFile ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelFile
-parseRelFile (toText → t) =
+{- | try to parse a `Textual` as an absolute file -}
+parseAbsFile ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsFile
+parseAbsFile (toText → t) =
   let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
                    FPathComponentError → η' α
-      mkCompE ce = __FPathComponentE__ ce relfileT t
+      mkCompE ce = __FPathComponentE__ ce absfileT t
       eCompE     ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
                    Either FPathComponentError α → η'' α
       eCompE = either mkCompE return
       -- map the type marker on FPathError
       mapFPCE ∷ (AsFPathError ε', MonadError ε' η') ⇒
                 (Text → Text) → Either FPathError α → η' α
-      mapFPCE f = mapTextE f ∘ mapTypeRepE (const relfileT)
+      mapFPCE f = mapTextE f ∘ mapTypeRepE (const absfileT)
    in case unsnoc $ splitOn "/" t of
         Nothing           → error "error: splitOn always returns something"
-        Just ([],"")      → __FPathEmptyE__ relfileT
-        Just (_, "")      → __FPathNotAFileE__ relfileT t
-        Just (("":_), _)  → __FPathAbsE__ relfileT t
-        Just ([], f)      → do f' ← eCompE $ parsePathC f
-                               return $ RelFile (fromSeq ф) f'
-        Just (_, f)       → do f' ← eCompE $ parsePathC f
+        Just ([],"")      → __FPathEmptyE__ absfileT
+        Just (_, "")      → __FPathNotAFileE__ absfileT t
+        Just ([""], f)    → do f' ← eCompE $ parsePathC f
+                               return $ AbsFile (fromSeq ф) f'
+        Just (("":_), f)  → do f' ← eCompE $ parsePathC f
                                ps' ← mapFPCE (⊕ f) $
-                                       parseRelDir (dropEnd (length f) t)
-                               return $ RelFile ps' f'
+                                       parseAbsDir (dropEnd (length f) t)
+                               return $ AbsFile ps' f'
+        Just (_, _)      → __FPathNonAbsE__ absfileT t
 
-parseRelFile' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelFile
-parseRelFile' = parseRelFile
+parseAbsFile' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsFile
+parseAbsFile' = parseAbsFile
 
-__parseRelFile__ ∷ Printable τ ⇒ τ → RelFile
-__parseRelFile__ = either __ERROR'__ id ∘ parseRelFile'
+__parseAbsFile__ ∷ Printable τ ⇒ τ → AbsFile
+__parseAbsFile__ = either __ERROR'__ id ∘ parseAbsFile'
 
-__parseRelFile'__ ∷ String → RelFile
-__parseRelFile'__ = __parseRelFile__
+__parseAbsFile'__ ∷ String → AbsFile
+__parseAbsFile'__ = __parseAbsFile__
 
 {- | quasi-quotation -}
-relfile ∷ QuasiQuoter
-relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parseRelFile'__ s ⟧)
+absfile ∷ QuasiQuoter
+absfile = mkQuasiQuoterExp "absfile" (\ s → ⟦ __parseAbsFile'__ s ⟧)
 
 -- that's all, folks! ----------------------------------------------------------

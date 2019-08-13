@@ -10,20 +10,22 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath
-  ( AbsDir, NonRootAbsDir, RelDir, RelFile {- AbsFile, AbsPath(..) -}
+  ( AbsDir, AbsFile, NonRootAbsDir, RelDir, RelFile {- AbsPath(..) -}
   , AsFilePath( filepath )
 
   -- quasi-quoters
-  , absdir, absdirN, reldir, relfile
+  , absdir, absfile, absdirN, reldir, relfile
 
   -- List/NonEmpty/Seq conversion fns
   , toSeq
 
   , nonRootAbsDir
 
-  , parseAbsDir , parseAbsDir' , __parseAbsDir__ , __parseAbsDir'__
-  , parseAbsDirN, parseAbsDirN', __parseAbsDirN__, __parseAbsDirN'__
-  , parseRelDir , parseRelDir' , __parseRelDir__ , __parseRelDir'__
+  , parseAbsDir  , parseAbsDir'  , __parseAbsDir__  , __parseAbsDir'__
+  , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
+  , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
+  , parseRelDir  , parseRelDir'  , __parseRelDir__  , __parseRelDir'__
+  , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
   , seq, seqNE
 
   , root
@@ -131,9 +133,13 @@ import FPath.AbsDir            ( AbsDir, NonRootAbsDir
                                , parseAbsDirN, parseAbsDirN'
                                , __parseAbsDirN'__, __parseAbsDirN__
                                , root )
+import FPath.AbsFile            ( AbsFile, parseAbsFile, parseAbsFile'
+                               , __parseAbsFile'__, __parseAbsFile__, absfile )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.RelDir            ( RelDir, parseRelDir, parseRelDir'
                                , __parseRelDir'__, __parseRelDir__, reldir )
+import FPath.RelFile            ( RelFile, parseRelFile, parseRelFile'
+                               , __parseRelFile'__, __parseRelFile__, relfile )
 
 -------------------------------------------------------------------------------
 

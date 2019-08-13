@@ -23,6 +23,7 @@ import Test.Tasty  ( TestTree, testGroup )
 ------------------------------------------------------------
 
 import qualified  FPath.T.FPath.AbsDir
+import qualified  FPath.T.FPath.AbsFile
 import qualified  FPath.T.FPath.NonRootAbsDir
 import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
@@ -38,6 +39,7 @@ tests = testGroup "FPath" [ FPath.T.FPath.PathComponent.tests
                           , FPath.T.FPath.NonRootAbsDir.tests
                           , FPath.T.FPath.RelDir.tests
                           , FPath.T.FPath.RelFile.tests
+                          , FPath.T.FPath.AbsFile.tests
                           ]
 
 ----------------------------------------
