@@ -18,10 +18,9 @@ import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
-import Data.Ord             ( Ordering( GT ), (<), compare, comparing )
+import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
-import GHC.Exts             ( fromList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
 import Text.Show            ( Show( show ) )
@@ -55,7 +54,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
                              , ocompareLength, oelem, ofoldMap, ofoldl', ofoldlM
                              , ofoldl1Ex', ofoldMap1Ex, ofoldr, ofoldr1Ex
                              , olength, olength64, omap, onotElem, onull
-                             , otoList, otraverse_, unsafeHead, unsafeLast
+                             , otoList, unsafeHead, unsafeLast
                              )
 
 -- more-unicode ------------------------
@@ -63,6 +62,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.Monoid           ( ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
+import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
 import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
@@ -82,7 +82,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( assertFailure, testCase )
+import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-quickcheck --------------------
 
@@ -91,7 +91,7 @@ import Test.Tasty.QuickCheck  ( testProperty )
 -- text --------------------------------
 
 import qualified  Data.Text  as  Text
-import Data.Text  ( Text, length )
+import Data.Text  ( Text )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -125,8 +125,8 @@ parseRelFileTests =
       emptyCompCE t = FPathComponentE FPathComponentEmptyE relfileT t
 
       illegalPC t = let s = toString t
-                        fpipce s = FPathComponentIllegalE s
-                        fpipce' s t = FPathComponentE (fpipce s) relfileT t
+                        fpipce e = FPathComponentIllegalE e
+                        fpipce' e f = FPathComponentE (fpipce e) relfileT f
                      in testCase ("illegal path component '" ⊕ s ⊕ "'") $
                           Left (fpipce' s t) ≟ parseRelFile_ t
       badChar s p = testCase ("bad component " ⊕ toString s) $
@@ -134,8 +134,6 @@ parseRelFileTests =
       absfile t  = testCase ("absolute file '" ⊕ toString t ⊕ "'") $
                       Left (FPathAbsE relfileT t) ≟ parseRelFile_ t
 
-      notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
-                      Left (FPathNotAFileE relfileT t) ≟ parseRelFile_ t
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
                       Left (FPathNotAFileE relfileT t) ≟ parseRelFile_ t
       parseRelFile_ ∷ MonadError FPathError η ⇒ Text → η RelFile
@@ -395,7 +393,7 @@ relFileMonoFoldableTests =
             , testCase "olength64" $
                 1 ≟ olength64 rf4
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength rf3 2
+               GT ≟ ocompareLength rf3 (2 ∷ ℕ)
             , testCase "ofoldlM" $
                   Just [[pc|r.mp3|],[pc|q|],[pc|p|]]
                 ≟ ofoldlM (\ a e → Just $ e : a) [] rf3

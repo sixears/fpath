@@ -63,6 +63,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.Monoid           ( ю, ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
+import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
 import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
@@ -216,7 +217,7 @@ relDirMonoFoldableTests =
             , testCase "olength64" $
                 0 ≟ olength64 r0
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength r3 2
+               GT ≟ ocompareLength r3 (2 ∷ ℕ)
             , testCase "ofoldlM" $
                   Just [[pc|r|],[pc|q|],[pc|p|]]
                 ≟ ofoldlM (\ a e → Just $ e : a) [] r3

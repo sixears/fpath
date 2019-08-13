@@ -11,8 +11,6 @@ module FPath.Error.FPathError
   )
 where
 
-import Prelude ( error )
-
 -- base --------------------------------
 
 import Control.Monad  ( return )
@@ -20,7 +18,7 @@ import Data.Either    ( Either, either )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Typeable  ( TypeRep )
-import Text.Show      ( Show, show )
+import Text.Show      ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -147,8 +145,8 @@ instance MonoFunctor FPathError where
 
 -- | fmap the Text bit of an FPathError
 tmap ∷ (Text → Text) → FPathError → FPathError
-tmap f e@(FPathEmptyE     _)   = e
-tmap f e@(FPathRootDirE   _)   = e
+tmap _ e@(FPathEmptyE     _)   = e
+tmap _ e@(FPathRootDirE   _)   = e
 tmap f (FPathAbsE         r t) = FPathAbsE         r (f t)
 tmap f (FPathNonAbsE      r t) = FPathNonAbsE      r (f t)
 tmap f (FPathNotADirE     r t) = FPathNotADirE     r (f t)

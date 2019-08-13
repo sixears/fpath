@@ -25,34 +25,23 @@ import Prelude  ( error )
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
-import Control.Applicative  ( pure )
-import Control.Monad        ( mapM, return )
-import Data.Bifunctor       ( first )
-import Data.Bool            ( otherwise )
+import Control.Monad        ( return )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
-import Data.Foldable        ( concat, foldMap, foldl1, foldl', foldr, foldr1 )
+import Data.Foldable        ( foldMap, foldl1, foldl', foldr, foldr1 )
 import Data.Function        ( ($), const, id )
-import Data.Functor         ( fmap )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Monoid          ( Monoid )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts             ( IsList( fromList, toList ), Item )
+import GHC.Exts             ( IsList( fromList, toList ) )
 import Text.Show            ( Show )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
-
--- containers --------------------------
-
-import qualified  Data.Sequence  as  Seq
-
-import Data.Sequence  ( Seq, (<|) )
 
 -- data-textual ------------------------
 
@@ -76,7 +65,6 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (∤), (⋪) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Monoid       ( ф )
 
@@ -86,16 +74,14 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import qualified  NonEmptyContainers.SeqNE  as  SeqNE
 
 import NonEmptyContainers.IsNonEmpty        ( FromNonEmpty( fromNonEmpty )
                                             , IsNonEmpty( nonEmpty )
                                             , ToNonEmpty( toNonEmpty ) )
 import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
-                                            , IsMonoSeq( seq )
                                             , ToMonoSeq( toSeq )
                                             )
-import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪫), (⪭) )
+import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭) )
 import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
                                             , IsMonoSeqNonEmpty( seqNE )
                                             , ToMonoSeqNonEmpty( toSeqNE
@@ -104,8 +90,8 @@ import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
 
 -- parsers -----------------------------
 
-import Text.Parser.Char         ( char, string )
-import Text.Parser.Combinators  ( endBy, sepByNonEmpty )
+import Text.Parser.Char         ( char )
+import Text.Parser.Combinators  ( sepByNonEmpty )
 
 -- QuickCheck --------------------------
 
@@ -179,6 +165,7 @@ instance MonoFoldable RelFile where
 
 instance FromMonoSeqNonEmpty RelFile where
   fromSeqNE (ps :⪭ f) = RelFile (fromSeq ps) f
+  fromSeqNE _         = error "RelFile.fromSeqNE pattern match can't get here"
 
 ----------------------------------------
 
