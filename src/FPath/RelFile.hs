@@ -19,7 +19,7 @@ module FPath.RelFile
   )
 where
 
-import Prelude  ( error, undefined )
+import Prelude  ( error )
 
 -- base --------------------------------
 
@@ -141,7 +141,7 @@ import FPath.Util                       ( QuasiQuoter
 -------------------------------------------------------------------------------
 
 {- | a relative directory -}
-data RelFile = RelFile { _parent ∷ RelDir, _local ∷ PathComponent }
+data RelFile = RelFile RelDir PathComponent
   deriving (Eq, Show)
 
 type instance Element RelFile = PathComponent
@@ -151,7 +151,6 @@ type instance Element RelFile = PathComponent
 instance MonoFunctor RelFile where
   omap ∷ (PathComponent → PathComponent) → RelFile → RelFile
   omap f (RelFile ps b) = RelFile (omap f ps) (f b)
---  omap = undefined
 
 ----------------------------------------
 
@@ -243,25 +242,16 @@ instance HasAbsOrRel RelFile where
 ----------------------------------------
 
 instance HasParent RelFile where
-  parent = lens _parent (\ r p → r { _parent = p })
+  parent = lens (\ (RelFile p _) → p) (\ (RelFile _ f) p → RelFile p f)
 
 ----------------------------------------
 
 instance HasParentMay RelFile where
-  parentMay = undefined
-          {- lens getParentMay setParentMay
-              where getParentMay (RelFile (p :⪭ _)) = Just $ RelFile p
-                    getParentMay (RelFile _)        =  Nothing
-
-                    setParentMay orig par =
-                      case orig of
-                        RelFile (_ :⪭ d) → case par of
-                                            Just (RelFile p) → RelFile $ p ⪫ d
-                                            Nothing         → RelFile $ pure d
-                        RelFile _ → case par of
-                                            Just r → r
-                                            Nothing → RelFile Seq.Empty
-            -}
+  parentMay = lens (\ (RelFile p _) → Just p)
+                   (\ (RelFile _ f) md → case md of
+                                           Just  d → RelFile d f
+                                           Nothing → RelFile ф f
+                   )
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

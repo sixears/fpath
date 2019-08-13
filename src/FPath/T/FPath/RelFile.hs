@@ -285,32 +285,26 @@ relFileIsMonoSeqNETests =
 
 relFileParentMayGetterTests ∷ TestTree
 relFileParentMayGetterTests =
-   testGroup "getter" [ testCase "r0"  $ Nothing ≟ r0  ⊣ parentMay
-                      , testCase "rf1" $ Just r0 ≟ rf1  ⊣ parentMay
-                      , testCase "rf2" $ Just r1 ≟ rf2 ⊣ parentMay
+   testGroup "getter" [ testCase "rf1" $ Just r0             ≟ rf1 ⊣ parentMay
+                      , testCase "rf2" $ Just r1             ≟ rf2 ⊣ parentMay
+                      , testCase "rf3" $ Just [reldir|p/q/|] ≟ rf3 ⊣ parentMay
+                      , testCase "rf4" $ Just r0             ≟ rf4 ⊣ parentMay
                       ]
 
 relFileParentMaySetterTests ∷ TestTree
 relFileParentMaySetterTests =
   let (~~) ∷ RelFile → RelDir → RelFile
       d ~~ d' = d & parentMay ?~ d'
-   in testGroup "setter" [ -- testCase "rf1 → r0" $ rf1 ≟ rf1 ~~ r0
---                         , testCase "r0 → rf1" $ rf1 ≟ r0 ~~ r1
+   in testGroup "setter" [ testCase "rf1 → r0" $ rf1                 ≟ rf1 ~~ r0
+                         , testCase "rf2 → r0" $ [relfile|p.x|]      ≟ rf2 ~~ r0
+                         , testCase "rf1 → r3" $ [relfile|p/q/r/r.e|]≟ rf1 ~~ r3
+                         , testCase "rf3 → r1" $ [relfile|r/r.mp3|]  ≟ rf3 ~~ r1
+                         , testCase "rf3 → r0" $ [relfile|r.mp3|]    ≟ rf3 ~~ r0
+                         , testCase "rf2 → r1" $ rf2                 ≟ rf2 ~~ r1
+                         , testCase "rf1 → r2" $ [relfile|r/p/r.e|]  ≟ rf1 ~~ r2
 
---                         , testCase "rf2 → r0" $ [relfile|p/|] ≟ rf2 ~~ r0
---                         , testCase "r0 → rf2" $ rf2 ≟ r0 ~~ r2
-
-                          testCase "rf1 → rf3" $ [relfile|p/q/r/r/|] ≟ rf1 ~~ r3
-                         , testCase "rf3 → rf1" $ [relfile|r/r/|] ≟ rf3 ~~ r1
-
---                         , testCase "r0 → rf3" $ rf3 ≟ r0 ~~ r3
---                         , testCase "rf3 → r0" $ rf1 ≟ rf3 ~~ r0
-
-                         , testCase "rf2 → rf1" $ rf2 ≟ rf2 ~~ r1
-                         , testCase "rf1 → rf2" $ [relfile|r/p/r/|] ≟ rf1 ~~ r2
-
---                         , testCase "rf2 → r0 (Nothing)" $
---                              [relfile|p/|] ≟ (rf2 & parentMay ⊢ Nothing)
+                         , testCase "rf2 → r0 (Nothing)" $
+                            [relfile|p.x|] ≟ (rf2 & parentMay ⊢ Nothing)
                          ]
 
 relFileParentMayAdjusterTests ∷ TestTree
@@ -318,7 +312,7 @@ relFileParentMayAdjusterTests =
   -- reverse the directories in the parent seq
   testGroup "adjuster" [ testCase "rf3 reverse" $
                            let reverseP = fmap (& seq ⊧ Seq.reverse)
-                            in [relfile|q/p/r/|] ≟ (rf3 & parentMay ⊧ reverseP)
+                            in [relfile|q/p/r.mp3|] ≟ (rf3 & parentMay ⊧ reverseP)
 
                        ]
 
@@ -354,22 +348,21 @@ relFileFilepathTests =
   let nothin' = Nothing ∷ Maybe RelFile
       fail s  = testCase s $ nothin' ≟ s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "r0" $ "./"     ≟ r0 ## filepath
-            , testCase "rf1" $ "r/"     ≟ rf1 ## filepath
-            , testCase "rf2" $ "r/p/"   ≟ rf2 ## filepath
-            , testCase "rf3" $ "p/q/r/" ≟ rf3 ## filepath
+            [ testCase "rf1" $ "r.e"       ≟ rf1 ## filepath
+            , testCase "rf2" $ "r/p.x"     ≟ rf2 ## filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ rf3 ## filepath
+            , testCase "rf4" $ ".x"        ≟ rf4 ## filepath
 
-            , testCase "rf1" $ Just rf1 ≟ "r/"     ⩼ filepath
-            , testCase "rf2" $ Just rf2 ≟ "r/p/"   ⩼ filepath
-            , testCase "rf3" $ Just rf3 ≟ "p/q/r/" ⩼ filepath
+            , testCase "rf1" $ Just rf1 ≟ "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just rf2 ≟ "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just rf3 ≟ "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just rf4 ≟ ".x"        ⩼ filepath
 
             , fail "/etc"
-            , fail "/etc"
-            , fail "etc"
-            , fail "/etc/pam.d"
-            , fail "etc/pam.d"
+            , fail "etc/"
+            , fail "/etc/pam.d/"
+            , fail "etc/pam.d/"
             , fail "/etc//pam.d/"
-            , fail "e/c"
             , fail "\0etc"
             , fail "etc\0"
             , fail "e\0c"

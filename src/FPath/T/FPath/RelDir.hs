@@ -386,7 +386,7 @@ relDirFilepathTests =
             , testCase "r3" $ Just r3 ≟ "p/q/r/" ⩼ filepath
 
             , fail "/etc"
-            , fail "/etc"
+            , fail "foo/etc"
             , fail "etc"
             , fail "/etc/pam.d"
             , fail "etc/pam.d"
