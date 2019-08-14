@@ -142,10 +142,14 @@ parseAbsDirNTests =
 
 absDirNShowTests ∷ TestTree
 absDirNShowTests =
-  let etcNShow  = "NonRootAbsDir (PathComponent \"etc\") AbsRootDir"
-      pamdNShow = "NonRootAbsDir (PathComponent \"pam.d\") "
-                ⊕ "(AbsNonRootDir (NonRootAbsDir (PathComponent \"etc\") "
-                ⊕ "AbsRootDir))"
+  let fromNonEmptyT = "NonEmptyContainers.IsNonEmpty.fromNonEmpty"
+      pcT t         = "PathComponent \"" ⊕ t ⊕ "\""
+      etcT          = pcT "etc"
+      pamdT         = pcT "pam.d"
+      nonRT         = "NonRootAbsDir "
+
+      etcNShow  = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ pcT "etc" ⊕ " :| [])"
+      pamdNShow = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ etcT ⊕ " :| [" ⊕ pamdT ⊕ "])"
 
    in testGroup "show"
                 [ testCase "etc"   $ etcNShow  ≟ show etcN

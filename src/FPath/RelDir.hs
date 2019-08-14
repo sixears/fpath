@@ -90,7 +90,7 @@ import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , IsMonoSeq( seq )
                                             , ToMonoSeq( toSeq )
                                             )
-import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪫) )
+import NonEmptyContainers.SeqNE             ( (⪫) )
 import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE ) )
 
 -- parsers -----------------------------
@@ -229,17 +229,19 @@ instance HasAbsOrRel RelDir where
 
 instance HasParentMay RelDir where
   parentMay = lens getParentMay setParentMay
-              where getParentMay (RelDir (p :⪭ _)) = Just $ RelDir p
-                    getParentMay (RelDir _)        =  Nothing
+              where getParentMay ∷ RelDir → Maybe RelDir
+                    getParentMay (RelDir ps) = case unsnoc ps of
+                                                 Just (p,_) → Just $ RelDir p
+                                                 Nothing → Nothing
 
-                    setParentMay orig par =
-                      case orig of
-                        RelDir (_ :⪭ d) → case par of
-                                            Just (RelDir p) → RelDir $ p ⪫ d
-                                            Nothing         → RelDir $ pure d
-                        RelDir _ → case par of
-                                            Just r → r
-                                            Nothing → RelDir Seq.Empty
+                    setParentMay (RelDir ps) par =
+                      case unsnoc ps of
+                        Just (_, d) → case par of
+                                        Just (RelDir p) → RelDir $ p ⪫ d
+                                        Nothing         → RelDir $ pure d
+                        Nothing     → case par of
+                                        Just r → r
+                                        Nothing → RelDir Seq.Empty
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

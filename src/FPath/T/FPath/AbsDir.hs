@@ -151,12 +151,14 @@ parseAbsDirTests =
 
 absDirShowTests ∷ TestTree
 absDirShowTests =
-  let rootShow = "AbsRootDir"
-      etcShow  = "AbsNonRootDir (NonRootAbsDir (PathComponent \"etc\") "
-               ⊕ "AbsRootDir)"
-      pamdShow = "AbsNonRootDir (NonRootAbsDir (PathComponent \"pam.d\") "
-               ⊕ "(AbsNonRootDir (NonRootAbsDir (PathComponent \"etc\") "
-               ⊕ "AbsRootDir)))"
+  let fromNonEmptyT = "NonEmptyContainers.IsNonEmpty.fromNonEmpty"
+      pcT t         = "PathComponent \"" ⊕ t ⊕ "\""
+      etcT          = pcT "etc"
+      pamdT         = pcT "pam.d"
+      nonRT         = "AbsNonRootDir (NonRootAbsDir "
+      rootShow = "AbsRootDir"
+      etcShow  = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ pcT "etc" ⊕ " :| []))"
+      pamdShow = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ etcT ⊕ " :| [" ⊕ pamdT ⊕ "]))"
 
    in testGroup "show"
                 [ testCase "root"  $ rootShow ≟ show root

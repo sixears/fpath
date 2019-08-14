@@ -16,7 +16,7 @@ import Data.Bool            ( Bool( False, True ) )
 import Data.Either          ( Either( Left, Right  ) )
 import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
-import Data.List            ( tail )
+import Data.List            ( intercalate, tail )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering( GT ), (<), comparing )
@@ -60,6 +60,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 
 -- more-unicode ------------------------
 
+import Data.MoreUnicode.Functor          ( (⊳) )
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.Monoid           ( ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
@@ -211,20 +212,38 @@ absFileIsMonoSeqNESetterTests =
 
 absFileShowTests ∷ TestTree
 absFileShowTests =
-  let rf1Show = "AbsFile AbsRootDir (PathComponent \"r.e\")"
-      rf2Show = "AbsFile (AbsNonRootDir (NonRootAbsDir (PathComponent \"r\") "
-                       ⊕ "AbsRootDir)) "
-                       ⊕ "(PathComponent \"p.x\")"
-      rf3Show = "AbsFile (AbsNonRootDir (NonRootAbsDir (PathComponent \"q\") "
-              ⊕ "(AbsNonRootDir (NonRootAbsDir (PathComponent \"p\") "
-              ⊕ "AbsRootDir)))) (PathComponent \"r.mp3\")"
-      rf4Show = "AbsFile AbsRootDir (PathComponent \".x\")"
+  let fromNonEmptyT   = "NonEmptyContainers.IsNonEmpty.fromNonEmpty"
+      -- PathComponent of t
+      -- parens around t
+      parenT t        = "(" ⊕ t ⊕ ")"
+      listT ts        = "[" ⊕ intercalate ", " ts ⊕ "]"
+      pcT t           = "PathComponent \"" ⊕ t ⊕ "\""
+      pcListT ts      = listT (pcT ⊳ ts)
+      spaceT          = intercalate " "
+      -- nonEmpty list of x `cons` xs
+      nonEmptyT  x xs = x ⊕ " :| " ⊕ xs
+      -- nonEmpty list of x `cons` xs, with outer parens
+      nonEmptyPT x xs = parenT $ nonEmptyT x xs
+
+      -- NonRootAbsDir made from a NonEmpty list t
+      nonRootAbsDirT t        = spaceT [ "NonRootAbsDir", fromNonEmptyT, t ]
+      -- AbsNonRootDir (instance of AbsDir) made from a NonEmpty list t
+      absNonRootDirT t        = spaceT [ "AbsNonRootDir", parenT (nonRootAbsDirT t) ]
+      -- AbsNonRootFile made from a dir (t :| ts), file is f
+      absNonRootFileT t ts f =
+          spaceT [ "AbsFile", parenT (absNonRootDirT (nonEmptyPT (pcT t) (pcListT ts)))
+                 , parenT (pcT f) ]
+
+      af1Show = "AbsFile AbsRootDir (PathComponent \"r.e\")"
+      af2Show = absNonRootFileT "r" []    ("p.x")
+      af3Show = absNonRootFileT "p" ["q"] ("r.mp3")
+      af4Show = "AbsFile AbsRootDir (PathComponent \".x\")"
 
    in testGroup "show"
-                [ testCase "af1" $ rf1Show ≟ show af1
-                , testCase "af2" $ rf2Show ≟ show af2
-                , testCase "af3" $ rf3Show ≟ show af3
-                , testCase "af4" $ rf4Show ≟ show af4
+                [ testCase "af1" $ af1Show ≟ show af1
+                , testCase "af2" $ af2Show ≟ show af2
+                , testCase "af3" $ af3Show ≟ show af3
+                , testCase "af4" $ af4Show ≟ show af4
                 ]
 
 absFilePrintableTests ∷ TestTree

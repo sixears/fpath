@@ -9,8 +9,10 @@ module NonEmptyContainers.SeqNE
     SeqNE( SeqNE, (:|>), (:<|), (:<||), (:||>), (:⫸), (:⫷), unSeqNE )
   , Seqish( (<*|), (|*>) ), (<||), (||>), pattern (:⪬), pattern (:⪭), (⪬)
   , (⪭), (⪪), (⪫), (⫷), (⫸), (⋖), (⋗)
+  , fromList, fromNonNullSeq
   , cons, snoc, toSeq, uncons, unsnoc
   , onEmpty, onEmpty', onEmpty_, onEmpty'_
+  , head, init, last, tail
   )
 where
 
@@ -57,7 +59,7 @@ import Data.Sequences        ( Index, SemiSequence( cons, find, intersperse
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
 
 -- QuickCheck --------------------------
 
@@ -80,6 +82,9 @@ newtype SeqNE α = SeqNE { unSeqNE ∷ NonNull (Seq α) }
   deriving Eq
 
 type instance Element (SeqNE α) = α
+
+fromNonNullSeq ∷ NonNull (Seq α) → SeqNE α
+fromNonNullSeq = SeqNE
 
 --------------------
 
@@ -126,7 +131,7 @@ instance MonoTraversable (SeqNE α) where
 --------------------
 
 instance Show α ⇒ Show (SeqNE α) where
-  show (x :⫷ xs) = show x ⊕ " ⋖ " ⊕ show xs
+  show (x :⫷ xs) = "NonEmptyContainers.IsNonEmpty.fromNonEmpty (" ⊕ show x ⊕ " :| " ⊕ show (toList xs) ⊕ ")"
   show _          = error "failed to uncons SeqNE"
 
 --------------------
@@ -195,10 +200,10 @@ class ToSeq κ ⇒ Seqish κ where
   __UnsafeSmap ∷ (Seq α → Seq α) → κ α → κ α
 
   infixr 5 <*|
-  {- | compose a `SeqNE` from the left -}
+  {- | compose a `SeqNE` from the left from any `Seqish` -}
   (<*|) ∷ α → κ α → SeqNE α
   infixl 5 |*>
-  {- | compose a `SeqNE` from the right -}
+  {- | compose a `SeqNE` from the right from any `Seqish` -}
   (|*>) ∷ κ α → α → SeqNE α
 
   infixr 5 <||
@@ -230,14 +235,14 @@ class ToSeq κ ⇒ Seqish κ where
 ----------------------------------------
 
 infixr 5 ⫷
-{- | synonym for `(<*|)` -}
+{- | synonym for `(<*|)` (compose a `SeqNE` from the left from any `Seqish`) -}
 (⫷) ∷ Seqish κ ⇒ α → κ α → SeqNE α
 (⫷) = (<*|)
 
 --------------------
 
 infixl 5 ⫸
-{- | synonym for `(|*>)` -}
+{- | synonym for `(|*>)` (compose a `SeqNE` from the right from any `Seqish`) -}
 (⫸) ∷ Seqish κ ⇒ κ α → α → SeqNE α
 (⫸) = (|*>)
 
@@ -415,5 +420,20 @@ onEmpty_ b = onEmpty b id
 {- | if a `Seq` is empty, replace it with a given sentinel value -}
 onEmpty'_ ∷ Seq α → Seq α → Seq α
 onEmpty'_ b = onEmpty' b id
+
+head ∷ SeqNE α → α
+head = Data.NonNull.head ∘ unSeqNE
+
+tail ∷ SeqNE α → Seq α
+tail = Data.NonNull.tail ∘ unSeqNE
+
+init ∷ SeqNE α → Seq α
+init = Data.NonNull.init ∘ unSeqNE
+
+last ∷ SeqNE α → α
+last = Data.NonNull.last ∘ unSeqNE
+
+fromList ∷ [α] → Maybe (SeqNE α)
+fromList = (SeqNE ∘ Data.NonNull.fromNonEmpty) ⩺ NonEmpty.nonEmpty
 
 -- that's all, folks! ----------------------------------------------------------

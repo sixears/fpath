@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
@@ -29,6 +30,7 @@ import Control.Lens.Prism  ( Prism', prism' )
 -- mono-traversable --------------------
 
 import Data.MonoTraversable  ( Element )
+import Data.NonNull          ( NonNull, toNullable )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -73,6 +75,12 @@ class ToMonoSeqNonEmpty α where
 instance α ~ Element (SeqNE α) ⇒ ToMonoSeqNonEmpty (SeqNE α) where
   toSeqNE = id
   toSeq_  = SeqNE.toSeq
+
+instance α ~ Element (SeqNE α) ⇒ ToMonoSeqNonEmpty (NonNull (Seq α)) where
+  toSeqNE = SeqNE.fromNonNullSeq
+  toSeq_  = toNullable
+
+
 
 ----------------------------------------
 --         IsMonoSeqNonEmpty          --
