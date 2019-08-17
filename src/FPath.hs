@@ -295,6 +295,7 @@ instance AsRelFile FPath where
 
 ------------------------------------------------------------
 
+{- | functions common to File types -}
 class File π δ where
   toDir ∷ π → δ
 
@@ -308,6 +309,8 @@ instance File RelFile RelDir where
 
 ------------------------------------------------------------
 
+{- | type-level conversion to absolute version of a type; no-op on
+     already-absolute types -}
 class HasAbsify α where
   type Absify α
 
@@ -317,7 +320,34 @@ instance HasAbsify RelFile where
 instance HasAbsify RelDir where
   type Absify RelDir = AbsDir
 
-class Relative π {- τ -} where
+instance HasAbsify AbsFile where
+  type Absify AbsFile = AbsFile
+
+instance HasAbsify AbsDir where
+  type Absify AbsDir = AbsDir
+
+------------------------------------------------------------
+
+{- | type-level conversion to relative version of a type; no-op on
+     already-relative types -}
+class HasRelify α where
+  type Relify α
+
+instance HasRelify AbsFile where
+  type Relify AbsFile = RelFile
+
+instance HasRelify AbsDir where
+  type Relify AbsDir = RelDir
+
+instance HasRelify RelFile where
+  type Relify RelFile = RelFile
+
+instance HasRelify RelDir where
+  type Relify RelDir = RelDir
+
+------------------------------------------------------------
+
+class HasAbsify π ⇒ Relative π {- τ -} where
   resolve ∷ AbsDir → π → Absify π
 
   {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
@@ -325,16 +355,29 @@ class Relative π {- τ -} where
        (file|directory).  Note that a file will always keep its filename; but a
        directory might result in a relative dir of './'.
    -}
-  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
-                AbsDir → Absify π → η π
-  stripPrefix' ∷ MonadError FPathNotAPrefixError η ⇒ AbsDir → Absify π → η π
-  stripPrefix' = stripPrefix
-
 
 instance Relative RelFile where
   resolve ∷ AbsDir → RelFile → AbsFile
   resolve d f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
 
+instance Relative RelDir where
+  resolve ∷ AbsDir → RelDir → AbsDir
+  resolve d f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
+
+------------------------------------------------------------
+
+class HasRelify π ⇒ Strippable π where
+  {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
+       absolute (file|directory), then strip off that prefix to leave a relative
+       (file|directory).  Note that a file will always keep its filename; but a
+       directory might result in a relative dir of './'.
+   -}
+  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+                 AbsDir → π → η (Relify π)
+  stripPrefix' ∷ MonadError FPathNotAPrefixError η ⇒ AbsDir → π → η (Relify π)
+  stripPrefix' = stripPrefix
+
+instance Strippable AbsFile where
   stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 AbsDir → AbsFile → η RelFile
   stripPrefix d'@(view seq → d) f'@(view seqNE → f) =
@@ -342,17 +385,13 @@ instance Relative RelFile where
           (return ∘ fromSeqNE)
           (SeqNE.stripProperPrefix d f)
 
-instance Relative RelDir where
-  resolve ∷ AbsDir → RelDir → AbsDir
-  resolve d f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
-
+instance Strippable AbsDir where
   stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 AbsDir → AbsDir → η RelDir
   stripPrefix d'@(view seq → d) f'@(view seq → f) =
     maybe (__FPathNotAPrefixError__ absdirT (toText d') (toText f'))
           (return ∘ fromSeq)
           (SeqConversions.stripPrefix d f)
-
 
 ------------------------------------------------------------
 
