@@ -112,7 +112,7 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
-import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ), Abs )
+import FPath.DirType      ( HasDirType( DirType ) )
 import FPath.HasParent    ( HasParent( parent ), HasParentMay( parentMay ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
@@ -141,6 +141,11 @@ class AsAbsFile α where
 
 instance AsAbsFile AbsFile where
   _AbsFile = id
+
+--------------------
+
+instance HasDirType AbsFile where
+  type DirType AbsFile = AbsDir
 
 ----------------------------------------
 
@@ -225,11 +230,6 @@ instance Textual AbsFile where
 instance Arbitrary AbsFile where
   arbitrary = fromSeqNE ⊳ arbitrary
   shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
-
-----------------------------------------
-
-instance HasAbsOrRel AbsFile where
-  type AbsOrRel AbsFile = Abs
 
 ----------------------------------------
 

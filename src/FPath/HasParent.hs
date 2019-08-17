@@ -18,8 +18,7 @@ import Control.Lens.Lens  ( Lens' )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.DirType      ( DirType )
-import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ) )
+import FPath.DirType      ( HasDirType( DirType ) )
 
 --------------------------------------------------------------------------------
 
@@ -27,14 +26,14 @@ import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ) )
 --                       HasParent                        --
 ------------------------------------------------------------
 
-class HasAbsOrRel α ⇒ HasParent α where
-  parent ∷ Lens' α (DirType (AbsOrRel α))
+class HasDirType α ⇒ HasParent α where
+  parent ∷ Lens' α (DirType α)
 
 ------------------------------------------------------------
 --                    HasMaybeParent                      --
 ------------------------------------------------------------
 
-class HasAbsOrRel α ⇒ HasParentMay α where
-  parentMay ∷ Lens' α (Maybe (DirType (AbsOrRel α)))
+class HasDirType α ⇒ HasParentMay α where
+  parentMay ∷ Lens' α (Maybe (DirType α))
 
 -- that's all, folks! ----------------------------------------------------------

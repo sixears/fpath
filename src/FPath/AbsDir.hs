@@ -128,7 +128,7 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.DirType           ( DirType )
+import FPath.DirType           ( HasDirType( DirType ) )
 import FPath.Error.FPathComponentError
                                ( FPathComponentError )
 import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
@@ -136,7 +136,6 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
                                , __FPathAbsE__, __FPathNonAbsE__
                                , __FPathNotADirE__
                                )
-import FPath.HasAbsOrRel       ( Abs, HasAbsOrRel( AbsOrRel ) )
 import FPath.HasParent         ( HasParent( parent ),HasParentMay( parentMay ) )
 import FPath.PathComponent     ( PathComponent, parsePathC )
 import FPath.Util              ( QuasiQuoter
@@ -152,6 +151,11 @@ newtype NonRootAbsDir = NonRootAbsDir (SeqNE PathComponent)
   deriving (Eq, Show)
 
 type instance Element NonRootAbsDir = PathComponent
+
+--------------------
+
+instance HasDirType AbsDir where
+  type DirType AbsDir = AbsDir
 
 --------------------
 
@@ -175,7 +179,12 @@ instance AsNonRootAbsDir NonRootAbsDir where
 
 instance AsNonRootAbsDir AbsDir where
   _NonRootAbsDir =
-    prism' AbsNonRootDir (\ case (AbsNonRootDir n) → Just n; AbsRootDir → Nothing)
+    prism' AbsNonRootDir (\ case (AbsNonRootDir n) → Just n
+                                 AbsRootDir        → Nothing)
+--------------------
+
+instance HasDirType NonRootAbsDir where
+  type DirType NonRootAbsDir = AbsDir
 
 --------------------
 
@@ -359,16 +368,6 @@ instance Arbitrary AbsDir where
 instance Arbitrary NonRootAbsDir where
   arbitrary = fromSeqNE ⊳ arbitrary
   shrink = fromSeqNE ⩺ shrink ∘ toSeqNE
-
-----------------------------------------
-
-type instance DirType Abs = AbsDir
-
-instance HasAbsOrRel AbsDir where
-  type AbsOrRel AbsDir = Abs
-
-instance HasAbsOrRel NonRootAbsDir where
-  type AbsOrRel NonRootAbsDir = Abs
 
 ----------------------------------------
 

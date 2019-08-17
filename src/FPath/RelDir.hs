@@ -116,8 +116,7 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
-import FPath.DirType      ( DirType )
-import FPath.HasAbsOrRel  ( HasAbsOrRel( AbsOrRel ), Rel )
+import FPath.DirType      ( HasDirType( DirType ) )
 import FPath.HasParent    ( HasParentMay( parentMay ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
@@ -144,6 +143,11 @@ class AsRelDir α where
 
 instance AsRelDir RelDir where
   _RelDir = id
+
+--------------------
+
+instance HasDirType RelDir where
+  type DirType RelDir = RelDir
 
 ------------------------------------------------------------
 
@@ -226,13 +230,6 @@ instance Textual RelDir where
 instance Arbitrary RelDir where
   arbitrary = fromSeq ⊳ arbitrary
   shrink = fromSeq ⩺ shrink ∘ toSeq
-
-----------------------------------------
-
-type instance DirType Rel = RelDir
-
-instance HasAbsOrRel RelDir where
-  type AbsOrRel RelDir = Rel
 
 ----------------------------------------
 

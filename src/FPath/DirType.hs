@@ -4,7 +4,7 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.DirType
-  ( DirType )
+  ( HasDirType( DirType ) )
 where
 
 -- base --------------------------------
@@ -15,6 +15,8 @@ where
 
 --------------------------------------------------------------------------------
 
-type family DirType α
+{- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
+class HasDirType α where
+  type DirType α
 
 -- that's all, folks! ----------------------------------------------------------
