@@ -18,7 +18,7 @@ import Control.Lens.Lens  ( Lens' )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.DirType      ( HasDirType( DirType ) )
+import FPath.DirType  ( HasDirType( DirType ) )
 
 --------------------------------------------------------------------------------
 

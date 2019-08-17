@@ -102,6 +102,7 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
+import FPath.FileType          ( Filename, file )
 import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
@@ -416,6 +417,20 @@ relFileMonoFoldableTests =
                 False ≟ onotElem [pc|q|] rf3
             ]
 
+relFileFileTests ∷ TestTree
+relFileFileTests =
+  let (~~) ∷ RelFile → Filename → RelFile
+      f ~~ d' = f & file ⊢ d'
+   in testGroup "file"
+                [ testCase "rf1"       $ [pc|r.e|]   ≟ rf1 ⊣ file
+                , testCase "rf2"       $ [pc|p.x|]   ≟ rf2 ⊣ file
+                , testCase "rf3"       $ [pc|r.mp3|] ≟ rf3 ⊣ file
+                , testCase "rf4"       $ [pc|.x|]    ≟ rf4 ⊣ file
+
+                , testCase "rf3 → a0"  $ [relfile|p/q/foo|] ≟ rf3 ~~ [pc|foo|]
+                , testCase "rf2 → a1"  $ rf2 ≟ rf2 ~~ [pc|p.x|]
+                , testCase "rf1 → a2"  $ [relfile|.z|] ≟ rf1 ~~ [pc|.z|]
+                ]
 
 relFileTextualGroupTests ∷ TestTree
 relFileTextualGroupTests =
@@ -436,6 +451,7 @@ tests =
                       , relFileIsMonoSeqNETests
                       , relFileParentGroupTests
                       , relFileFilepathTests
+                      , relFileFileTests
                       ]
 
 ----------------------------------------

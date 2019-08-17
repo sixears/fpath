@@ -104,6 +104,7 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
+import FPath.FileType          ( Filename, file )
 import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.AbsDir            ( AbsDir, absdir )
@@ -358,6 +359,21 @@ absFileParentTests =
                 , testCase "af1 → a2"  $ [absfile|/r/p/r.e|] ≟ af1 ~~ a2
                 ]
 
+absFileFileTests ∷ TestTree
+absFileFileTests =
+  let (~~) ∷ AbsFile → Filename → AbsFile
+      f ~~ d' = f & file ⊢ d'
+   in testGroup "file"
+                [ testCase "af1"       $ [pc|r.e|]   ≟ af1 ⊣ file
+                , testCase "af2"       $ [pc|p.x|]   ≟ af2 ⊣ file
+                , testCase "af3"       $ [pc|r.mp3|] ≟ af3 ⊣ file
+                , testCase "af4"       $ [pc|.x|]   ≟ af4 ⊣ file
+
+                , testCase "af3 → a0"  $ [absfile|/p/q/foo|] ≟ af3 ~~ [pc|foo|]
+                , testCase "af2 → a1"  $ af2 ≟ af2 ~~ [pc|p.x|]
+                , testCase "af1 → a2"  $ [absfile|/.z|] ≟ af1 ~~ [pc|.z|]
+                ]
+
 absFileFilepathTests ∷ TestTree
 absFileFilepathTests =
   let nothin' = Nothing ∷ Maybe AbsFile
@@ -458,6 +474,7 @@ tests =
                       , absFileIsMonoSeqNETests
                       , absFileParentGroupTests
                       , absFileFilepathTests
+                      , absFileFileTests
                       ]
 
 ----------------------------------------

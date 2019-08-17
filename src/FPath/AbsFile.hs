@@ -113,6 +113,7 @@ import qualified  Text.Printer  as  P
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
 import FPath.DirType      ( HasDirType( DirType ) )
+import FPath.FileType     ( HasFile( file ) )
 import FPath.HasParent    ( HasParent( parent ), HasParentMay( parentMay ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
@@ -244,6 +245,11 @@ instance HasParentMay AbsFile where
                                            Just  d → AbsFile d f
                                            Nothing → AbsFile root f
                    )
+
+----------------------------------------
+
+instance HasFile AbsFile where
+  file = lens (\ (AbsFile _ f) → f) (\ (AbsFile p _) f → AbsFile p f)
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

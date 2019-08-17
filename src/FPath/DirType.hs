@@ -15,8 +15,8 @@ where
 
 --------------------------------------------------------------------------------
 
-{- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
 class HasDirType α where
+  {- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
   type DirType α
 
 -- that's all, folks! ----------------------------------------------------------
