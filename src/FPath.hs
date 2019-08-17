@@ -184,11 +184,12 @@ import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                , __FPathEmptyE__, __FPathNotAPrefixError__
                                )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
-                               , parseRelDir, parseRelDir'
-                               , __parseRelDir'__, __parseRelDir__, reldir )
+                               , parseRelDir, parseRelDir', __parseRelDir'__
+                               , __parseRelDir__, reldir, reldirT
+                               )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , parseRelFile, parseRelFile', __parseRelFile'__
-                               , __parseRelFile__, relfile
+                               , __parseRelFile__, relfile, relfileT
                                )
 import FPath.Util              ( __ERROR'__ )
 
@@ -330,20 +331,21 @@ instance HasAbsify AbsDir where
 
 {- | type-level conversion to relative version of a type; no-op on
      already-relative types -}
-class HasRelify α where
-  type Relify α
 
-instance HasRelify AbsFile where
-  type Relify AbsFile = RelFile
+class HasRelType α where
+  type RelType α
 
-instance HasRelify AbsDir where
-  type Relify AbsDir = RelDir
+instance HasRelType AbsFile where
+  type RelType AbsFile = RelFile
 
-instance HasRelify RelFile where
-  type Relify RelFile = RelFile
+instance HasRelType AbsDir where
+  type RelType AbsDir = RelDir
 
-instance HasRelify RelDir where
-  type Relify RelDir = RelDir
+instance HasRelType RelFile where
+  type RelType RelFile = RelFile
+
+instance HasRelType RelDir where
+  type RelType RelDir = RelDir
 
 ------------------------------------------------------------
 
@@ -366,15 +368,34 @@ instance Relative RelDir where
 
 ------------------------------------------------------------
 
-class HasRelify π ⇒ Strippable π where
+{- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
+class HasDirType α where
+  type DirType α
+
+instance HasDirType AbsDir where
+  type DirType AbsDir = AbsDir
+
+instance HasDirType AbsFile where
+  type DirType AbsFile = AbsDir
+
+instance HasDirType RelDir where
+  type DirType RelDir = RelDir
+
+instance HasDirType RelFile where
+  type DirType RelFile = RelDir
+
+------------------------------------------------------------
+
+class HasRelType π ⇒ Strippable π where
   {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
        absolute (file|directory), then strip off that prefix to leave a relative
        (file|directory).  Note that a file will always keep its filename; but a
        directory might result in a relative dir of './'.
    -}
   stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
-                 AbsDir → π → η (Relify π)
-  stripPrefix' ∷ MonadError FPathNotAPrefixError η ⇒ AbsDir → π → η (Relify π)
+                DirType π → π → η (RelType π)
+  stripPrefix' ∷ MonadError FPathNotAPrefixError η ⇒
+                 DirType π → π → η (RelType π)
   stripPrefix' = stripPrefix
 
 instance Strippable AbsFile where
@@ -390,6 +411,22 @@ instance Strippable AbsDir where
                 AbsDir → AbsDir → η RelDir
   stripPrefix d'@(view seq → d) f'@(view seq → f) =
     maybe (__FPathNotAPrefixError__ absdirT (toText d') (toText f'))
+          (return ∘ fromSeq)
+          (SeqConversions.stripPrefix d f)
+
+instance Strippable RelFile where
+  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+                RelDir → RelFile → η RelFile
+  stripPrefix d'@(view seq → d) f'@(view seqNE → f) =
+    maybe (__FPathNotAPrefixError__ relfileT (toText d') (toText f'))
+          (return ∘ fromSeqNE)
+          (SeqNE.stripProperPrefix d f)
+
+instance Strippable RelDir where
+  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+                RelDir → RelDir → η RelDir
+  stripPrefix d'@(view seq → d) f'@(view seq → f) =
+    maybe (__FPathNotAPrefixError__ reldirT (toText d') (toText f'))
           (return ∘ fromSeq)
           (SeqConversions.stripPrefix d f)
 
