@@ -9,10 +9,9 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module FPath.RelFile
+module FPath.Internal
   ( AsRelFile( _RelFile ), RelDir, RelFile
 
-  , relfileT
   -- quasi-quoters
   , relfile
 
@@ -43,6 +42,10 @@ import Text.Show            ( Show )
 
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
+
+-- containers --------------------------
+
+import Data.Sequence  ( Seq )
 
 -- data-textual ------------------------
 
@@ -126,6 +129,13 @@ import FPath.Util                       ( QuasiQuoter
                                         , __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
+
+data InternalBasis = Absolute | Relative
+
+-- σ is 'seqtype' - Seq or SeqNE
+data Internal = Internal { pcs ∷ Seq PathComponent
+                         , fn  ∷ Maybe PathComponent
+                         , basis ∷ InternalBasis }
 
 {- | a relative file -}
 data RelFile = RelFile RelDir PathComponent

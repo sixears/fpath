@@ -11,7 +11,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.RelDir
-  ( RelDir
+  ( AsRelDir( _RelDir ), RelDir
 
   -- quasi-quoters
   , reldir
@@ -62,7 +62,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( iso )
 import Control.Lens.Lens   ( lens )
-import Control.Lens.Prism  ( prism' )
+import Control.Lens.Prism  ( Prism', prism' )
 
 -- mono-traversable --------------------
 
@@ -136,7 +136,15 @@ newtype RelDir = RelDir (Seq PathComponent)
 
 type instance Element RelDir = PathComponent
 
-----------------------------------------
+--------------------
+
+class AsRelDir α where
+  _RelDir ∷ Prism' α RelDir
+
+instance AsRelDir RelDir where
+  _RelDir = id
+
+------------------------------------------------------------
 
 instance MonoFunctor RelDir where
   omap ∷ (PathComponent → PathComponent) → RelDir → RelDir

@@ -62,6 +62,7 @@ library
                  , FPath.T.FPath.PathComponent
                  , FPath.T.FPath.TestData
 
+                 , NonEmptyContainers.T.SeqConversions
                  , NonEmptyContainers.T.SeqNE
 
   -- modules included in this library but not exported.

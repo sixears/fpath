@@ -8,11 +8,15 @@ module NonEmptyContainers.SeqNE
   ( {-| A non-empty finite sequence of homogenous things -}
     SeqNE( SeqNE, (:|>), (:<|), (:<||), (:||>), (:⫸), (:⫷), unSeqNE )
   , Seqish( (<*|), (|*>) ), (<||), (||>), pattern (:⪬), pattern (:⪭), (⪬)
+  , ToSeq( toSeq )
+
   , (⪭), (⪪), (⪫), (⫷), (⫸), (⋖), (⋗)
-  , fromList, fromNonNullSeq
-  , cons, snoc, toSeq, uncons, unsnoc
+  , fromList, fromSeq, fromNonNullSeq
+  , cons, snoc, uncons, unsnoc
   , onEmpty, onEmpty', onEmpty_, onEmpty'_
   , head, init, last, tail
+  , (<<), (⪡), (>>), (⪢)
+  , stripProperPrefix
   )
 where
 
@@ -37,6 +41,7 @@ import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
+import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
@@ -52,7 +57,7 @@ import qualified  Data.NonNull
 
 import Data.MonoTraversable  ( Element, GrowingAppend, MonoFunctor, MonoFoldable
                              , MonoTraversable )
-import Data.NonNull          ( NonNull
+import Data.NonNull          ( NonNull, fromNullable
                              , impureNonNull, ncons, nuncons, toNullable )
 import Data.Sequences        ( Index, SemiSequence( cons, find, intersperse
                                                   , reverse, snoc, sortBy ) )
@@ -85,6 +90,9 @@ type instance Element (SeqNE α) = α
 
 fromNonNullSeq ∷ NonNull (Seq α) → SeqNE α
 fromNonNullSeq = SeqNE
+
+fromSeq ∷ Seq α → Maybe (SeqNE α)
+fromSeq = SeqNE ⩺ fromNullable
 
 --------------------
 
@@ -219,7 +227,7 @@ class ToSeq κ ⇒ Seqish κ where
   a <| s = __UnsafeSmap (a Seq.<|) s
 
   infixl 5 |>
-  (|>)  ∷ κ α → α → κ α
+  (|>) ∷ κ α → α → κ α
   {- | compose a `Seqish` κ from the right, from another κ -}
   s |> a = __UnsafeSmap (Seq.|> a) s
 
@@ -264,14 +272,14 @@ infixl 5 ⪫
 
 infixr 5 ⪬
 {-| synonym for `(<||)` -}
-(⪬) ∷ Seqish κ ⇒ α → Seq α → κ α
+(⪬) ∷ (ToSeq ψ, Seqish κ) ⇒ α → ψ α → κ α
 (⪬) = (<||)
 
 --------------------
 
 infixl 5 ⪭
 {-| synonym for `(||>)` -}
-(⪭) ∷ Seqish κ ⇒ Seq α → α → κ α
+(⪭) ∷ (ToSeq ψ, Seqish κ) ⇒ ψ α → α → κ α
 (⪭) = (||>)
 
 ----------------------------------------
@@ -435,5 +443,33 @@ last = Data.NonNull.last ∘ unSeqNE
 
 fromList ∷ [α] → Maybe (SeqNE α)
 fromList = (SeqNE ∘ Data.NonNull.fromNonEmpty) ⩺ NonEmpty.nonEmpty
+
+infixl 5 >>
+{- | add another `ToSeq` to the right of a SeqNE -}
+(>>) ∷ ToSeq κ ⇒ SeqNE α → κ α → SeqNE α
+(>>) ne s = SeqNE ∘ impureNonNull $ toSeq ne ⊕ toSeq s
+
+infixr 5 <<
+{- | add another `ToSeq` to the left of a SeqNE -}
+(<<) ∷ ToSeq κ ⇒ κ α → SeqNE α → SeqNE α
+(<<) s ne = SeqNE ∘ impureNonNull $ toSeq s ⊕ toSeq ne
+
+infixl 5 ⪢
+{- | add another `ToSeq` to the right of a SeqNE -}
+(⪢) ∷ ToSeq κ ⇒ SeqNE α → κ α → SeqNE α
+(⪢) = (>>)
+
+infixr 5 ⪡
+{- | add another `ToSeq` to the left of a SeqNE -}
+(⪡) ∷ ToSeq κ ⇒ κ α → SeqNE α → SeqNE α
+(⪡) = (<<)
+
+stripProperPrefix ∷ (ToSeq κ, Eq α) ⇒ κ α → SeqNE α  → Maybe (SeqNE α)
+stripProperPrefix (toSeq → x :⪬ xs) (y :⪬ ys) | x ≡ y =
+  case fromSeq ys of
+    Nothing  → Nothing
+    Just ys' → stripProperPrefix xs ys'
+stripProperPrefix (toSeq → Seq.Empty) s = Just s
+stripProperPrefix _ _ = Nothing
 
 -- that's all, folks! ----------------------------------------------------------

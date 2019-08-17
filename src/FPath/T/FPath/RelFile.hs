@@ -40,10 +40,6 @@ import qualified  Data.Sequence  as  Seq
 import Data.Textual  ( Parsed( Parsed )
                      , fromString, parseString, toString, toText )
 
--- fluffy ------------------------------
-
-import NonEmptyContainers.SeqNE  ( (⪬) )
-
 -- lens --------------------------------
 
 import Control.Lens.Setter  ( (?~) )
@@ -60,7 +56,6 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
-import Data.MoreUnicode.Monoid           ( ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
@@ -190,7 +185,7 @@ relFileIsNonEmptyTests =
 relFileIsMonoSeqNEGetterTests ∷ TestTree
 relFileIsMonoSeqNEGetterTests =
   testGroup "getter"
-            [ testCase "rf1" $ ([pc|r.e|] ⪬ ф)                     ≟ rf1 ⊣ seqNE
+            [ testCase "rf1" $ (pure [pc|r.e|])                     ≟ rf1 ⊣ seqNE
             , testCase "rf2" $ fromNonEmpty ([pc|r|]:|[[pc|p.x|]]) ≟ rf2 ⊣ seqNE
             , testCase "rf3" $
                 fromNonEmpty ([pc|p|] :| [[pc|q|],[pc|r.mp3|]])    ≟ rf3 ⊣ seqNE

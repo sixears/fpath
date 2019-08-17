@@ -11,8 +11,10 @@
 {-# LANGUAGE ViewPatterns        #-}
 
 module FPath.AbsDir
-  ( AbsDir, NonRootAbsDir
+  ( AbsDir, AsAbsDir( _AbsDir ), AsNonRootAbsDir( _NonRootAbsDir )
+  , NonRootAbsDir, ToAbsDir( toAbsDir )
 
+  , absdirT
   -- quasi-quoters
   , absdir, absdirN
 
@@ -142,16 +144,16 @@ import FPath.Util              ( QuasiQuoter
 
 -------------------------------------------------------------------------------
 
-{- | The root directory, i.e., '/' -}
-data RootDir = RootDir
-  deriving (Eq, Show)
-
 {- | A non-root absolute directory, e.g., /etc. -}
 -- a non-root dir is a path component appended to a (possibly-root) absolute
 -- directory
 newtype NonRootAbsDir = NonRootAbsDir (SeqNE PathComponent)
 -- data NonRootAbsDir = NonRootAbsDir PathComponent AbsDir
   deriving (Eq, Show)
+
+type instance Element NonRootAbsDir = PathComponent
+
+--------------------
 
 {- | An absolute directory is either the root directory, or a non-root absolute
      directory -}
@@ -161,12 +163,40 @@ data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
 absNonRootDir ∷ SeqNE PathComponent → AbsDir
 absNonRootDir = AbsNonRootDir ∘ NonRootAbsDir
 
-----------------------------------------
-
-type instance Element NonRootAbsDir = PathComponent
 type instance Element AbsDir = PathComponent
 
-----------------------------------------
+------------------------------------------------------------
+
+class AsNonRootAbsDir α where
+  _NonRootAbsDir ∷ Prism' α NonRootAbsDir
+
+instance AsNonRootAbsDir NonRootAbsDir where
+  _NonRootAbsDir = id
+
+instance AsNonRootAbsDir AbsDir where
+  _NonRootAbsDir =
+    prism' AbsNonRootDir (\ case (AbsNonRootDir n) → Just n; AbsRootDir → Nothing)
+
+--------------------
+
+class AsAbsDir α where
+  _AbsDir ∷ Prism' α AbsDir
+
+instance AsAbsDir AbsDir where
+  _AbsDir = id
+
+--------------------
+
+class ToAbsDir α where
+  toAbsDir ∷ α → AbsDir
+
+instance ToAbsDir AbsDir where
+  toAbsDir = id
+
+instance ToAbsDir NonRootAbsDir where
+  toAbsDir = AbsNonRootDir -- \ x → x ⊣ re _NonRootAbsDir
+
+------------------------------------------------------------
 
 instance MonoFunctor NonRootAbsDir where
   omap ∷ (PathComponent → PathComponent) → NonRootAbsDir → NonRootAbsDir

@@ -41,10 +41,6 @@ import qualified  Data.Sequence  as  Seq
 import Data.Textual  ( Parsed( Parsed )
                      , fromString, parseString, toString, toText )
 
--- fluffy ------------------------------
-
-import NonEmptyContainers.SeqNE  ( (⪬) )
-
 -- lens --------------------------------
 
 import Control.Lens.Setter  ( (?~) )
@@ -156,10 +152,10 @@ reldirQQTests =
 relDirIsMonoSeqGetterTests ∷ TestTree
 relDirIsMonoSeqGetterTests =
   testGroup "getter"
-            [ testCase "r0" $ ф                                    ≟ r0 ⊣ seq
-            , testCase "r1" $ ([pc|r|] ⪬ ф)                        ≟ r1 ⊣ seq
-            , testCase "r2" $ Seq.fromList [[pc|r|], [pc|p|]]          ≟ r2 ⊣ seq
-            , testCase "r3" $ Seq.fromList [[pc|p|], [pc|q|], [pc|r|]] ≟ r3 ⊣ seq
+            [ testCase "r0" $ ф                                      ≟ r0 ⊣ seq
+            , testCase "r1" $ pure [pc|r|]                           ≟ r1 ⊣ seq
+            , testCase "r2" $ Seq.fromList [[pc|r|], [pc|p|]]        ≟ r2 ⊣ seq
+            , testCase "r3" $ Seq.fromList [[pc|p|],[pc|q|],[pc|r|]] ≟ r3 ⊣ seq
             ]
 
 relDirSemigroupTests ∷ TestTree

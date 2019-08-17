@@ -1,13 +1,25 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+--{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
+--{-# LANGUAGE QuasiQuotes       #-}
+--{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE UnicodeSyntax     #-}
+--{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UnicodeSyntax       #-}
 {-# LANGUAGE ViewPatterns      #-}
+
+{-# LANGUAGE MultiParamTypeClasses #-}
+
+-- unify implementations to one ("Internals") impl., with newtype encapsulations
+--    for each of {Abs,Rel}{Dir,File,Path}; Internals would be something like
+--    `Internals Seq|SeqNE FileComponent|None Basis=/|./ AllowPathBits(.|..)`
+
+-- try using type-level depth, to allow for non-maybe Parent whenever depth>1.
+
+-- toFile only works if not / and not ./ .  Adjust RelDir to distinguish ./ so
+-- we can mark this at the type level
 
 module FPath
   ( AbsDir, AbsFile, NonRootAbsDir, RelDir, RelFile {- AbsPath(..) -}
@@ -24,32 +36,25 @@ module FPath
   , parseAbsDir  , parseAbsDir'  , __parseAbsDir__  , __parseAbsDir'__
   , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
   , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
+  , parseAbsPath , parseAbsPath' , __parseAbsPath__ , __parseAbsPath'__
   , parseRelDir  , parseRelDir'  , __parseRelDir__  , __parseRelDir'__
   , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
   , seq, seqNE
 
   , root
+  , toDir
+  , resolve, stripPrefix, stripPrefix'
     {-
-  , AsFilePath( toFPath )
-  , MyPath( AbsOrRel, FileType, isRoot, resolve, toDir, toFile, toFile_
+  , MyPath( AbsOrRel, FileType, toFile, toFile_
           , getFilename, getParent, setFilename, setExt )
-  , RelDir, RelFile
-
-  , AsPathError, PathError
-  , Path, Abs, Dir, File, Rel
 
   , (~<.>), (<.>~)
   , pathIsAbsolute
   , rel2abs
-  , rootDir
 
   , extension, filename, parent
 
-  , parseAbsDir , parseAbsDir' , parseAbsDir_
-  , parseAbsFile, parseAbsFile', parseAbsFile_
-  , parseAbsPath, parseAbsPath', parseAbsPath_
-  , parseRelDir , parseRelDir' , parseRelDir_
-  , parseRelFile, parseRelFile', parseRelFile_
+  , parseRelPath, parseRelPath', parseRelPath_
   , stripDir    , stripDir'    , stripDir_
 
   , getCwd        , getCwd'        , getCwd_
@@ -68,20 +73,28 @@ where
 
 -- base --------------------------------
 
-{-
-
-import Control.Monad  ( (>>=), return )
+import Control.Monad  ( return )
 import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Left, Right ), either )
-import Data.Eq        ( (==) )
-import Data.Function  ( ($), const, flip, id )
-import Data.Functor   ( (<$>), fmap )
-import Data.Maybe     ( Maybe( Just, Nothing ), fromMaybe, maybe )
-import Data.Monoid    ( (<>) )
-import Prelude        ( error )
-import System.IO      ( FilePath )
+import Data.Either    ( either )
+import Data.Eq        ( Eq )
+import Data.Function  ( id )
+import Data.Maybe     ( Maybe( Just, Nothing ), maybe )
+import Data.String    ( String )
+import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
+import Text.Show      ( Show )
+
+-- base-unicode-symbols ----------------
+
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
+
+-- data-textual ------------------------
+
+import Data.Textual  ( Printable, toText )
 
 -- directory ---------------------------
+
+{-
 
 import System.Directory  ( withCurrentDirectory )
 
@@ -89,13 +102,36 @@ import qualified  System.FilePath.Lens  as  FPLens
 
 -}
 
+-- lens --------------------------------
+
+import Control.Lens.Getter  ( view )
+import Control.Lens.Prism   ( Prism', prism' )
+import Control.Lens.Review  ( re )
+
+-- more-unicode-symbols ----------------
+
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Lens     ( (⊣), (⩼) )
+
+-- mtl ---------------------------------
+
+import Control.Monad.Except  ( MonadError )
+
 -- non-empty-containers ----------------
 
+import qualified  NonEmptyContainers.SeqNE           as  SeqNE
+import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
+
 import NonEmptyContainers.SeqConversions
-                                    ( IsMonoSeq( seq )
-                                    , ToMonoSeq( toSeq ) )
+                                 ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
+                                 , ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqNE  ( (⪡) )
 import NonEmptyContainers.SeqNEConversions
-                                    ( IsMonoSeqNonEmpty( seqNE ) )
+                                 ( IsMonoSeqNonEmpty( seqNE ), fromSeqNE )
+
+-- text --------------------------------
+
+import Data.Text  ( last, null )
 
 {-
 
@@ -126,77 +162,205 @@ import Fluffy.Text           ( last )
 ------------------------------------------------------------
 
 
-import FPath.AbsDir            ( AbsDir, NonRootAbsDir
-                               , absdir, absdirN, nonRootAbsDir
+import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
+                               , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
+                               , ToAbsDir( toAbsDir )
+
+                               , absdir, absdirN, absdirT, nonRootAbsDir
                                , parseAbsDir, parseAbsDir'
                                , __parseAbsDir'__, __parseAbsDir__
                                , parseAbsDirN, parseAbsDirN'
                                , __parseAbsDirN'__, __parseAbsDirN__
-                               , root )
-import FPath.AbsFile            ( AbsFile, parseAbsFile, parseAbsFile'
-                               , __parseAbsFile'__, __parseAbsFile__, absfile )
+                               , root
+                               )
+import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
+                               , absfile, absfileT
+                               , parseAbsFile, parseAbsFile'
+                               , __parseAbsFile'__, __parseAbsFile__
+                               )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.RelDir            ( RelDir, parseRelDir, parseRelDir'
+import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
+                               , FPathError, FPathNotAPrefixError
+                               , __FPathEmptyE__, __FPathNotAPrefixError__
+                               )
+import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
+                               , parseRelDir, parseRelDir'
                                , __parseRelDir'__, __parseRelDir__, reldir )
-import FPath.RelFile            ( RelFile, parseRelFile, parseRelFile'
-                               , __parseRelFile'__, __parseRelFile__, relfile )
+import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
+                               , parseRelFile, parseRelFile', __parseRelFile'__
+                               , __parseRelFile__, relfile
+                               )
+import FPath.Util              ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
 
-------------------------------------------------------------
-
-{-
-class AsFilePath ρ where
-  toFPath ∷ ρ → FilePath
-
-instance AsFilePath (Path β τ) where
-  toFPath = toFilePath
-
--}
-------------------------------------------------------------
-
-{-
 data AbsPath = AbsD AbsDir | AbsF AbsFile
-  deriving Show
+  deriving (Eq, Show)
 
-instance AsFilePath AbsPath where
-  toFPath (AbsD d) = toFilePath d
-  toFPath (AbsF f) = toFilePath f
+instance AsAbsDir AbsPath where
+  _AbsDir ∷ Prism' AbsPath AbsDir
+  _AbsDir = prism' AbsD (\ case (AbsD d) → Just d; _ → Nothing)
 
+instance AsNonRootAbsDir AbsPath where
+  _NonRootAbsDir ∷ Prism' AbsPath NonRootAbsDir
+  _NonRootAbsDir = prism' (AbsD ∘ toAbsDir)
+                          (\ case (AbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
 
-parseAbsPath ∷ (Printable τ, AsPathError ε, MonadError ε μ) ⇒ τ → μ AbsPath
+instance AsAbsFile AbsPath where
+  _AbsFile ∷ Prism' AbsPath AbsFile
+  _AbsFile = prism' AbsF (\ case (AbsF f) → Just f; _ → Nothing)
+
+------------------------------------------------------------
+
+data RelPath = RelD RelDir | RelF RelFile
+  deriving (Eq, Show)
+
+instance AsRelDir RelPath where
+  _RelDir ∷ Prism' RelPath RelDir
+  _RelDir = prism' RelD (\ case (RelD d) → Just d; _ → Nothing)
+
+instance AsRelFile RelPath where
+  _RelFile ∷ Prism' RelPath RelFile
+  _RelFile = prism' RelF (\ case (RelF f) → Just f; _ → Nothing)
+
+------------------------------------------------------------
+
+abspathT ∷ TypeRep
+abspathT = typeRep (Proxy ∷ Proxy AbsPath)
+
+parseAbsPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsPath
 parseAbsPath (toText → t) =
-    case last t of
-      Just '/' → case parseAbsDir t of
-                    Left err → throwError err
-                    Right d  → return $ AbsD d
-      _        → -- includes the 'Nothing' case, but that's fine, parseAbsFile
-                  -- will throw an AsPathError on that
-                  case parseAbsFile t of
-                    Left err → throwError err
-                    Right f  → return $ AbsF f
+  case null t of
+    True → __FPathEmptyE__ abspathT
+    False → case last t of
+              '/' → AbsD ⊳ parseAbsDir  t
+              _   → AbsF ⊳ parseAbsFile t
 
-parseAbsPath' ∷ (Printable τ, MonadError PathError μ) ⇒ τ → μ AbsPath
+parseAbsPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsPath
 parseAbsPath' = parseAbsPath
 
--- | PARTIAL: use only when you're sure that the value will parse as an
---            absolute path
-parseAbsPath_ ∷ Printable τ ⇒ τ → AbsPath
-parseAbsPath_ = _ASSERT ∘ parseAbsPath'
+__parseAbsPath__ ∷ Printable τ ⇒ τ → AbsPath
+__parseAbsPath__ = either __ERROR'__ id ∘ parseAbsPath'
 
--}
+__parseAbsPath'__ ∷ String → AbsPath
+__parseAbsPath'__ = __parseAbsPath__
+
+----------------------------------------
+
+relpathT ∷ TypeRep
+relpathT = typeRep (Proxy ∷ Proxy RelPath)
+
+parseRelPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelPath
+parseRelPath (toText → t) =
+  case null t of
+    True → __FPathEmptyE__ relpathT
+    False → case last t of
+              '/' → RelD ⊳ parseRelDir  t
+              _   → RelF ⊳ parseRelFile t
+
+parseRelPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelPath
+parseRelPath' = parseRelPath
+
+__parseRelPath__ ∷ Printable τ ⇒ τ → RelPath
+__parseRelPath__ = either __ERROR'__ id ∘ parseRelPath'
+
+__parseRelPath'__ ∷ String → RelPath
+__parseRelPath'__ = __parseRelPath__
 
 ------------------------------------------------------------
+
+data FPath = FAbsD AbsDir | FAbsF AbsFile | FRelD RelDir | FRelF RelFile
+  deriving (Eq, Show)
+
+instance AsAbsDir FPath where
+  _AbsDir ∷ Prism' FPath AbsDir
+  _AbsDir = prism' FAbsD (\ case (FAbsD d) → Just d; _ → Nothing)
+
+instance AsAbsFile FPath where
+  _AbsFile ∷ Prism' FPath AbsFile
+  _AbsFile = prism' FAbsF (\ case (FAbsF f) → Just f; _ → Nothing)
+
+instance AsNonRootAbsDir FPath where
+  _NonRootAbsDir ∷ Prism' FPath NonRootAbsDir
+  _NonRootAbsDir = prism' (FAbsD ∘ toAbsDir)
+                          (\ case (FAbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
+
+instance AsRelDir FPath where
+  _RelDir ∷ Prism' FPath RelDir
+  _RelDir = prism' FRelD (\ case (FRelD d) → Just d; _ → Nothing)
+
+instance AsRelFile FPath where
+  _RelFile ∷ Prism' FPath RelFile
+  _RelFile = prism' FRelF (\ case (FRelF f) → Just f; _ → Nothing)
+
+------------------------------------------------------------
+
+class File π δ where
+  toDir ∷ π → δ
+
+instance File AbsFile AbsDir where
+  toDir ∷ AbsFile → AbsDir
+  toDir = fromSeq ∘ toSeq
+
+instance File RelFile RelDir where
+  toDir ∷ RelFile → RelDir
+  toDir = fromSeq ∘ toSeq
+
+------------------------------------------------------------
+
+class HasAbsify α where
+  type Absify α
+
+instance HasAbsify RelFile where
+  type Absify RelFile = AbsFile
+
+instance HasAbsify RelDir where
+  type Absify RelDir = AbsDir
+
+class Relative π {- τ -} where
+  resolve ∷ AbsDir → π → Absify π
+
+  {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
+       absolute (file|directory), then strip off that prefix to leave a relative
+       (file|directory).  Note that a file will always keep its filename; but a
+       directory might result in a relative dir of './'.
+   -}
+  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+                AbsDir → Absify π → η π
+  stripPrefix' ∷ MonadError FPathNotAPrefixError η ⇒ AbsDir → Absify π → η π
+  stripPrefix' = stripPrefix
+
+
+instance Relative RelFile where
+  resolve ∷ AbsDir → RelFile → AbsFile
+  resolve d f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
+
+  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+                AbsDir → AbsFile → η RelFile
+  stripPrefix d'@(view seq → d) f'@(view seqNE → f) =
+    maybe (__FPathNotAPrefixError__ absfileT (toText d') (toText f'))
+          (return ∘ fromSeqNE)
+          (SeqNE.stripProperPrefix d f)
+
+instance Relative RelDir where
+  resolve ∷ AbsDir → RelDir → AbsDir
+  resolve d f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
+
+  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+                AbsDir → AbsDir → η RelDir
+  stripPrefix d'@(view seq → d) f'@(view seq → f) =
+    maybe (__FPathNotAPrefixError__ absdirT (toText d') (toText f'))
+          (return ∘ fromSeq)
+          (SeqConversions.stripPrefix d f)
+
+
+------------------------------------------------------------
+
+
+-- </>
 
 {-
 class Show π ⇒ MyPath π where
-  type FileType π
-  type AbsOrRel π
-
-  isRoot      ∷ π → Bool
-
-  toDir       ∷ π → Path (AbsOrRel π) Dir
-
   -- | convert to a File; / goes to Nothing
   toFile      ∷ π → Maybe (Path (AbsOrRel π) File)
 
@@ -334,7 +498,7 @@ getCwd_ = eitherIOThrowT getCwd'
 --   an AbsDir, relative to the cwd if it is relative.  Note that this performs
 --   IO since the only safe way to do this is to cd to that dir and pwd.  Thus,
 --   e.g., permissions may spoil this operation.
-resolveDir ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ)⇒
+resolveDir ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ) ⇒
                AbsDir → Text → μ AbsDir
 resolveDir dir fn =
   let inDir = withCurrentDirectory (toFPath dir)

@@ -3,14 +3,15 @@
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 
-module NonEmptyContainers.T.SeqNE
+module NonEmptyContainers.T.SeqConversions
   ( tests )
 where
 
-import Prelude  ( (+), (*), fromIntegral )
+import Prelude  ( fromIntegral )
 
 -- base --------------------------------
 
+import Control.Applicative  ( pure )
 import Control.Monad        ( return )
 import Data.Bool            ( Bool( False ) )
 import Data.Function        ( ($) )
@@ -24,13 +25,14 @@ import System.IO            ( IO )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
--- mono-traversable --------------------
+-- containers --------------------------
 
-import Data.MonoTraversable  ( ofoldr, ofoldr1Ex, omap, otraverse )
+import Data.Sequence  ( Seq )
 
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Monad    ( (⪻) )
+import Data.MoreUnicode.Monoid   ( ф )
 import Data.MoreUnicode.Natural  ( ℕ )
 import Data.MoreUnicode.Tasty    ( (≟) )
 
@@ -53,54 +55,28 @@ import Test.Tasty.QuickCheck  ( QuickCheckReplay( QuickCheckReplay ) )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import NonEmptyContainers.SeqNE           ( (⋖), stripProperPrefix )
+import NonEmptyContainers.SeqConversions  ( stripPrefix )
+import NonEmptyContainers.SeqNE           ( (⪬) )
 
 --------------------------------------------------------------------------------
 
-monoFunctorTests ∷ TestTree
-monoFunctorTests =
-  let one = 1 ∷ Natural
-   in testGroup "MonoFunctor"
-                [ testCase "3"     $ 3 ⋖ []    ≟ omap (*3) (one ⋖ [])
-                , testCase "6,2"   $ 6 ⋖ [2]   ≟ omap (*2) (3 ⋖ [one])
-                , testCase "2,3,4" $ 2 ⋖ [3,4] ≟ omap (+1) (one ⋖ [2,3])
+stripPrefixTests ∷ TestTree
+stripPrefixTests =
+  let ones   = pure 1  ∷ Seq ℕ
+      twos   = pure 2  ∷ Seq ℕ
+      onetwo = 1 ⪬ [2] ∷ Seq ℕ
+   in testGroup "stripPrefix"
+                [ testCase "null"   $ Just (pure 1) ≟ stripPrefix ф ones
+                , testCase "pfx"    $ Just (pure 2) ≟ stripPrefix ones onetwo
+                , testCase "no pfx" $ Nothing       ≟ stripPrefix twos ones
+                , testCase "equal"  $ Just ф        ≟ stripPrefix ones ones
+                , testCase "longer" $ Nothing       ≟ stripPrefix onetwo ones
                 ]
-----------------------------------------
-
-monoFoldableTests ∷ TestTree
-monoFoldableTests =
-  let one = 1 ∷ Natural
-   in testGroup "MonoFoldable"
-                [ testCase "1" $ 1 ≟ ofoldr (+) 0 (one ⋖ [])
-                , testCase "6" $ 6 ≟ ofoldr1Ex (+) (one ⋖ [2,3])
-                ]
-----------------------------------------
-
-monoTraversableTests ∷ TestTree
-monoTraversableTests =
-  let one = 1 ∷ Natural
-   in testGroup "MonoTraversable"
-                [ testCase "1" $ [2⋖[4],2⋖[2],1⋖[4],1⋖[2]]
-                               ≟ otraverse (\ x → [2*x,x])  (one ⋖ [2])
-                ]
-
-----------------------------------------
-
-stripProperPrefixTests ∷ TestTree
-stripProperPrefixTests =
-  testGroup "stripProperPrefix"
-   [ testCase "null"   $ Just (1 ⋖ []) ≟ stripProperPrefix []    ((1 ∷ ℕ) ⋖ [])
-   , testCase "pfx"    $ Just (2 ⋖ []) ≟ stripProperPrefix [1]   ((1 ∷ ℕ) ⋖ [2])
-   , testCase "no pfx" $ Nothing       ≟ stripProperPrefix [2]   ((1 ∷ ℕ) ⋖ [])
-   , testCase "equal"  $ Nothing       ≟ stripProperPrefix [1]   ((1 ∷ ℕ) ⋖ [])
-   , testCase "longer" $ Nothing       ≟ stripProperPrefix [1,2] ((1 ∷ ℕ) ⋖ [])
-   ]
 
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "SeqNE" [ monoFunctorTests, monoFoldableTests
-                          , monoTraversableTests, stripProperPrefixTests ]
+tests = testGroup "SeqNE" [ stripPrefixTests ]
 
 ----------------------------------------
 

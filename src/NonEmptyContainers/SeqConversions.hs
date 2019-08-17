@@ -2,27 +2,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module NonEmptyContainers.SeqConversions
   ( AsMonoSeq( seq' ), FromMonoSeq( fromList, fromSeq ), IsMonoSeq( seq )
-  , ToMonoSeq( toSeq ) )
+  , ToMonoSeq( toSeq ), stripPrefix )
 where
 
 
 -- base --------------------------------
 
+import Data.Eq        ( Eq )
 import Data.Function  ( id )
-import Data.Maybe     ( Maybe( Just ) )
+import Data.Maybe     ( Maybe( Just, Nothing ) )
 
 -- base-unicode-symbols ----------------
 
+import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 
 -- containers --------------------------
 
 import qualified  Data.Sequence  as  Seq
 
-import Data.Sequence  ( Seq )
+import Data.Sequence  ( Seq( (:<|) ) )
 
 -- lens --------------------------------
 
@@ -85,5 +88,17 @@ class AsMonoSeq α where
 
 instance α ~ Element (Seq α) ⇒ AsMonoSeq (Seq α) where
   seq' = prism' id Just
+
+------------------------------------------------------------
+
+{- | Strip a prefix from a `Seq`, possibly resulting in an empty `Seq`.  This
+     isn't really a conversion, just a fn missing from the original `Seq`
+     datatype.
+ -}
+
+stripPrefix ∷ Eq α ⇒ Seq α → Seq α  → Maybe (Seq α)
+stripPrefix (SeqNE.toSeq → x :<| xs) (y :<| ys) | x ≡ y = stripPrefix xs ys
+stripPrefix (SeqNE.toSeq → Seq.Empty) s = Just s
+stripPrefix _ _ = Nothing
 
 -- that's all, folks! ----------------------------------------------------------

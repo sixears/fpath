@@ -10,8 +10,9 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.AbsFile
-  ( AbsDir, AbsFile
+  ( AbsDir, AbsFile, AsAbsFile( _AbsFile )
 
+  , absfileT
   -- quasi-quoters
   , absfile
 
@@ -53,7 +54,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( iso )
 import Control.Lens.Lens   ( lens )
-import Control.Lens.Prism  ( prism' )
+import Control.Lens.Prism  ( Prism', prism' )
 
 -- mono-traversable --------------------
 
@@ -132,6 +133,14 @@ data AbsFile = AbsFile AbsDir PathComponent
   deriving (Eq, Show)
 
 type instance Element AbsFile = PathComponent
+
+--------------------
+
+class AsAbsFile α where
+  _AbsFile ∷ Prism' α AbsFile
+
+instance AsAbsFile AbsFile where
+  _AbsFile = id
 
 ----------------------------------------
 
