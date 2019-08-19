@@ -7,16 +7,19 @@
 module NonEmptyContainers.SeqNE
   ( {-| A non-empty finite sequence of homogenous things -}
     SeqNE( SeqNE, (:|>), (:<|), (:<||), (:||>), (:⫸), (:⫷), unSeqNE )
-  , Seqish( (<*|), (|*>) ), (<||), (||>), pattern (:⪬), pattern (:⪭), (⪬)
+  , Seqish( (<*|), (|*>), (<+), (+>) )
   , ToSeq( toSeq )
 
+  , (<<|), (|>>), (<||), (||>), pattern (:⪬), pattern (:⪭), (⪬)
   , (⪭), (⪪), (⪫), (⫷), (⫸), (⋖), (⋗)
   , fromList, fromSeq, fromNonNullSeq
   , cons, snoc, uncons, unsnoc
   , onEmpty, onEmpty', onEmpty_, onEmpty'_
   , head, init, last, tail
-  , (<<), (⪡), (>>), (⪢)
+  , (⪡), (⪢)
   , stripProperPrefix
+
+  , tests
   )
 where
 
@@ -35,6 +38,7 @@ import Data.Functor         ( Functor( fmap ) )
 import Data.List            ( filter )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering, (>) )
+import Data.Semigroup       ( Semigroup( (<>) ) )
 import Data.Traversable     ( Traversable, traverse )
 import Data.Word            ( Word64 )
 import Text.Show            ( Show( show ) )
@@ -65,11 +69,21 @@ import Data.Sequences        ( Index, SemiSequence( cons, find, intersperse
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
+import Data.MoreUnicode.Natural  ( ℕ )
+import Data.MoreUnicode.Tasty    ( (≟) )
 
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 import Test.QuickCheck.Gen        ( suchThat )
+
+-- tasty -------------------------------
+
+import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-hunit -------------------------
+
+import Test.Tasty.HUnit  ( assertFailure, testCase )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -98,6 +112,11 @@ fromSeq = SeqNE ⩺ fromNullable
 
 instance Functor SeqNE where
   fmap f (SeqNE ss) = SeqNE ∘ impureNonNull $ f ⊳ (toNullable ss)
+
+--------------------
+
+instance Semigroup (SeqNE α) where
+  SeqNE xs <> SeqNE ys = SeqNE (xs <> ys)
 
 --------------------
 
@@ -199,6 +218,24 @@ instance ToSeq [] where
 
 ------------------------------------------------------------
 
+-- Originally, this had been directly implemented as `maybeSeqR` in the `Seq`
+-- instance of `Seqish`.  However, when one of those got accidentally deleted,
+-- the "recursive" call to `maybeSeqR` in the `Seqish` class still compiled
+-- fine, but then called itself recursively - an infinite loop, and they're
+-- moderately hard to debug.  So I've factored it out, such that if the
+-- `_maybeSeqR` fn were to be deleted, it would be caught at compile-time.
+
+_maybeSeqR ∷ Seq α → Maybe (Seq α, α)
+_maybeSeqR ss = case Seq.viewr ss of
+                  EmptyR     → Nothing
+                  s Seq.:> a → Just (s,a)
+
+_maybeSeqL ∷ Seq α → Maybe (α, Seq α)
+_maybeSeqL ss = case Seq.viewl ss of
+                   EmptyL     → Nothing
+                   a Seq.:< s → Just (a,s)
+
+
 -- would like to say "SemiSequence κ ⇒ Seqish κ" here, but I can't find the
 -- correct syntax
 {- | things that may be treated, particularly (de)composed, as a `Seq` -}
@@ -231,12 +268,17 @@ class ToSeq κ ⇒ Seqish κ where
   {- | compose a `Seqish` κ from the right, from another κ -}
   s |> a = __UnsafeSmap (Seq.|> a) s
 
+  infixr 5 <+
+  (<+) ∷ ToSeq ψ ⇒ ψ α → κ α → κ α
+  infixr 5 +>
+  (+>) ∷ ToSeq ψ ⇒ κ α → ψ α → κ α
+
   {- | decompose to the left -}
   maybeSeqL ∷ κ α → Maybe (α, Seq α)
-  maybeSeqL = maybeSeqL ∘ toSeq
+  maybeSeqL = _maybeSeqL ∘ toSeq
   {- | decompose to the right -}
   maybeSeqR ∷ κ α → Maybe (Seq α, α)
-  maybeSeqR = maybeSeqR ∘ toSeq
+  maybeSeqR = _maybeSeqR ∘ toSeq
 
 ----------------------------------------
 --          unicode synonyms          --
@@ -306,13 +348,14 @@ instance Seqish Seq where
   (<||) ∷ ToSeq ψ ⇒ α → ψ α → Seq α
   a <|| s = a Seq.<| toSeq s
   
-  maybeSeqR ss = case Seq.viewr ss of
-                   EmptyR  → Nothing
-                   s Seq.:> a → Just (s,a)
+  (<+) ∷ ToSeq ψ ⇒ ψ α → Seq α → Seq α
+  xs <+ ys = toSeq xs ⊕ ys
+  (+>) ∷ ToSeq ψ ⇒ Seq α → ψ α → Seq α
+  xs +> ys = xs ⊕ toSeq ys
 
-  maybeSeqL ss = case Seq.viewl ss of
-                   EmptyL  → Nothing
-                   a Seq.:< s → Just (a,s)
+  maybeSeqR = _maybeSeqR
+
+  maybeSeqL = _maybeSeqL
 
 ----------------------------------------
 
@@ -331,6 +374,11 @@ instance Seqish SeqNE where
 
   (<||) ∷ ToSeq ψ ⇒ α → ψ α → SeqNE α
   a <|| s = SeqNE $ impureNonNull $ a Seq.<| toSeq s
+
+  (<+) ∷ ToSeq ψ ⇒ ψ α → SeqNE α → SeqNE α
+  xs <+ ys = toSeq xs <<| ys
+  (+>) ∷ ToSeq ψ ⇒ SeqNE α → ψ α → SeqNE α
+  xs +> ys = xs |>> toSeq ys
 
 ----------------------------------------
 
@@ -444,16 +492,17 @@ last = Data.NonNull.last ∘ unSeqNE
 fromList ∷ [α] → Maybe (SeqNE α)
 fromList = (SeqNE ∘ Data.NonNull.fromNonEmpty) ⩺ NonEmpty.nonEmpty
 
-infixl 5 >>
+infixl 5 |>>
 {- | add another `ToSeq` to the right of a SeqNE -}
-(>>) ∷ ToSeq κ ⇒ SeqNE α → κ α → SeqNE α
-(>>) ne s = SeqNE ∘ impureNonNull $ toSeq ne ⊕ toSeq s
+(|>>) ∷ ToSeq κ ⇒ SeqNE α → κ α → SeqNE α
+(|>>) ne s = SeqNE ∘ impureNonNull $ toSeq ne ⊕ toSeq s
 
-infixr 5 <<
+infixr 5 <<|
 {- | add another `ToSeq` to the left of a SeqNE -}
-(<<) ∷ ToSeq κ ⇒ κ α → SeqNE α → SeqNE α
-(<<) s ne = SeqNE ∘ impureNonNull $ toSeq s ⊕ toSeq ne
+(<<|) ∷ ToSeq κ ⇒ κ α → SeqNE α → SeqNE α
+(<<|) s ne = SeqNE ∘ impureNonNull $ toSeq s ⊕ toSeq ne
 
+{-
 infixl 5 ⪢
 {- | add another `ToSeq` to the right of a SeqNE -}
 (⪢) ∷ ToSeq κ ⇒ SeqNE α → κ α → SeqNE α
@@ -463,6 +512,16 @@ infixr 5 ⪡
 {- | add another `ToSeq` to the left of a SeqNE -}
 (⪡) ∷ ToSeq κ ⇒ κ α → SeqNE α → SeqNE α
 (⪡) = (<<)
+-}
+infixl 5 ⪢
+{- | catenate another `ToSeq` to the right of a `Seqish` -}
+(⪢) ∷ (ToSeq ψ, Seqish κ) ⇒ κ α → ψ α → κ α
+(⪢) = (+>)
+
+infixr 5 ⪡
+{- | catenate another `ToSeq` to the left of a `Seqish` -}
+(⪡) ∷ (ToSeq ψ, Seqish κ)  ⇒ ψ α → κ α → κ α
+(⪡) = (<+)
 
 stripProperPrefix ∷ (ToSeq κ, Eq α) ⇒ κ α → SeqNE α  → Maybe (SeqNE α)
 stripProperPrefix (toSeq → x :⪬ xs) (y :⪬ ys) | x ≡ y =
@@ -471,5 +530,33 @@ stripProperPrefix (toSeq → x :⪬ xs) (y :⪬ ys) | x ≡ y =
     Just ys' → stripProperPrefix xs ys'
 stripProperPrefix (toSeq → Seq.Empty) s = Just s
 stripProperPrefix _ _ = Nothing
+
+--------------------------------------------------------------------------------
+--                                   tests                                    --
+--------------------------------------------------------------------------------
+
+_1Seq ∷ Seq ℕ
+_1Seq = pure 1
+
+_12Seq ∷ Seq ℕ
+_12Seq = Seq.fromList [1,2]
+
+_123NE ∷ SeqNE ℕ
+_123NE = SeqNE ∘ impureNonNull $ Seq.fromList [1∷ℕ,2,3]
+
+seqishDecompTests ∷ TestTree
+seqishDecompTests =
+  testGroup "decomposition"
+            [ testCase "maybeSeqR Seq" $ Just (_1Seq,2) ≟ maybeSeqR _12Seq
+            , testCase "(:|>(" $ case _123NE of
+                                   xs :|> x → do { x ≟ 3; xs ≟ _12Seq }
+                                   _        → assertFailure "no match"
+            ]
+
+seqishTests ∷ TestTree
+seqishTests = testGroup "Seqish" [ seqishDecompTests ]
+
+tests ∷ TestTree
+tests = testGroup "SeqNE" [ seqishTests ]
 
 -- that's all, folks! ----------------------------------------------------------
