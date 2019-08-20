@@ -3,9 +3,13 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 
-module FPath.DirType
-  ( HasDirType( DirType ), IsDir )
+module FPath.FileType
+  ( Filename, HasFile( file ), HasFileType( FileType ), IsFile )
 where
+
+-- lens --------------------------------
+
+import Control.Lens.Lens  ( Lens' )
 
 -- mono-traversable --------------------
 
@@ -13,7 +17,7 @@ import Data.MonoTraversable  ( Element )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions  ( IsMonoSeq )
+import NonEmptyContainers.SeqNEConversions  ( IsMonoSeqNonEmpty )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -23,11 +27,17 @@ import FPath.PathComponent  ( PathComponent )
 
 --------------------------------------------------------------------------------
 
-class HasDirType α where
-  {- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
-  type DirType α
+type Filename = PathComponent
 
-{- | Just a marker class for types that represent a directory -}
-class (Element α ~ PathComponent, IsMonoSeq α) ⇒ IsDir α
+class HasFile α where
+--  {- | the file "version" of a type; e.g., `FileType RelDir = RelFile` -}
+--  type FileType α
+  file ∷ Lens' α Filename
+
+class HasFileType α where
+  type FileType α
+
+{- | Just a marker class for types that represent a file -}
+class (Element α ~ PathComponent, IsMonoSeqNonEmpty α) ⇒ IsFile α
 
 -- that's all, folks! ----------------------------------------------------------

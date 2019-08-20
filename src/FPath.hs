@@ -25,6 +25,8 @@ module FPath
   ( AbsDir, AbsFile, NonRootAbsDir, RelDir, RelFile {- AbsPath(..) -}
   , AsFilePath( filepath )
 
+  , (⫻), (</>)
+
   -- quasi-quoters
   , absdir, absfile, absdirN, reldir, relfile
 
@@ -43,7 +45,7 @@ module FPath
 
   , root
   , toDir
-  , resolve, stripPrefix, stripPrefix'
+  , stripPrefix, stripPrefix'
     {-
   , MyPath( AbsOrRel, FileType, toFile, toFile_
           , getFilename, getParent, setFilename, setExt )
@@ -179,6 +181,7 @@ import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , __parseAbsFile'__, __parseAbsFile__
                                )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.DirType           ( HasDirType( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                , FPathError, FPathNotAPrefixError
                                , __FPathEmptyE__, __FPathNotAPrefixError__
@@ -191,6 +194,7 @@ import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , parseRelFile, parseRelFile', __parseRelFile'__
                                , __parseRelFile__, relfile, relfileT
                                )
+import FPath.RelType           ( HasRelType( RelType ) )
 import FPath.Util              ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
@@ -332,57 +336,26 @@ instance HasAbsify AbsDir where
 {- | type-level conversion to relative version of a type; no-op on
      already-relative types -}
 
-class HasRelType α where
-  type RelType α
-
-instance HasRelType AbsFile where
-  type RelType AbsFile = RelFile
-
-instance HasRelType AbsDir where
-  type RelType AbsDir = RelDir
-
-instance HasRelType RelFile where
-  type RelType RelFile = RelFile
-
-instance HasRelType RelDir where
-  type RelType RelDir = RelDir
-
 ------------------------------------------------------------
 
-class HasAbsify π ⇒ Relative π {- τ -} where
-  resolve ∷ AbsDir → π → Absify π
+class AppendableFPath γ where
+  (⫻) ∷ DirType γ → RelType γ → γ
 
-  {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
-       absolute (file|directory), then strip off that prefix to leave a relative
-       (file|directory).  Note that a file will always keep its filename; but a
-       directory might result in a relative dir of './'.
-   -}
+instance AppendableFPath AbsDir where
+  d ⫻ f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
 
-instance Relative RelFile where
-  resolve ∷ AbsDir → RelFile → AbsFile
-  resolve d f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
+instance AppendableFPath AbsFile where
+  d ⫻ f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
 
-instance Relative RelDir where
-  resolve ∷ AbsDir → RelDir → AbsDir
-  resolve d f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
+instance AppendableFPath RelDir where
+  d ⫻ f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
 
-------------------------------------------------------------
+instance AppendableFPath RelFile where
+  d ⫻ f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
 
-{- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
-class HasDirType α where
-  type DirType α
-
-instance HasDirType AbsDir where
-  type DirType AbsDir = AbsDir
-
-instance HasDirType AbsFile where
-  type DirType AbsFile = AbsDir
-
-instance HasDirType RelDir where
-  type DirType RelDir = RelDir
-
-instance HasDirType RelFile where
-  type DirType RelFile = RelDir
+-- | non-unicode synonym of `(⫻)`
+(</>) ∷ AppendableFPath γ ⇒ DirType γ → RelType γ → γ
+(</>) = (⫻)
 
 ------------------------------------------------------------
 
@@ -432,8 +405,19 @@ instance Strippable RelDir where
 
 ------------------------------------------------------------
 
-
 -- </>
+{- a ⫻ b
+
+     b ->   AbsDir  AbsFile  RelDir  RelFile
+   a 
+   |
+   v
+
+   AbsDir   x       x        AbsDir  AbsFile
+   AbsFile  x       x        x       x
+   RelDir   x       x        RelDir  RelFile
+   RelFile  x       x        x       x
+-}
 
 {-
 class Show π ⇒ MyPath π where
@@ -443,110 +427,7 @@ class Show π ⇒ MyPath π where
   toFile_     ∷ π → Path (AbsOrRel π) File
   toFile_ = _ASSERT' ∘ toFile
 
-  resolve     ∷ AbsDir → π → Path Abs (FileType π)
-
-  -- | throws if used on /
-  setFilename ∷ Path Rel τ → π → Path (AbsOrRel π) τ
-
-  -- er, what if input is '/'?  Currently partial, NO LIKE
-  getFilename ∷ π → Path Rel (FileType π)
-
-  getParent   ∷ π → Maybe (Path (AbsOrRel π) Dir)
-
-  getParent_  ∷ π → Path (AbsOrRel π) Dir
-  getParent_ p =
-    fromMaybe (error $ [fmt|cannot getParent of %s|] (show p))
-              (getParent p)
-
   setExt      ∷ Text → π → π
-
-setParent ∷ (FileType (Path α τ) ~ τ, AbsOrRel (Path α τ) ~ α,
-              MyPath (Path α τ)) ⇒
-             Path β Dir → Path α τ → Path β τ
-setParent p o = p </> view filename o
-
-relParent ∷ Path Rel τ → Maybe (Path Rel Dir)
-relParent f = let p = Path.parent (rootDir </> f)
-               in if rootDir == p
-                  then Nothing
-                  else Just $ _ASSERT (stripDir' rootDir p)
-
-relSetFilename ∷ (MyPath π, AbsOrRel π ~ Rel) ⇒ Path Rel τ → π → Path Rel τ
-relSetFilename fn old = maybe fn (</> fn) (getParent old){- case parent old of
-                          Nothing → fn
-                          Just p  → p </> fn -}
-
-
-
-
-instance MyPath (Path Abs Dir) where
-  type FileType (Path Abs Dir) = Dir
-  type AbsOrRel (Path Abs Dir) = Abs
-  isRoot    d               = d == rootDir
-  toDir                     = parseAbsDir_ ∘ pack ∘ toFilePath
-  toFile    d               = case dropWhileEnd (== '/') $ pack (toFilePath d) of
-                                "" → Nothing
-                                f  → Just $ parseAbsFile_ f
-  resolve                   = const
-  getFilename d             = if rootDir == d
-                              then error "cannot getFilename on /"
-                              else Path.dirname d
-  setFilename fn old        = maybe (error "cannot setFilename on /")
-                                    (</> fn) (getParent old)
-  getParent d | (d == rootDir) = Nothing
-              | True           = Just $ Path.parent d
-
-  -- | setting an extension (e.g., ".ext") on "/" would result in a subdir of
-  --   "/" (e.g., "/.ext/"), which is contrary to the general property of setExt
-  --   that
-  --
-  --   > getParent (setExt e f) = getParent f
-  setExt e d = case toFile d of
-                 Nothing → case e of
-                              "" → rootDir
-                              _  → error $
-                                       "cannot setExt '" <> unpack e <> "' to /"
-                 Just d' → toDir (setFileExtension_ e d')
-
-instance MyPath (Path Abs File) where
-  type FileType (Path Abs File) = File
-  type AbsOrRel (Path Abs File) = Abs
-  isRoot _           = False
-  toDir              = parseAbsDir_ ∘ pack ∘ toFilePath
-  toFile             = Just
-  resolve _ f        = f
-  setFilename fn old =
-    maybe (error $ [fmt|no parent found for '%s'|] (toFilePath old))
-          (</> fn)
-          (getParent old)
-  getFilename        = Path.filename
-  getParent d        = Just $ Path.parent d
-  setExt             = setFileExtension_
-
-instance MyPath (Path Rel Dir) where
-  type FileType (Path Rel Dir) = Dir
-  type AbsOrRel (Path Rel Dir) = Rel
-  isRoot _    = False
-  toDir       = id
-  toFile      = Just ∘ parseRelFile_ ∘ dropWhileEnd (== '/') ∘ pack ∘ toFilePath
-  resolve d f = (Path.</>) d f
-  getFilename = Path.dirname
-  getParent   = relParent
-  setFilename = relSetFilename
-
-  setExt e d = toDir $ setFileExtension_ e (_ASSERT' $ toFile d)
-
-instance MyPath (Path Rel File) where
-  type FileType (Path Rel File) = File
-  type AbsOrRel (Path Rel File) = Rel
-  isRoot _    = False
-  toDir       = parseRelDir_ ∘ pack ∘ toFilePath
-  toFile      = Just
-  resolve d f = (Path.</>) d f
-  getFilename = Path.filename
-  getParent   = relParent
-  setFilename = relSetFilename
-  setExt      = setFileExtension_
 
 -}
 
@@ -649,38 +530,6 @@ resolveFileCwd_ = eitherIOThrowT ∘ resolveFileCwd'
 
 {-
 
--- | Strip directory from path, making it relative to that directory.
---   Throws Couldn'tStripPrefixDir if directory is not a parent of the path.
---   See `Path.stripDir`
-
-stripDir ∷ (AsPathError ε, MonadError ε μ) ⇒
-            Path β Dir → Path β τ  → μ (Path Rel τ)
-stripDir path dir =
-  mapMError (pathError "stripDir" (toFilePath path))
-            (Path.stripProperPrefix path dir)
-
-stripDir' ∷ (MonadError PathError μ) ⇒
-             Path β Dir → Path β τ  → μ (Path Rel τ)
-stripDir' = stripDir
-
-stripDir_ ∷ Path β Dir → Path β τ  → Path Rel τ
-stripDir_ p = _ASSERT ∘ stripDir' p
-
--}
-
-----------------------------------------
-
-{-
-
-rootDir ∷ AbsDir
-rootDir = [absdir|/|]
-
--}
-
-----------------------------------------
-
-{-
-
 rel2abs ∷ (MonadError ε μ, AsPathError ε) ⇒ AbsDir → Text → μ AbsDir
 rel2abs _ t@(pathIsAbsolute → True) = parseAbsDir t
 rel2abs d t                          = (Path.</>) d ⊳ (parseRelDir t)
@@ -701,90 +550,6 @@ _ASSERT' Nothing  = error "Nothing!"
 -}
 
 --------------------
-
-{-
-
-parseAbsFile ∷ (AsPathError ε, MonadError ε μ, Printable τ) ⇒
-                τ → μ (Path Abs File)
-parseAbsFile fn =
-  mapMError (pathError "parseAbsFile" fn) $ Path.parseAbsFile (toString fn)
-
-parseAbsFile' ∷ (MonadError PathError μ, Printable τ) ⇒ τ → μ (Path Abs File)
-parseAbsFile' = parseAbsFile
-
--- | PARTIAL: use only when you're sure that the value will parse as an
---            absolute file
-parseAbsFile_ ∷ Printable τ ⇒ τ → AbsFile
-parseAbsFile_ = _ASSERT ∘ parseAbsFile'
-
--}
-
-----------------------------------------
-
-{-
-
-parseAbsDir ∷ (AsPathError ε, MonadError ε μ, Printable τ) ⇒
-               τ → μ (Path Abs Dir)
-parseAbsDir fn =
-  mapMError (pathError "parseAbsDir" fn) $ Path.parseAbsDir (toString fn)
-
-parseAbsDir' ∷ (MonadError PathError μ, Printable τ) ⇒ τ → μ (Path Abs Dir)
-parseAbsDir' = parseAbsDir
-
--- | PARTIAL: use only when you're sure that the value will parse as a
---            absolute dir
-parseAbsDir_ ∷ Printable τ ⇒ τ → AbsDir
-parseAbsDir_ = _ASSERT ∘ parseAbsDir'
-
--}
-
-----------------------------------------
-
-{-
-
-parseRelFile ∷ (AsPathError ε, MonadError ε μ, Printable τ) ⇒ τ → μ RelFile
-parseRelFile fn =
-  mapMError (pathError "parseRelFile" fn) $ Path.parseRelFile (toString fn)
-
-parseRelFile' ∷ (MonadError PathError μ, Printable τ) ⇒ τ → μ RelFile
-parseRelFile' = parseRelFile
-
--- | PARTIAL: use only when you're sure that the value will parse as a
---            relative file
-parseRelFile_ ∷ Printable τ ⇒ τ → RelFile
-parseRelFile_ = _ASSERT ∘ parseRelFile'
-
--}
-
-----------------------------------------
-
-{-
-
-parseRelDir ∷ (AsPathError ε, MonadError ε μ, Printable τ) ⇒ τ → μ RelDir
-parseRelDir fn =
-  mapMError (pathError "parseRelDir" fn) $ Path.parseRelDir (toString fn)
-
-parseRelDir' ∷ (MonadError PathError μ, Printable τ) ⇒ τ → μ RelDir
-parseRelDir' = parseRelDir
-
--- | PARTIAL: use only when you're sure that the value will parse as a
---            relative dir
-parseRelDir_ ∷ Printable τ ⇒ τ → RelDir
-parseRelDir_ = _ASSERT ∘ parseRelDir'
-
--}
-
-----------------------------------------
-
-{-
-
--- | is path non-empty and beginning with '/'?
-pathIsAbsolute ∷ Text → Bool
-pathIsAbsolute (uncons → Nothing)       = False
-pathIsAbsolute (uncons → Just ('/', _)) = True
-pathIsAbsolute _                         = False
-
--}
 
 ----------------------------------------
 

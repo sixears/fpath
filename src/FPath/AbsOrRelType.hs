@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 
-module FPath.HasAbsOrRel
+module FPath.AbsOrRelType
   ( Abs( Abs ), HasAbsOrRel(..), Rel( Rel ) )
 where
 

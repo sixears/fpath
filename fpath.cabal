@@ -49,12 +49,13 @@ library
   exposed-modules: FPath
                  , FPath.AbsDir, FPath.T.FPath.AbsDir
                  , FPath.AbsFile, FPath.T.FPath.AbsFile
+                 , FPath.AbsOrRelType
                  , FPath.DirType, FPath.FileType
-                 , FPath.HasAbsOrRel
                  , FPath.HasParent
                  , FPath.RelDir, FPath.T.FPath.RelDir
                  , FPath.RelFile, FPath.T.FPath.RelFile
-
+                 , FPath.RelType
+                 
                  , FPath.Error.FPathComponentError
                  , FPath.Error.FPathError
 
@@ -87,7 +88,7 @@ library
                , genvalidity, genvalidity-bytestring, genvalidity-property
                , genvalidity-text, lens, mono-traversable, mtl, parsers
                , QuickCheck, template-haskell, tasty, tasty-hunit
-               , tasty-quickcheck, text, text-printer, validity
+               , tasty-quickcheck, text, text-printer, unix, validity
 
                , more-unicode, tfmt
   -- Directories containing source files.

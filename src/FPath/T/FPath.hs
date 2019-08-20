@@ -39,7 +39,7 @@ import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
 import qualified  FPath.T.FPath.RelFile
 
-import FPath           ( resolve, stripPrefix', toDir )
+import FPath           ( (⫻), stripPrefix', toDir )
 import FPath.AbsDir    ( AbsDir, absdir, absdirT, root )
 import FPath.AbsFile   ( AbsFile, absfile, absfileT )
 import FPath.RelDir    ( RelDir, reldir, reldirT )
@@ -61,23 +61,45 @@ toDirTests =
 
 ----------------------------------------
 
-resolveTests ∷ TestTree
-resolveTests =
-  testGroup "resolve"
-            [ testCase "/etc/bar" $
-                [absfile|/etc/bar|] ≟ resolve [absdir|/etc/|] [relfile|bar|]
-            , testCase "/bar" $
-                [absfile|/bar|]     ≟ resolve [absdir|/|] [relfile|bar|]
-            , testCase "/etc/udev/bar/baz" $
-                  [absfile|/etc/udev/bar/baz|]
-                ≟ resolve [absdir|/etc/udev/|] [relfile|bar/baz|]
-            , testCase "/etc/bar" $
-                [absdir|/etc/bar/|] ≟ resolve [absdir|/etc/|] [reldir|bar/|]
-            , testCase "/bar" $
-                [absdir|/bar/|]     ≟ resolve [absdir|/|] [reldir|bar/|]
-            , testCase "/etc/udev/bar/baz" $
-                  [absdir|/etc/udev/bar/baz/|]
-                ≟ resolve [absdir|/etc/udev/|] [reldir|bar/baz/|]
+catenationTests ∷ TestTree
+catenationTests =
+  testGroup "catenation"
+            [ testGroup "absfile" 
+                [ testCase "/etc/bar" $
+                    [absfile|/etc/bar|] ≟ [absdir|/etc/|] ⫻ [relfile|bar|]
+                , testCase "/bar" $
+                    [absfile|/bar|]     ≟ [absdir|/|] ⫻ [relfile|bar|]
+                , testCase "/etc/udev/bar/baz" $
+                      [absfile|/etc/udev/bar/baz|]
+                    ≟ [absdir|/etc/udev/|] ⫻ [relfile|bar/baz|]
+                ]
+            , testGroup "absdir"
+                [ testCase "/etc/bar/" $
+                    [absdir|/etc/bar/|] ≟ [absdir|/etc/|] ⫻ [reldir|bar/|]
+                , testCase "/bar/" $
+                    [absdir|/bar/|]     ≟ [absdir|/|] ⫻ [reldir|bar/|]
+                , testCase "/etc/udev/bar/baz/" $
+                      [absdir|/etc/udev/bar/baz/|]
+                    ≟ [absdir|/etc/udev/|] ⫻ [reldir|bar/baz/|]
+                ]
+            , testGroup "reldir"
+                [ testCase "etc/bar/" $
+                    [reldir|etc/bar/|] ≟ [reldir|etc/|] ⫻ [reldir|bar/|]
+                , testCase "bar/" $
+                    [reldir|bar/|]     ≟ [reldir|./|] ⫻ [reldir|bar/|]
+                , testCase "etc/udev/bar/baz/" $
+                      [reldir|etc/udev/bar/baz/|]
+                    ≟ [reldir|etc/udev/|] ⫻ [reldir|bar/baz/|]
+                ]
+            , testGroup "relfile"
+                [ testCase "etc/bar" $
+                    [relfile|etc/bar|] ≟ [reldir|etc/|] ⫻ [relfile|bar|]
+                , testCase "bar" $
+                    [relfile|bar|]     ≟ [reldir|./|] ⫻ [relfile|bar|]
+                , testCase "etc/udev/bar/baz" $
+                      [relfile|etc/udev/bar/baz|]
+                    ≟ [reldir|etc/udev/|] ⫻ [relfile|bar/baz|]
+                ]
             ]
 
 ----------------------------------------
@@ -175,7 +197,7 @@ stripProperPrefixTests =
 ----------------------------------------
 
 fpathTests ∷ TestTree
-fpathTests = testGroup "FPath" [ toDirTests, resolveTests
+fpathTests = testGroup "FPath" [ toDirTests, catenationTests
                                , stripProperPrefixTests ]
 
 tests ∷ TestTree

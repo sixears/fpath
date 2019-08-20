@@ -364,7 +364,7 @@ relFileFilepathTests =
 
 relFileConstructionTests ∷ TestTree
 relFileConstructionTests = testGroup "construction" [ parseRelFileTests
-                                                   , relfileQQTests ]
+                                                    , relfileQQTests ]
 
 relFileMonoFoldableTests ∷ TestTree
 relFileMonoFoldableTests =
