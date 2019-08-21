@@ -18,11 +18,8 @@
 
 -- try using type-level depth, to allow for non-maybe Parent whenever depth>1.
 
--- toFile only works if not / and not ./ .  Adjust RelDir to distinguish ./ so
--- we can mark this at the type level
-
 module FPath
-  ( AbsDir, AbsFile, NonRootAbsDir, RelDir, RelFile {- AbsPath(..) -}
+  ( AbsDir, AbsFile, AbsPath, Dir, File, NonRootAbsDir, RelDir, RelFile, RelPath
   , AsFilePath( filepath )
 
   , (⫻), (</>)
@@ -39,12 +36,14 @@ module FPath
   , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
   , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
   , parseAbsPath , parseAbsPath' , __parseAbsPath__ , __parseAbsPath'__
+  , parseDir     , parseDir'     , __parseDir__     , __parseDir'__
+  , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
+  , parseFPath   , parseFPath'   , __parseFPath__   , __parseFPath'__
   , parseRelDir  , parseRelDir'  , __parseRelDir__  , __parseRelDir'__
   , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
   , seq, seqNE
 
   , root
-  , toDir
   , stripPrefix, stripPrefix'
     {-
   , MyPath( AbsOrRel, FileType, toFile, toFile_
@@ -70,6 +69,8 @@ module FPath
   , parseFileAbs, parseFileAbs'
   , parseDirAbs, parseDirAbs'
 -}
+
+  , tests
   )
 where
 
@@ -77,9 +78,9 @@ where
 
 import Control.Monad  ( return )
 import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( either )
+import Data.Either    ( Either( Right ), either )
 import Data.Eq        ( Eq )
-import Data.Function  ( id )
+import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ), maybe )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
@@ -113,7 +114,8 @@ import Control.Lens.Review  ( re )
 -- more-unicode-symbols ----------------
 
 import Data.MoreUnicode.Functor  ( (⊳) )
-import Data.MoreUnicode.Lens     ( (⊣), (⩼) )
+import Data.MoreUnicode.Lens     ( (⊣), (⩼), (##) )
+import Data.MoreUnicode.Tasty    ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -131,9 +133,17 @@ import NonEmptyContainers.SeqNE  ( (⪡) )
 import NonEmptyContainers.SeqNEConversions
                                  ( IsMonoSeqNonEmpty( seqNE ), fromSeqNE )
 
+-- tasty -------------------------------
+
+import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-hunit -------------------------
+
+import Test.Tasty.HUnit  ( testCase )
+
 -- text --------------------------------
 
-import Data.Text  ( last, null )
+import Data.Text  ( head, last, null )
 
 {-
 
@@ -230,6 +240,37 @@ instance AsRelFile RelPath where
 
 ------------------------------------------------------------
 
+data Dir = DirA AbsDir | DirR RelDir
+  deriving (Eq, Show)
+
+instance AsAbsDir Dir where
+  _AbsDir ∷ Prism' Dir AbsDir
+  _AbsDir = prism' DirA (\ case (DirA d) → Just d; _ → Nothing)
+
+instance AsNonRootAbsDir Dir where
+  _NonRootAbsDir ∷ Prism' Dir NonRootAbsDir
+  _NonRootAbsDir = prism' (DirA ∘ toAbsDir)
+                          (\ case (DirA d) → d ⩼ _NonRootAbsDir; _ → Nothing)
+
+instance AsRelDir Dir where
+  _RelDir ∷ Prism' Dir RelDir
+  _RelDir = prism' DirR (\ case (DirR d) → Just d; _ → Nothing)
+
+------------------------------------------------------------
+
+data File = FileA AbsFile | FileR RelFile
+  deriving (Eq, Show)
+
+instance AsAbsFile File where
+  _AbsFile ∷ Prism' File AbsFile
+  _AbsFile = prism' FileA (\ case (FileA d) → Just d; _ → Nothing)
+
+instance AsRelFile File where
+  _RelFile ∷ Prism' File RelFile
+  _RelFile = prism' FileR (\ case (FileR d) → Just d; _ → Nothing)
+
+------------------------------------------------------------
+
 abspathT ∷ TypeRep
 abspathT = typeRep (Proxy ∷ Proxy AbsPath)
 
@@ -252,6 +293,17 @@ __parseAbsPath'__ = __parseAbsPath__
 
 ----------------------------------------
 
+parseAbsPathTests ∷ TestTree
+parseAbsPathTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseAbsPath' t
+   in testGroup "parseAbsPath"
+                [ success [absdir|/|]           _AbsDir "/"
+                , success [absdir|/etc/|]       _AbsDir "/etc/"
+                , success [absfile|/etc/group|] _AbsFile "/etc/group"
+                ]
+
+----------------------------------------
+
 relpathT ∷ TypeRep
 relpathT = typeRep (Proxy ∷ Proxy RelPath)
 
@@ -271,6 +323,77 @@ __parseRelPath__ = either __ERROR'__ id ∘ parseRelPath'
 
 __parseRelPath'__ ∷ String → RelPath
 __parseRelPath'__ = __parseRelPath__
+
+parseRelPathTests ∷ TestTree
+parseRelPathTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseRelPath' t
+   in testGroup "parseRelPath"
+                [ success [reldir|./|]         _RelDir "./"
+                , success [reldir|etc/|]       _RelDir "etc/"
+                , success [relfile|etc/group|] _RelFile "etc/group"
+                ]
+
+------------------------------------------------------------
+
+dirT ∷ TypeRep
+dirT = typeRep (Proxy ∷ Proxy Dir)
+
+parseDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Dir
+parseDir (toText → t) =
+  case null t of
+    True → __FPathEmptyE__ dirT
+    False → case head t of
+              '/' → DirA ⊳ parseAbsDir  t
+              _   → DirR ⊳ parseRelDir t
+
+parseDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Dir
+parseDir' = parseDir
+
+__parseDir__ ∷ Printable τ ⇒ τ → Dir
+__parseDir__ = either __ERROR'__ id ∘ parseDir'
+
+__parseDir'__ ∷ String → Dir
+__parseDir'__ = __parseDir__
+
+parseDirTests ∷ TestTree
+parseDirTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseDir' t
+   in testGroup "parseDir"
+                [ success [absdir|/|]     _AbsDir "/"
+                , success [absdir|/etc/|] _AbsDir "/etc/"
+                , success [reldir|./|]    _RelDir "./"
+                , success [reldir|etc/|]  _RelDir "etc/"
+                ]
+
+------------------------------------------------------------
+
+fileT ∷ TypeRep
+fileT = typeRep (Proxy ∷ Proxy File)
+
+parseFile ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η File
+parseFile (toText → t) =
+  case null t of
+    True → __FPathEmptyE__ fileT
+    False → case head t of
+              '/' → FileA ⊳ parseAbsFile  t
+              _   → FileR ⊳ parseRelFile t
+
+parseFile' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η File
+parseFile' = parseFile
+
+__parseFile__ ∷ Printable τ ⇒ τ → File
+__parseFile__ = either __ERROR'__ id ∘ parseFile'
+
+__parseFile'__ ∷ String → File
+__parseFile'__ = __parseFile__
+
+parseFileTests ∷ TestTree
+parseFileTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseFile' t
+   in testGroup "parseFile"
+                [ success [absfile|/etc|]  _AbsFile "/etc"
+                , success [relfile|etc|]   _RelFile "etc"
+                ]
 
 ------------------------------------------------------------
 
@@ -300,17 +423,38 @@ instance AsRelFile FPath where
 
 ------------------------------------------------------------
 
-{- | functions common to File types -}
-class File π δ where
-  toDir ∷ π → δ
+fpathT ∷ TypeRep
+fpathT = typeRep (Proxy ∷ Proxy FPath)
 
-instance File AbsFile AbsDir where
-  toDir ∷ AbsFile → AbsDir
-  toDir = fromSeq ∘ toSeq
+parseFPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η FPath
+parseFPath (toText → t) =
+  case null t of
+    True → __FPathEmptyE__ fpathT
+    False → case (head t, last t) of
+              ('/','/') → FAbsD ⊳ parseAbsDir  t
+              ('/',_  ) → FAbsF ⊳ parseAbsFile t
+              (_  ,'/') → FRelD ⊳ parseRelDir  t
+              (_  ,_  ) → FRelF ⊳ parseRelFile t
 
-instance File RelFile RelDir where
-  toDir ∷ RelFile → RelDir
-  toDir = fromSeq ∘ toSeq
+parseFPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η FPath
+parseFPath' = parseFPath
+
+__parseFPath__ ∷ Printable τ ⇒ τ → FPath
+__parseFPath__ = either __ERROR'__ id ∘ parseFPath'
+
+__parseFPath'__ ∷ String → FPath
+__parseFPath'__ = __parseFPath__
+
+parseFPathTests ∷ TestTree
+parseFPathTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseFPath' t
+   in testGroup "parseFPath"
+                [ success [absdir|/|]      _AbsDir  "/"
+                , success [absdir|/etc/|]  _AbsDir  "/etc/"
+                , success [absfile|/quux|] _AbsFile "/quux"
+                , success [reldir|foo/|]   _RelDir  "foo/"
+                , success [relfile|bar|]   _RelFile "bar"
+                ]
 
 ------------------------------------------------------------
 
@@ -404,20 +548,6 @@ instance Strippable RelDir where
           (SeqConversions.stripPrefix d f)
 
 ------------------------------------------------------------
-
--- </>
-{- a ⫻ b
-
-     b ->   AbsDir  AbsFile  RelDir  RelFile
-   a 
-   |
-   v
-
-   AbsDir   x       x        AbsDir  AbsFile
-   AbsFile  x       x        x       x
-   RelDir   x       x        RelDir  RelFile
-   RelFile  x       x        x       x
--}
 
 {-
 class Show π ⇒ MyPath π where
@@ -691,5 +821,13 @@ parent ∷ (FileType (Path α τ) ~ τ, AbsOrRel (Path α τ) ~ α,
 parent = lens getParent_ (flip setParent)
 
 -}
+
+--------------------------------------------------------------------------------
+--                                   tests                                    --
+--------------------------------------------------------------------------------
+
+tests ∷ TestTree
+tests = testGroup "FPath" [ parseAbsPathTests, parseRelPathTests
+                          , parseDirTests, parseFileTests, parseFPathTests ]
 
 -- that's all, folks! ----------------------------------------------------------

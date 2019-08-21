@@ -12,20 +12,25 @@
      and also explicitly excluding the special components `.` and `..` .
  -}
 module FPath.PathComponent
-  ( PathComponent, parsePathC, pathComponent, pc, toLower, toUpper )
+  ( PathComponent, (⊙), (<.>)
+  , addExt, ext, parsePathC, pathComponent, pc, splitExt, toLower, toUpper
+
+  , tests
+  )
 where
 
 -- base --------------------------------
 
 import Control.Applicative  ( many, some )
 import Control.Monad        ( return )
-import Data.Bool            ( otherwise )
+import Data.Bool            ( Bool, otherwise )
 import Data.Either          ( either )
 import Data.Eq              ( Eq )
 import Data.Function        ( ($), id )
 import Data.Functor         ( (<$>), fmap )
-import Data.List            ( any, elem, filter, find, nub, subsequences )
-import Data.Maybe           ( Maybe( Nothing ) )
+import Data.List            ( any, elem, break, filter, find, init, nub, reverse
+                            , subsequences, takeWhile )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Monoid          ( mconcat )
 import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
@@ -55,6 +60,10 @@ import Data.GenValidity.ByteString  ( )
 
 import Data.GenValidity.Text  ( )
 
+-- lens --------------------------------
+
+import Control.Lens.Lens  ( Lens', lens )
+
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
@@ -71,6 +80,14 @@ import Text.Parser.Char         ( char, noneOf, string )
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+
+-- tasty -------------------------------
+
+import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-hunit -------------------------
+
+-- import Test.Tasty.HUnit  ( testCase )
 
 -- validity ----------------------------
 
@@ -195,5 +212,66 @@ toUpper = pcmap PathCTypes.to_upper
   
 toLower ∷ PathComponent → PathComponent
 toLower = pcmap PathCTypes.to_lower
+
+----------------------------------------
+
+{- | Add an "extension", that is, join two `PathComponent`s with a '.' character
+ -}
+
+addExt ∷ PathComponent → PathComponent → PathComponent
+addExt (PathComponent pfx) (PathComponent sfx) = PathComponent $ pfx ⊕ "." ⊕ sfx
+
+infixr 6 <.> -- same as for ⊕
+(<.>) ∷ PathComponent → PathComponent → PathComponent
+(<.>) = addExt
+
+infixr 6 ⊙ -- same as for ⊕
+(⊙) ∷ PathComponent → PathComponent → PathComponent
+(⊙) = addExt
+
+{- | Split an "extension" - the maximal non-empty sequence of characters,
+     excluding '.' - from the end of a `PathComponent`; if there is one.
+-}
+splitExt ∷ PathComponent → Maybe (PathComponent, PathComponent)
+splitExt (PathComponent xs) =
+  case break (≡ '.') (reverse xs) of
+    (_,"")    → Nothing
+    ("",_)    → Nothing
+    (sfx,pfx) → Just (PathComponent $ init (reverse pfx),
+                      PathComponent $ reverse sfx)
+
+{- | A badly-behaved lens onto "file extension"; being a sequence of 1 or more
+     non-'.' characters at the end of a filename, after a '.' character.
+
+     This is badly-behaved because for some `PathComponent` `f`, `f'` being `f`
+     with `ext` set to `Nothing`, may yield a non-nothing extension (if f had
+     two "extensions"; e.g., `"foo.bar.baz"`).
+ -}
+ext ∷ Lens' PathComponent (Maybe PathComponent)
+ext = lens getter setter
+      where takeWhileEnd ∷ (a → Bool) → [a] → [a]
+            takeWhileEnd f = reverse ∘ takeWhile f ∘ reverse
+
+            getter ∷ PathComponent → Maybe PathComponent
+            getter (PathComponent cs) = case takeWhileEnd (≢ '.') cs of
+                                          "" → Nothing
+                                          xs → if xs ≡ cs
+                                               then Nothing
+                                               else Just $ PathComponent xs
+                                               
+            setter ∷ PathComponent → Maybe PathComponent → PathComponent
+            setter p e = case (splitExt p,e) of
+                             (Just (pfx,_),Just sfx) → pfx ⊙ sfx
+                             (Just (pfx,_),Nothing ) → pfx
+                             (Nothing     ,Just sfx) → p ⊙ sfx
+                             (Nothing     ,Nothing ) → p
+
+--------------------------------------------------------------------------------
+--                                   tests                                    --
+--------------------------------------------------------------------------------
+
+tests ∷ TestTree
+tests =
+  testGroup "PathComponent" [ ]
 
 -- that's all, folks! ----------------------------------------------------------

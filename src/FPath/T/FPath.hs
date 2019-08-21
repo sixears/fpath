@@ -32,6 +32,7 @@ import Test.Tasty.HUnit  ( testCase )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import qualified  FPath
 import qualified  FPath.T.FPath.AbsDir
 import qualified  FPath.T.FPath.AbsFile
 import qualified  FPath.T.FPath.NonRootAbsDir
@@ -39,7 +40,7 @@ import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
 import qualified  FPath.T.FPath.RelFile
 
-import FPath           ( (⫻), stripPrefix', toDir )
+import FPath           ( (⫻), stripPrefix' )
 import FPath.AbsDir    ( AbsDir, absdir, absdirT, root )
 import FPath.AbsFile   ( AbsFile, absfile, absfileT )
 import FPath.RelDir    ( RelDir, reldir, reldirT )
@@ -48,18 +49,8 @@ import FPath.T.Common  ( doTest, doTestR, doTestS )
 
 import FPath.Error.FPathError  ( FPathNotAPrefixError( FPathNotAPrefixError ) )
 
+
 --------------------------------------------------------------------------------
-
-toDirTests ∷ TestTree
-toDirTests =
-  testGroup "toDir"
-            [ testCase "absfile" $
-                [absdir|/foo/bar/|] ≟ toDir [absfile|/foo/bar|]
-            , testCase "relfile" $
-                [reldir|foo/bar/|]  ≟ toDir [relfile|foo/bar|]
-            ]
-
-----------------------------------------
 
 catenationTests ∷ TestTree
 catenationTests =
@@ -197,8 +188,10 @@ stripProperPrefixTests =
 ----------------------------------------
 
 fpathTests ∷ TestTree
-fpathTests = testGroup "FPath" [ toDirTests, catenationTests
-                               , stripProperPrefixTests ]
+fpathTests = testGroup "FPath" [ catenationTests
+                               , stripProperPrefixTests
+                               , FPath.tests
+                               ]
 
 tests ∷ TestTree
 tests = testGroup "fpath" [ FPath.T.FPath.PathComponent.tests

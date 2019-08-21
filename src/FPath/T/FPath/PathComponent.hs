@@ -10,15 +10,16 @@ where
 
 -- base --------------------------------
 
-import Data.Function    ( ($) )
-import Data.Maybe       ( Maybe( Nothing ) )
+import Data.Function    ( ($), (&) )
+import Data.Functor     ( fmap )
+import Data.Maybe       ( Maybe( Just, Nothing ) )
 import Data.String      ( String )
 import Numeric.Natural  ( Natural )
 import System.IO        ( IO )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode  ( (≢) )
+import Data.Eq.Unicode      ( (≢) )
 
 -- data-textual ------------------------
 
@@ -34,7 +35,10 @@ import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Tasty  ( (≟) )
+import Data.MoreUnicode.Function   ( (⅋) )
+import Data.MoreUnicode.Lens       ( (⊣), (⊢), (⊧) )
+import Data.MoreUnicode.Tasty      ( (≟) )
+import Data.MoreUnicode.Semigroup  ( (◇) )
 
 -- QuickCheck --------------------------
 
@@ -58,7 +62,10 @@ import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.PathComponent  ( PathComponent, pc )
+import qualified  FPath.PathComponent
+
+import FPath.PathComponent  ( PathComponent, (⊙), (<.>)
+                            , addExt, ext, pc, splitExt, toUpper )
 
 import FPath.T.Common       ( doTest, doTestR, doTestS )
 
@@ -110,10 +117,74 @@ pathCValidityTests =
                 , testProperty "arbitrary" $ genGeneratesValid arbPC      shrink
                 ]
 
+----------------------------------------
+
+extTests ∷ TestTree
+extTests = testGroup "ext" [ addExtTests, splitExtTests, extGetterTests
+                           , extSetterTests, extAdjusterTests ]
+
+addExtTests ∷ TestTree
+addExtTests =
+  testGroup "addExt"
+    [ testCase "foo.bar" $ [pc|foo.bar|] ≟ addExt [pc|foo|] [pc|bar|]
+    , testCase "f.o.bar" $ [pc|f.o.bar|] ≟ [pc|f.o|] ⊙ [pc|bar|]
+    , testCase "f.o.b.r" $ [pc|fo..b.r|] ≟ [pc|fo.|] <.> [pc|b.r|]
+    ]
+
+splitExtTests ∷ TestTree
+splitExtTests =
+  testGroup "splitExt"
+    [ testCase "foo.bar" $ Just ([pc|foo|],[pc|bar|]) ≟ splitExt [pc|foo.bar|]
+    , testCase "f.o.bar" $ Just ([pc|f.o|],[pc|bar|]) ≟ splitExt [pc|f.o.bar|]
+    , testCase "foo."    $ Nothing                    ≟ splitExt [pc|foo.|]
+    , testCase "foo"     $ Nothing                    ≟ splitExt [pc|foo|]
+    ]
+
+extGetterTests ∷ TestTree
+extGetterTests =
+  testGroup "getter" [ testCase ".bar" $ Just [pc|bar|] ≟ [pc|foo.bar|]   ⊣ ext
+                     , testCase "-"    $ Nothing        ≟ [pc|foo|]       ⊣ ext
+                     , testCase "."    $ Nothing        ≟ [pc|foo.|]      ⊣ ext
+                     , testCase "baz"  $ Just [pc|baz|] ≟ [pc|f.b.x.baz|] ⊣ ext
+                     ]
+
+extSetterTests ∷ TestTree
+extSetterTests =
+  testGroup "setter"
+    [ testCase ".bar -> .baz" $
+          [pc|foo.baz|] ≟ [pc|foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase ".bar -> ''"   $
+          [pc|foo|]     ≟ [pc|foo.bar|] ⅋ ext ⊢ Nothing
+    , testCase ".x.bar -> .x.baz" $
+          [pc|foo.x.baz|] ≟ [pc|foo.x.bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "'' -> .baz" $
+          [pc|foo.baz|] ≟ [pc|foo|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase ". -> ..baz" $
+          [pc|foo..baz|] ≟ [pc|foo.|] ⅋ ext ⊢ Just [pc|baz|]
+    ]
+
+extAdjusterTests ∷ TestTree
+extAdjusterTests =
+  testGroup "adjuster"
+    [ testCase ".baz -> .BAR" $
+        [pc|fo.BAZ|] ≟ ([pc|fo.baz|] ⅋ ext ⊧ fmap toUpper)
+    , testCase ".x.b -> .x.B" $
+        [pc|fo.x.B|] ≟ [pc|fo.x.b|] ⅋ ext ⊧ fmap toUpper
+    , testCase ".x -> .xy"    $
+        [pc|fo.xy|]  ≟ [pc|fo.x|]   ⅋ ext ⊧ fmap (◇ [pc|y|])
+    , testCase ".    -> ."    $
+        [pc|fo.|]    ≟ ([pc|fo.|]   & ext ⊧ fmap (◇ [pc|y|]))
+
+    ]
+----------------------------------------
+
 tests ∷ TestTree
 tests =
   testGroup "PathComponent" [ pathCArbitraryTests
-                            , pathCTextualTests, pathCValidityTests ]
+                            , pathCTextualTests, pathCValidityTests
+                            , extTests
+                            , FPath.PathComponent.tests
+                            ]
 
 ----------------------------------------
 
