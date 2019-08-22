@@ -52,6 +52,7 @@ library
                  , FPath.AbsOrRelType
                  , FPath.DirType, FPath.FileType
                  , FPath.HasParent
+                 , FPath.PathComponent
                  , FPath.RelDir, FPath.T.FPath.RelDir
                  , FPath.RelFile, FPath.T.FPath.RelFile
                  , FPath.RelType
@@ -72,7 +73,8 @@ library
                  , NonEmptyContainers.SeqConversions
                  , NonEmptyContainers.SeqNEConversions
                  , NonEmptyContainers.SeqNE
-                 , FPath.PathComponent
+
+                 , FPath.Fileish
 --                 , FPath.PathCTypes.ByteString
 --                 , FPath.PathCTypes.ByteStringUtf8
                  , FPath.PathCTypes.String

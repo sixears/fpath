@@ -55,6 +55,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 
 -- more-unicode ------------------------
 
+import Data.MoreUnicode.Function         ( (⅋) )
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
@@ -102,6 +103,7 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
+import FPath.Fileish           ( Fileish( addExt, ext, (⊙), splitExt ) )
 import FPath.FileType          ( Filename, file )
 import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
@@ -441,6 +443,72 @@ relFileParentGroupTests ∷ TestTree
 relFileParentGroupTests =
   testGroup "parent group" [ relFileParentTests, relFileParentMayTests ]
 
+relFileExtTests ∷ TestTree
+relFileExtTests = testGroup "ext" [ relFileAddExtTests, relFileSplitExtTests
+                                  , relFileExtGetterTests, relFileExtSetterTests
+                                  , relFileExtAdjusterTests
+                                  ]
+
+relFileAddExtTests ∷ TestTree
+relFileAddExtTests =
+  testGroup "addExt"
+    [ testCase "foo.bar" $ [relfile|foo.bar|] ≟ addExt [relfile|foo|] [pc|bar|]
+    , testCase "r.e.bar" $ [relfile|r.e.bar|] ≟ rf1 ⊙ [pc|bar|]
+    , testCase "f.o.b.r" $ [relfile|p/q/r.mp3.b.r|] ≟ rf3 ⊙ [pc|b.r|]
+    ]
+
+relFileSplitExtTests ∷ TestTree
+relFileSplitExtTests =
+  testGroup "splitExt"
+    [ testCase "foo/bar" $
+        Nothing ≟ splitExt [relfile|foo/bar|]
+    , testCase "r/p.x"   $
+        Just ([relfile|r/p|],[pc|x|]) ≟ splitExt rf2
+    , testCase "f.x/g.y" $
+        Just ([relfile|f.x/g|], [pc|y|]) ≟ splitExt [relfile|f.x/g.y|]
+    , testCase "f.x/g"   $
+        Nothing ≟ splitExt  [relfile|f.x/g|]
+    ]
+
+relFileExtGetterTests ∷ TestTree
+relFileExtGetterTests =
+  testGroup "getter" [ testCase "foo.z/bar.x" $
+                         Just [pc|x|] ≟ [relfile|foo.z/bar.x|]   ⊣ ext
+                     , testCase "foo/bar" $
+                         Nothing ≟ [relfile|foo/bar|]   ⊣ ext
+                     , testCase "g/f.b.x.baz"  $
+                         Just [pc|baz|] ≟ [relfile|g/f.b.x.baz|] ⊣ ext
+                     ]
+
+relFileExtSetterTests ∷ TestTree
+relFileExtSetterTests =
+  testGroup "setter"
+    [ testCase "foo.bar -> foo.baz" $
+          [relfile|p/foo.baz|] ≟ [relfile|p/foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "p/foo.x -> ''"   $
+          [relfile|p/foo|]     ≟ [relfile|p/foo.x|] ⅋ ext ⊢ Nothing
+    , testCase "foo/bar.bar -> foo.x/bar.baz" $
+          [relfile|foo.x/bar.baz|] ≟ [relfile|foo.x/bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "foo -> foo.baz" $
+          [relfile|foo.baz|] ≟ [relfile|foo|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "g/foo. -> g/foo..baz" $
+          [relfile|g/foo..baz|] ≟ [relfile|g/foo.|] ⅋ ext ⊢ Just [pc|baz|]
+    ]
+
+relFileExtAdjusterTests ∷ TestTree
+relFileExtAdjusterTests =
+  testGroup "adjuster"
+    [ testCase ".baz -> .BAR" $
+        [relfile|g/fo.BAZ|] ≟ ([relfile|g/fo.baz|] ⅋ ext ⊧ fmap toUpper)
+    , testCase ".x.b -> .x.B" $
+        [relfile|fo.x.B|] ≟ [relfile|fo.x.b|] ⅋ ext ⊧ fmap toUpper
+    , testCase ".x -> .xy"    $
+        [relfile|fo.xy|]  ≟ [relfile|fo.x|]   ⅋ ext ⊧ fmap (◇ [pc|y|])
+    , testCase ".    -> ."    $
+        [relfile|fo.|]    ≟ ([relfile|fo.|]   & ext ⊧ fmap (◇ [pc|y|]))
+
+    ]
+
 tests ∷ TestTree
 tests =
   testGroup "RelFile" [ relFileConstructionTests, relFileShowTests
@@ -452,6 +520,7 @@ tests =
                       , relFileParentGroupTests
                       , relFileFilepathTests
                       , relFileFileTests
+                      , relFileExtTests
                       ]
 
 ----------------------------------------

@@ -47,9 +47,8 @@ module FPath
   , stripPrefix, stripPrefix'
     {-
   , MyPath( AbsOrRel, FileType, toFile, toFile_
-          , getFilename, getParent, setFilename, setExt )
+          , getFilename, getParent, setFilename )
 
-  , (~<.>), (<.>~)
   , pathIsAbsolute
   , rel2abs
 
@@ -557,8 +556,6 @@ class Show π ⇒ MyPath π where
   toFile_     ∷ π → Path (AbsOrRel π) File
   toFile_ = _ASSERT' ∘ toFile
 
-  setExt      ∷ Text → π → π
-
 -}
 
 ------------------------------------------------------------
@@ -680,25 +677,6 @@ _ASSERT' Nothing  = error "Nothing!"
 -}
 
 --------------------
-
-----------------------------------------
-
-{-
-
--- | *SET* an extension on a file; this is a partial function, it will fail
---   if you give it an extension that causes the filename not to parse (e.g.,
---   with a / at the end).
-(~<.>) ∷ Path β File → Text → Path β File
-fn ~<.> e = let pe = pathError' "~<.>" (toFPath fn)
-                fn' = mapMError pe $ Path.setFileExtension (toString e) fn
-            in case fn' of
-                 Right r → r
-                 Left  l → error (show l)
-
-(<.>~) ∷ Path β File → Text → Path β File
-(<.>~) = (~<.>)
-
--}
 
 ----------------------------------------
 

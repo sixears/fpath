@@ -26,18 +26,18 @@ import Prelude  ( error )
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
-import Control.Monad        ( return )
-import Data.Either          ( Either, either )
-import Data.Eq              ( Eq )
-import Data.Foldable        ( foldMap, foldl1, foldl', foldr, foldr1 )
-import Data.Function        ( ($), const, id )
-import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
-import Data.Maybe           ( Maybe( Just, Nothing ) )
-import Data.Monoid          ( Monoid )
-import Data.String          ( String )
-import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts             ( IsList( fromList, toList ) )
-import Text.Show            ( Show )
+import Control.Monad       ( return )
+import Data.Either         ( Either, either )
+import Data.Eq             ( Eq )
+import Data.Foldable       ( foldMap, foldl1, foldl', foldr, foldr1 )
+import Data.Function       ( ($), const, id )
+import Data.List.NonEmpty  ( NonEmpty( (:|) ) )
+import Data.Maybe          ( Maybe( Just, Nothing ) )
+import Data.Monoid         ( Monoid )
+import Data.String         ( String )
+import Data.Typeable       ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Exts            ( IsList( fromList, toList ) )
+import Text.Show           ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -51,10 +51,10 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 -- lens --------------------------------
 
-import Control.Lens.Cons   ( unsnoc )
-import Control.Lens.Iso    ( iso )
-import Control.Lens.Lens   ( lens )
-import Control.Lens.Prism  ( Prism', prism' )
+import Control.Lens.Cons    ( unsnoc )
+import Control.Lens.Iso     ( iso )
+import Control.Lens.Lens    ( lens )
+import Control.Lens.Prism   ( Prism', prism' )
 
 -- mono-traversable --------------------
 
@@ -66,8 +66,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Monoid       ( ф )
+import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
+import Data.MoreUnicode.Monoid   ( ф )
 
 -- mtl ---------------------------------
 
@@ -121,6 +121,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
+import FPath.Fileish           ( Fileish( FDirType, dirfile ) )
 import FPath.FileType          ( HasFile( file ) )
 import FPath.PathComponent     ( PathComponent, parsePathC )
 import FPath.RelDir            ( RelDir, parseRelDir )
@@ -147,7 +148,13 @@ instance AsRelFile RelFile where
 instance HasDirType RelFile where
   type DirType RelFile = RelDir
 
-------------------------------------------------------------
+----------------------------------------
+
+instance Fileish RelFile where
+  type FDirType RelFile = RelDir
+  dirfile = iso (\ (RelFile d f) → (d,f)) (\ (d,f) → RelFile d f)
+
+----------------------------------------
 
 instance MonoFunctor RelFile where
   omap ∷ (PathComponent → PathComponent) → RelFile → RelFile

@@ -64,7 +64,7 @@ import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
 
 import qualified  FPath.PathComponent
 
-import FPath.PathComponent  ( PathComponent, (⊙), (<.>)
+import FPath.PathComponent  ( PathComponent
                             , addExt, ext, pc, splitExt, toUpper )
 
 import FPath.T.Common       ( doTest, doTestR, doTestS )
@@ -119,16 +119,12 @@ pathCValidityTests =
 
 ----------------------------------------
 
-extTests ∷ TestTree
-extTests = testGroup "ext" [ addExtTests, splitExtTests, extGetterTests
-                           , extSetterTests, extAdjusterTests ]
-
 addExtTests ∷ TestTree
 addExtTests =
   testGroup "addExt"
     [ testCase "foo.bar" $ [pc|foo.bar|] ≟ addExt [pc|foo|] [pc|bar|]
-    , testCase "f.o.bar" $ [pc|f.o.bar|] ≟ [pc|f.o|] ⊙ [pc|bar|]
-    , testCase "f.o.b.r" $ [pc|fo..b.r|] ≟ [pc|fo.|] <.> [pc|b.r|]
+    , testCase "f.o.bar" $ [pc|f.o.bar|] ≟ [pc|f.o|] `addExt` [pc|bar|]
+    , testCase "f.o.b.r" $ [pc|fo..b.r|] ≟ [pc|fo.|] `addExt` [pc|b.r|]
     ]
 
 splitExtTests ∷ TestTree
@@ -176,6 +172,11 @@ extAdjusterTests =
         [pc|fo.|]    ≟ ([pc|fo.|]   & ext ⊧ fmap (◇ [pc|y|]))
 
     ]
+
+extTests ∷ TestTree
+extTests = testGroup "ext" [ addExtTests, splitExtTests, extGetterTests
+                           , extSetterTests, extAdjusterTests ]
+
 ----------------------------------------
 
 tests ∷ TestTree
