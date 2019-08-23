@@ -52,19 +52,9 @@ module FPath
   , pathIsAbsolute
   , rel2abs
 
-  , parseRelPath, parseRelPath', parseRelPath_
-  , stripDir    , stripDir'    , stripDir_
-
   , getCwd        , getCwd'        , getCwd_
-  , resolveDir    , resolveDir'    , resolveDir_
   , resolveDirCwd , resolveDirCwd' , resolveDirCwd_
-  , resolveFile   , resolveFile'   , resolveFile_
   , resolveFileCwd, resolveFileCwd', resolveFileCwd_
-
-  , parseDir, parseDir'
-  , parseFile, parseFile'
-  , parseFileAbs, parseFileAbs'
-  , parseDirAbs, parseDirAbs'
 -}
 
   , tests
@@ -73,15 +63,17 @@ where
 
 -- base --------------------------------
 
-import Control.Monad  ( return )
-import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Right ), either )
-import Data.Eq        ( Eq )
-import Data.Function  ( ($), id )
-import Data.Maybe     ( Maybe( Just, Nothing ), maybe )
-import Data.String    ( String )
-import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
-import Text.Show      ( Show )
+import Control.Monad   ( return )
+import Data.Bifunctor  ( first )
+import Data.Bool       ( Bool( False, True ) )
+import Data.Either     ( Either( Right ), either )
+import Data.Eq         ( Eq )
+import Data.Function   ( ($), (&), id )
+import Data.Functor    ( fmap )
+import Data.Maybe      ( Maybe( Just, Nothing ), maybe )
+import Data.String     ( String )
+import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
+import Text.Show       ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -105,14 +97,17 @@ import qualified  System.FilePath.Lens  as  FPLens
 -- lens --------------------------------
 
 import Control.Lens.Getter  ( view )
+import Control.Lens.Iso     ( Iso', iso )
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( re )
 
 -- more-unicode-symbols ----------------
 
-import Data.MoreUnicode.Functor  ( (⊳) )
-import Data.MoreUnicode.Lens     ( (⊣), (⩼), (##) )
-import Data.MoreUnicode.Tasty    ( (≟) )
+import Data.MoreUnicode.Function   ( (⅋) )
+import Data.MoreUnicode.Functor    ( (⊳) )
+import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Semigroup  ( (◇) )
+import Data.MoreUnicode.Tasty      ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -193,6 +188,9 @@ import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                , FPathError, FPathNotAPrefixError
                                , __FPathEmptyE__, __FPathNotAPrefixError__
                                )
+import FPath.Fileish           ( Fileish( FDirType, (⊙), addExt
+                                        , dir, dirfile, file, ext, splitExt ) )
+import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, parseRelDir', __parseRelDir'__
                                , __parseRelDir__, reldir, reldirT
@@ -202,6 +200,7 @@ import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , __parseRelFile__, relfile, relfileT
                                )
 import FPath.RelType           ( HasRelType( RelType ) )
+import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 import FPath.Util              ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
@@ -265,6 +264,127 @@ instance AsAbsFile File where
 instance AsRelFile File where
   _RelFile ∷ Prism' File RelFile
   _RelFile = prism' FileR (\ case (FileR d) → Just d; _ → Nothing)
+
+instance Fileish File where
+  type FDirType File = Dir
+
+  dirfile ∷ Iso' File (Dir, PathComponent)
+  dirfile = iso (\ case FileA a → first DirA (a ⊣ dirfile)
+                        FileR r → first DirR (r ⊣ dirfile))
+                (\ case (DirA a, c) → FileA ((a,c) ⫣ dirfile)
+                        (DirR r, c) → FileR ((r,c) ⫣ dirfile))
+
+fileishFileTests ∷ TestTree
+fileishFileTests =
+  let (~~) ∷ File → PathComponent → File
+      f ~~ d' = f & file ⊢ d'
+   in testGroup "file"
+                [ testCase "rf3"       $ [pc|r.mp3|] ≟ FileR rf3 ⊣ file
+                , testCase "rf4"       $ [pc|.x|]    ≟ FileR rf4 ⊣ file
+                , testCase "af3"       $ [pc|r.mp3|] ≟ FileA af3 ⊣ file
+                , testCase "af4"       $ [pc|.x|]    ≟ FileA af4 ⊣ file
+
+                , testCase "af3 → a0"  $
+                    FileA [absfile|/p/q/foo|] ≟ FileA af3 ~~ [pc|foo|]
+                , testCase "af2 → a1"  $
+                    FileA af2 ≟ FileA af2 ~~ [pc|p.x|]
+                , testCase "rf1 → a2"  $
+                    FileR [relfile|.z|] ≟ FileR rf1 ~~ [pc|.z|]
+                ]
+
+fileishDirTests ∷ TestTree
+fileishDirTests =
+  let (~~) ∷ File → Dir → File
+      f ~~ d' = f & dir ⊢ d'
+   in testGroup "dir"
+                [ testCase "rf3"      $ DirR [reldir|p/q/|]     ≟ FileR rf3 ⊣ dir
+                , testCase "rf4"      $ DirR [reldir|./|]   ≟ FileR rf4 ⊣ dir
+                , testCase "af3"      $ DirA [absdir|/p/q/|] ≟ FileA af3 ⊣ dir
+                , testCase "af4"      $ DirA [absdir|/|]     ≟ FileA af4 ⊣ dir
+
+                , testCase "rf3 → a0" $
+                    FileR [relfile|s/r.mp3|] ≟ FileA af3 ~~ DirR [reldir|s/|]
+                , testCase "af2 → a1" $
+                    FileR rf2                ≟ FileR rf2 ~~ DirR [reldir|r/|]
+                , testCase "af1 → a2" $
+                    FileA [absfile|/p.x|]    ≟ FileA af2 ~~ DirA [absdir|/|]
+                , testCase "af1 → a2" $
+                    FileA [absfile|/q/p/.x|] ≟ FileR rf4 ~~ DirA [absdir|/q/p/|]
+                ]
+
+fileishAddExtTests ∷ TestTree
+fileishAddExtTests =
+  testGroup "addExt"
+    [ testCase "foo.bar" $
+        FileA [absfile|/foo.bar|]     ≟ addExt (FileA [absfile|/foo|]) [pc|bar|]
+    , testCase "r.e.bar" $
+        FileA [absfile|/r.e.bar|]     ≟ FileA af1 ⊙ [pc|bar|]
+    , testCase "f.o.b.r" $
+        FileR [relfile|p/q/r.mp3.b.r|]≟ FileR rf3 ⊙ [pc|b.r|]
+    ]
+
+fileishSplitExtTests ∷ TestTree
+fileishSplitExtTests =
+  testGroup "splitExt"
+    [ testCase "foo/bar" $
+        Nothing ≟ splitExt (FileR [relfile|foo/bar|])
+    , testCase "r/p.x"   $
+        Just (FileR [relfile|r/p|],[pc|x|]) ≟ splitExt (FileR rf2)
+    , testCase "f.x/g.y" $
+          Just (FileA [absfile|/f.x/g|], [pc|y|])
+        ≟ splitExt (FileA [absfile|/f.x/g.y|])
+    , testCase "f.x/g"   $
+        Nothing ≟ splitExt (FileA [absfile|/f.x/g|])
+    ]
+
+fileishExtGetterTests ∷ TestTree
+fileishExtGetterTests =
+  testGroup "getter" [ testCase "foo.z/bar.x" $
+                         Just [pc|x|] ≟ FileR [relfile|foo.z/bar.x|]   ⊣ ext
+                     , testCase "foo/bar" $
+                         Nothing ≟ FileA [absfile|/foo/bar|]   ⊣ ext
+                     , testCase "g/f.b.x.baz"  $
+                         Just [pc|baz|] ≟ FileA [absfile|/g/f.b.x.baz|] ⊣ ext
+                     ]
+
+fileishExtSetterTests ∷ TestTree
+fileishExtSetterTests =
+  testGroup "setter"
+    [ testCase "foo.bar -> foo.baz" $
+          FileR [relfile|p/foo.baz|]
+        ≟ FileR [relfile|p/foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "p/foo.x -> ''"   $
+        FileR [relfile|p/foo|]     ≟ FileR [relfile|p/foo.x|] ⅋ ext ⊢ Nothing
+    , testCase "foo/bar.bar -> foo.x/bar.baz" $
+          FileA [absfile|/foo.x/bar.baz|]
+        ≟ FileA [absfile|/foo.x/bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "foo -> foo.baz" $
+        FileA [absfile|/foo.baz|] ≟ FileA [absfile|/foo|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "g/foo. -> g/foo..baz" $
+          FileA [absfile|/g/foo..baz|]
+        ≟ FileA [absfile|/g/foo.|] ⅋ ext ⊢ Just [pc|baz|]
+    ]
+
+fileishExtAdjusterTests ∷ TestTree
+fileishExtAdjusterTests =
+  testGroup "adjuster"
+    [ testCase ".baz -> .BAR" $
+        FileR [relfile|g/fo.BA|] ≟ FileR [relfile|g/fo.ba|] ⅋ ext ⊧ fmap toUpper
+    , testCase ".x.b -> .x.B" $
+        FileR [relfile|f.x.B|]   ≟ FileR [relfile|f.x.b|]   ⅋ ext ⊧ fmap toUpper
+    , testCase ".x -> .xy"    $
+        FileA [absfile|/f.xy|] ≟ FileA [absfile|/f.x|] ⅋ ext ⊧ fmap (◇ [pc|y|])
+    , testCase ".    -> ."    $
+        FileA [absfile|/fo.|]  ≟ FileA [absfile|/fo.|] ⅋ ext ⊧ fmap (◇ [pc|y|])
+    ]
+
+fileishTests ∷ TestTree
+fileishTests =
+  testGroup "Fileish" [ fileishFileTests, fileishDirTests
+                      , fileishAddExtTests, fileishSplitExtTests
+                      , fileishExtGetterTests, fileishExtSetterTests
+                      , fileishExtAdjusterTests
+                      ]
 
 ------------------------------------------------------------
 
@@ -804,6 +924,8 @@ parent = lens getParent_ (flip setParent)
 
 tests ∷ TestTree
 tests = testGroup "FPath" [ parseAbsPathTests, parseRelPathTests
-                          , parseDirTests, parseFileTests, parseFPathTests ]
+                          , parseDirTests, parseFileTests, parseFPathTests
+                          , fileishTests
+                          ]
 
 -- that's all, folks! ----------------------------------------------------------

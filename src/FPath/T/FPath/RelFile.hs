@@ -520,11 +520,13 @@ relFileExtAdjusterTests =
 
     ]
 
-relFileExtTests ∷ TestTree
-relFileExtTests = testGroup "ext" [ relFileAddExtTests, relFileSplitExtTests
-                                  , relFileExtGetterTests, relFileExtSetterTests
-                                  , relFileExtAdjusterTests
-                                  ]
+relFileFileishTests ∷ TestTree
+relFileFileishTests =
+  testGroup "Fileish" [ relFileFileTests, relFileDirTests
+                      , relFileAddExtTests, relFileSplitExtTests
+                      , relFileExtGetterTests, relFileExtSetterTests
+                      , relFileExtAdjusterTests
+                      ]
 
 tests ∷ TestTree
 tests =
@@ -536,9 +538,7 @@ tests =
                       , relFileIsMonoSeqNETests
                       , relFileParentGroupTests
                       , relFileFilepathTests
-                      , relFileFileTests
-                      , relFileDirTests
-                      , relFileExtTests
+                      , relFileFileishTests
                       ]
 
 ----------------------------------------

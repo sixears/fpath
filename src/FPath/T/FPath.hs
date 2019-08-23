@@ -184,6 +184,8 @@ stripDirTests =
 
 ----------------------------------------
 
+----------------------------------------
+
 fpathTests ∷ TestTree
 fpathTests = testGroup "FPath" [ catenationTests
                                , stripDirTests

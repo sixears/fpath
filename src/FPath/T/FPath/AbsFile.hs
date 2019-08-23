@@ -544,11 +544,13 @@ absFileExtAdjusterTests =
 
     ]
 
-absFileExtTests ∷ TestTree
-absFileExtTests = testGroup "ext" [ absFileAddExtTests, absFileSplitExtTests
-                                  , absFileExtGetterTests, absFileExtSetterTests
-                                  , absFileExtAdjusterTests
-                                  ]
+absFileFileishTests ∷ TestTree
+absFileFileishTests =
+  testGroup "Fileish" [ absFileFileTests, absFileDirTests
+                      , absFileAddExtTests, absFileSplitExtTests
+                      , absFileExtGetterTests, absFileExtSetterTests
+                      , absFileExtAdjusterTests
+                      ]
 
 tests ∷ TestTree
 tests =
@@ -560,9 +562,7 @@ tests =
                       , absFileIsMonoSeqNETests
                       , absFileParentGroupTests
                       , absFileFilepathTests
-                      , absFileFileTests
-                      , absFileDirTests
-                      , absFileExtTests
+                      , absFileFileishTests
                       ]
 
 ----------------------------------------
