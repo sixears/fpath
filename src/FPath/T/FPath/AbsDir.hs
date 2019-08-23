@@ -42,7 +42,6 @@ import Data.Textual  ( Parsed( Parsed ), fromString, parseString, toText )
 -- lens --------------------------------
 
 import Control.Lens.Getter  ( view )
-import Control.Lens.Iso     ( from )
 import Control.Lens.Setter  ( (?~) )
 
 -- mono-traversable --------------------
@@ -56,7 +55,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Functor          ( (⊳) )
-import Data.MoreUnicode.Lens             ( (⊣), (⊢), (⩼), (##) )
+import Data.MoreUnicode.Lens             ( (⊣), (⫣), (⊢), (⩼), (##) )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
@@ -263,8 +262,7 @@ absDirIsMonoSeqSetterTests =
                 , testCase "d.pam" $
                       d_pam ≟ d_pam ~~ [ [pc|pam.d|], [pc|etc|] ]
                 , testCase "wgm"   $
-                      wgm   ≟ (⊣ from seq)
-                                   (Seq.fromList [[pc|w|],[pc|g|],[pc|M|]])
+                      wgm   ≟ (⫣ seq) (Seq.fromList [[pc|w|],[pc|g|],[pc|M|]])
                 ]
 
 absDirMonoFunctorTests ∷ TestTree

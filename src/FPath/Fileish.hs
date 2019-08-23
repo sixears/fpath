@@ -21,13 +21,13 @@ import Data.Function.Unicode  ( (∘) )
 
 -- lens --------------------------------
 
-import Control.Lens.Iso    ( Iso', from, iso )
+import Control.Lens.Iso    ( Iso', iso )
 import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Tuple  ( _1, _2 )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens       ( (⊣), (⊢) )
+import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢) )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -50,17 +50,17 @@ class Fileish α where
   dirfile ∷ Iso' α (FDirType α, PathComponent)
 
   file ∷ Lens' α PathComponent
-  file = lens (⊣ (dirfile ∘ _2)) (\ a c → (a ⊣ (dirfile ∘ _1),c) ⊣ from dirfile)
+  file = lens (⊣ (dirfile ∘ _2)) (\ a c → (a ⊣ (dirfile ∘ _1),c) ⫣ dirfile)
 
   dir ∷ Lens' α (FDirType α)
-  dir = lens (⊣ (dirfile ∘ _1)) (\ a d → (d, a ⊣ (dirfile ∘ _2)) ⊣ from dirfile)
+  dir = lens (⊣ (dirfile ∘ _1)) (\ a d → (d, a ⊣ (dirfile ∘ _2)) ⫣ dirfile)
 
   {- | Add an "extension", that is, join two `PathComponent`s with a '.'
        character
    -}
   addExt ∷ α → PathComponent → α
   addExt a c = let (d,f) = a ⊣ dirfile
-                in (d,f `addExt` c) ⊣ from dirfile
+                in (d,f `addExt` c) ⫣ dirfile
 
 
   {- | operator alias for `addExt` -}
@@ -79,7 +79,7 @@ class Fileish α where
   splitExt ∷ α → Maybe (α, PathComponent)
   splitExt a = let (d,f) = a ⊣ dirfile
                 in case splitExt f of
-                     Just (b,e) → Just ((d,b) ⊣ from dirfile, e)
+                     Just (b,e) → Just ((d,b) ⫣ dirfile, e)
                      Nothing    → Nothing
 
   {- | A badly-behaved lens onto "file extension"; being a sequence of 1 or more
@@ -94,7 +94,7 @@ class Fileish α where
              where getter a   = let (_,f) = a ⊣ dirfile
                                  in f ⊣ ext
                    setter a c = let (d,f) = a ⊣ dirfile
-                                 in ((d,f & ext ⊢ c) ⊣ from dirfile)
+                                 in ((d,f & ext ⊢ c) ⫣ dirfile)
                      
 instance Fileish PathComponent where
   type FDirType PathComponent = ()
