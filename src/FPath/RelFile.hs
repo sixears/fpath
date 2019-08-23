@@ -122,7 +122,6 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , mapTypeRepE, mapTextE
                                )
 import FPath.Fileish           ( Fileish( FDirType, dirfile ) )
-import FPath.FileType          ( HasFile( file ) )
 import FPath.PathComponent     ( PathComponent, parsePathC )
 import FPath.RelDir            ( RelDir, parseRelDir )
 import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
@@ -251,11 +250,6 @@ instance HasParentMay RelFile where
                                            Just  d → RelFile d f
                                            Nothing → RelFile ф f
                    )
-
-----------------------------------------
-
-instance HasFile RelFile where
-  file = lens (\ (RelFile _ f) → f) (\ (RelFile p _) f → RelFile p f)
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

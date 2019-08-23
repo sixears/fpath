@@ -103,8 +103,9 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
-import FPath.Fileish           ( Fileish( addExt, ext, (⊙), splitExt ) )
-import FPath.FileType          ( Filename, file )
+import FPath.Fileish           ( Fileish( (⊙)
+                                        , addExt, dir, ext, file, splitExt ) )
+import FPath.FileType          ( Filename )
 import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
@@ -434,6 +435,22 @@ relFileFileTests =
                 , testCase "rf1 → a2"  $ [relfile|.z|] ≟ rf1 ~~ [pc|.z|]
                 ]
 
+relFileDirTests ∷ TestTree
+relFileDirTests =
+  let (~~) ∷ RelFile → RelDir → RelFile
+      f ~~ d' = f & dir ⊢ d'
+   in testGroup "dir"
+                [ testCase "rf1"      $ [reldir|./|]   ≟ rf1 ⊣ dir
+                , testCase "rf2"      $ [reldir|r/|]   ≟ rf2 ⊣ dir
+                , testCase "rf3"      $ [reldir|p/q/|] ≟ rf3 ⊣ dir
+                , testCase "rf4"      $ [reldir|./|]   ≟ rf4 ⊣ dir
+
+                , testCase "rf3 → a0" $ [relfile|s/r.mp3|]≟rf3 ~~ [reldir|s/|]
+                , testCase "rf2 → a1" $ rf2               ≟rf2 ~~ [reldir|r/|]
+                , testCase "rf1 → a2" $ [relfile|p.x|]    ≟rf2 ~~ [reldir|./|]
+                , testCase "rf1 → a2" $ [relfile|q/p/.x|] ≟rf4 ~~ [reldir|q/p/|]
+                ]
+
 relFileTextualGroupTests ∷ TestTree
 relFileTextualGroupTests =
   testGroup "textual group" [ relFileTextualTests, relFilePrintableTests
@@ -442,12 +459,6 @@ relFileTextualGroupTests =
 relFileParentGroupTests ∷ TestTree
 relFileParentGroupTests =
   testGroup "parent group" [ relFileParentTests, relFileParentMayTests ]
-
-relFileExtTests ∷ TestTree
-relFileExtTests = testGroup "ext" [ relFileAddExtTests, relFileSplitExtTests
-                                  , relFileExtGetterTests, relFileExtSetterTests
-                                  , relFileExtAdjusterTests
-                                  ]
 
 relFileAddExtTests ∷ TestTree
 relFileAddExtTests =
@@ -509,6 +520,12 @@ relFileExtAdjusterTests =
 
     ]
 
+relFileExtTests ∷ TestTree
+relFileExtTests = testGroup "ext" [ relFileAddExtTests, relFileSplitExtTests
+                                  , relFileExtGetterTests, relFileExtSetterTests
+                                  , relFileExtAdjusterTests
+                                  ]
+
 tests ∷ TestTree
 tests =
   testGroup "RelFile" [ relFileConstructionTests, relFileShowTests
@@ -520,6 +537,7 @@ tests =
                       , relFileParentGroupTests
                       , relFileFilepathTests
                       , relFileFileTests
+                      , relFileDirTests
                       , relFileExtTests
                       ]
 

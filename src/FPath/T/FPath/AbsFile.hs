@@ -56,6 +56,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 
 -- more-unicode ------------------------
 
+import Data.MoreUnicode.Function         ( (⅋) )
 import Data.MoreUnicode.Functor          ( (⊳) )
 import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
@@ -104,7 +105,8 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
-import FPath.FileType          ( Filename, file )
+import FPath.Fileish           ( (⊙), addExt, dir, ext, file, splitExt )
+import FPath.FileType          ( Filename )
 import FPath.HasParent         ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.AbsDir            ( AbsDir, absdir )
@@ -455,6 +457,23 @@ absFileMonoFoldableTests =
             ]
 
 
+absFileDirTests ∷ TestTree
+absFileDirTests =
+  let (~~) ∷ AbsFile → AbsDir → AbsFile
+      f ~~ d' = f & dir ⊢ d'
+   in testGroup "dir"
+                [ testCase "af1"      $ [absdir|/|]     ≟ af1 ⊣ dir
+                , testCase "af2"      $ [absdir|/r/|]   ≟ af2 ⊣ dir
+                , testCase "af3"      $ [absdir|/p/q/|] ≟ af3 ⊣ dir
+                , testCase "af4"      $ [absdir|/|]     ≟ af4 ⊣ dir
+
+                , testCase "af3 → a0" $ [absfile|/s/r.mp3|]≟af3 ~~ [absdir|/s/|]
+                , testCase "af2 → a1" $ af2                ≟af2 ~~ [absdir|/r/|]
+                , testCase "af1 → a2" $ [absfile|/p.x|]    ≟af2 ~~ [absdir|/|]
+                , testCase "af1 → a2" $
+                    [absfile|/q/p/.x|] ≟af4 ~~ [absdir|/q/p/|]
+                ]
+
 absFileTextualGroupTests ∷ TestTree
 absFileTextualGroupTests =
   testGroup "textual group" [ absFileTextualTests, absFilePrintableTests
@@ -463,6 +482,73 @@ absFileTextualGroupTests =
 absFileParentGroupTests ∷ TestTree
 absFileParentGroupTests =
   testGroup "parent group" [ absFileParentTests, absFileParentMayTests ]
+
+
+absFileAddExtTests ∷ TestTree
+absFileAddExtTests =
+  testGroup "addExt"
+    [ testCase "foo.bar" $ [absfile|/foo.bar|] ≟ addExt [absfile|/foo|] [pc|bar|]
+    , testCase "r.e.bar" $ [absfile|/r.e.bar|] ≟ af1 ⊙ [pc|bar|]
+    , testCase "f.o.b.r" $ [absfile|/p/q/r.mp3.b.r|] ≟ af3 ⊙ [pc|b.r|]
+    ]
+
+absFileSplitExtTests ∷ TestTree
+absFileSplitExtTests =
+  testGroup "splitExt"
+    [ testCase "foo/bar" $
+        Nothing ≟ splitExt [absfile|/foo/bar|]
+    , testCase "r/p.x"   $
+        Just ([absfile|/r/p|],[pc|x|]) ≟ splitExt af2
+    , testCase "f.x/g.y" $
+        Just ([absfile|/f.x/g|], [pc|y|]) ≟ splitExt [absfile|/f.x/g.y|]
+    , testCase "f.x/g"   $
+        Nothing ≟ splitExt  [absfile|/f.x/g|]
+    ]
+
+absFileExtGetterTests ∷ TestTree
+absFileExtGetterTests =
+  testGroup "getter" [ testCase "foo.z/bar.x" $
+                         Just [pc|x|] ≟ [absfile|/foo.z/bar.x|]   ⊣ ext
+                     , testCase "foo/bar" $
+                         Nothing ≟ [absfile|/foo/bar|]   ⊣ ext
+                     , testCase "g/f.b.x.baz"  $
+                         Just [pc|baz|] ≟ [absfile|/g/f.b.x.baz|] ⊣ ext
+                     ]
+
+absFileExtSetterTests ∷ TestTree
+absFileExtSetterTests =
+  testGroup "setter"
+    [ testCase "foo.bar -> foo.baz" $
+          [absfile|/p/foo.baz|] ≟ [absfile|/p/foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "p/foo.x -> ''"   $
+          [absfile|/p/foo|]     ≟ [absfile|/p/foo.x|] ⅋ ext ⊢ Nothing
+    , testCase "foo/bar.bar -> foo.x/bar.baz" $
+          [absfile|/foo.x/bar.baz|] ≟ [absfile|/foo.x/bar|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "foo -> foo.baz" $
+          [absfile|/foo.baz|] ≟ [absfile|/foo|] ⅋ ext ⊢ Just [pc|baz|]
+    , testCase "g/foo. -> g/foo..baz" $
+          [absfile|/g/foo..baz|] ≟ [absfile|/g/foo.|] ⅋ ext ⊢ Just [pc|baz|]
+    ]
+
+absFileExtAdjusterTests ∷ TestTree
+absFileExtAdjusterTests =
+  testGroup "adjuster"
+    [ testCase ".baz -> .BAR" $
+        [absfile|/g/fo.BAZ|] ≟ [absfile|/g/fo.baz|] ⅋ ext ⊧ fmap toUpper
+    , testCase ".x.b -> .x.B" $
+        [absfile|/fo.x.B|]   ≟ [absfile|/fo.x.b|]   ⅋ ext ⊧ fmap toUpper
+    , testCase ".x -> .xy"    $
+        [absfile|/fo.xy|]    ≟ [absfile|/fo.x|]     ⅋ ext ⊧ fmap (◇ [pc|y|])
+    , testCase ".    -> ."    $
+        [absfile|/fo.|]      ≟ [absfile|/fo.|]      ⅋ ext ⊧ fmap (◇ [pc|y|])
+
+    ]
+
+absFileExtTests ∷ TestTree
+absFileExtTests = testGroup "ext" [ absFileAddExtTests, absFileSplitExtTests
+                                  , absFileExtGetterTests, absFileExtSetterTests
+                                  , absFileExtAdjusterTests
+                                  ]
 
 tests ∷ TestTree
 tests =
@@ -475,6 +561,8 @@ tests =
                       , absFileParentGroupTests
                       , absFileFilepathTests
                       , absFileFileTests
+                      , absFileDirTests
+                      , absFileExtTests
                       ]
 
 ----------------------------------------

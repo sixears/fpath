@@ -111,21 +111,21 @@ import qualified  Text.Printer  as  P
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AsFilePath   ( AsFilePath( filepath ) )
-import FPath.DirType      ( HasDirType( DirType ) )
-import FPath.FileType     ( HasFile( file ) )
-import FPath.HasParent    ( HasParent( parent ), HasParentMay( parentMay ) )
+import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.DirType           ( HasDirType( DirType ) )
 
-import FPath.Error.FPathComponentError  ( FPathComponentError )
-import FPath.Error.FPathError           ( AsFPathError, FPathError
-                                        , __FPathComponentE__, __FPathEmptyE__
-                                        , __FPathNonAbsE__, __FPathNotAFileE__
-                                        , mapTypeRepE, mapTextE
-                                        )
-import FPath.PathComponent              ( PathComponent, parsePathC )
-import FPath.AbsDir                     ( AbsDir, parseAbsDir, root )
-import FPath.Util                       ( QuasiQuoter
-                                        , __ERROR'__, mkQuasiQuoterExp )
+import FPath.Error.FPathComponentError
+                               ( FPathComponentError )
+import FPath.Error.FPathError  ( AsFPathError, FPathError
+                               , __FPathComponentE__, __FPathEmptyE__
+                               , __FPathNonAbsE__, __FPathNotAFileE__
+                               , mapTypeRepE, mapTextE
+                               )
+import FPath.Fileish           ( Fileish( FDirType, dirfile ) )
+import FPath.HasParent         ( HasParent( parent ),HasParentMay( parentMay ) )
+import FPath.PathComponent     ( PathComponent, parsePathC )
+import FPath.AbsDir            ( AbsDir, parseAbsDir, root )
+import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
@@ -147,6 +147,12 @@ instance AsAbsFile AbsFile where
 
 instance HasDirType AbsFile where
   type DirType AbsFile = AbsDir
+
+----------------------------------------
+
+instance Fileish AbsFile where
+  type FDirType AbsFile = AbsDir
+  dirfile = iso (\ (AbsFile d f) → (d,f)) (\ (d,f) → AbsFile d f)
 
 ----------------------------------------
 
@@ -246,10 +252,6 @@ instance HasParentMay AbsFile where
                                            Nothing → AbsFile root f
                    )
 
-----------------------------------------
-
-instance HasFile AbsFile where
-  file = lens (\ (AbsFile _ f) → f) (\ (AbsFile p _) f → AbsFile p f)
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

@@ -7,7 +7,7 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.Fileish
-  ( Fileish( FDirType, (⊙), (<.>), addExt, dirfile, ext, splitExt ) )
+  ( Fileish( FDirType, (⊙), (<.>), addExt, dir, dirfile, ext, file, splitExt ) )
 where
 
 -- base --------------------------------
@@ -15,10 +15,15 @@ where
 import Data.Function  ( (&) )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 
+-- base-unicode-symbols ----------------
+
+import Data.Function.Unicode  ( (∘) )
+
 -- lens --------------------------------
 
-import Control.Lens.Iso   ( Iso', from, iso )
-import Control.Lens.Lens  ( Lens', lens )
+import Control.Lens.Iso    ( Iso', from, iso )
+import Control.Lens.Lens   ( Lens', lens )
+import Control.Lens.Tuple  ( _1, _2 )
 
 -- more-unicode ------------------------
 
@@ -43,6 +48,12 @@ class Fileish α where
 
   {- | Split/Reform a `Fileish` into its directory & file components -}
   dirfile ∷ Iso' α (FDirType α, PathComponent)
+
+  file ∷ Lens' α PathComponent
+  file = lens (⊣ (dirfile ∘ _2)) (\ a c → (a ⊣ (dirfile ∘ _1),c) ⊣ from dirfile)
+
+  dir ∷ Lens' α (FDirType α)
+  dir = lens (⊣ (dirfile ∘ _1)) (\ a d → (d, a ⊣ (dirfile ∘ _2)) ⊣ from dirfile)
 
   {- | Add an "extension", that is, join two `PathComponent`s with a '.'
        character

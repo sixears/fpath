@@ -4,12 +4,8 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.FileType
-  ( Filename, HasFile( file ), HasFileType( FileType ), IsFile )
+  ( Filename, HasFileType( FileType ), IsFile )
 where
-
--- lens --------------------------------
-
-import Control.Lens.Lens  ( Lens' )
 
 -- mono-traversable --------------------
 
@@ -28,11 +24,6 @@ import FPath.PathComponent  ( PathComponent )
 --------------------------------------------------------------------------------
 
 type Filename = PathComponent
-
-class HasFile α where
---  {- | the file "version" of a type; e.g., `FileType RelDir = RelFile` -}
---  type FileType α
-  file ∷ Lens' α Filename
 
 class HasFileType α where
   type FileType α
