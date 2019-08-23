@@ -44,15 +44,13 @@ module FPath
   , seq, seqNE
 
   , root
-  , stripPrefix, stripPrefix'
+  , stripDir, stripDir'
     {-
   , MyPath( AbsOrRel, FileType, toFile, toFile_
           , getFilename, getParent, setFilename )
 
   , pathIsAbsolute
   , rel2abs
-
-  , extension, filename, parent
 
   , parseRelPath, parseRelPath', parseRelPath_
   , stripDir    , stripDir'    , stripDir_
@@ -508,40 +506,40 @@ class HasRelType π ⇒ Strippable π where
        (file|directory).  Note that a file will always keep its filename; but a
        directory might result in a relative dir of './'.
    -}
-  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 DirType π → π → η (RelType π)
-  stripPrefix' ∷ MonadError FPathNotAPrefixError η ⇒
+  stripDir' ∷ MonadError FPathNotAPrefixError η ⇒
                  DirType π → π → η (RelType π)
-  stripPrefix' = stripPrefix
+  stripDir' = stripDir
 
 instance Strippable AbsFile where
-  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 AbsDir → AbsFile → η RelFile
-  stripPrefix d'@(view seq → d) f'@(view seqNE → f) =
+  stripDir d'@(view seq → d) f'@(view seqNE → f) =
     maybe (__FPathNotAPrefixError__ absfileT (toText d') (toText f'))
           (return ∘ fromSeqNE)
           (SeqNE.stripProperPrefix d f)
 
 instance Strippable AbsDir where
-  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 AbsDir → AbsDir → η RelDir
-  stripPrefix d'@(view seq → d) f'@(view seq → f) =
+  stripDir d'@(view seq → d) f'@(view seq → f) =
     maybe (__FPathNotAPrefixError__ absdirT (toText d') (toText f'))
           (return ∘ fromSeq)
           (SeqConversions.stripPrefix d f)
 
 instance Strippable RelFile where
-  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 RelDir → RelFile → η RelFile
-  stripPrefix d'@(view seq → d) f'@(view seqNE → f) =
+  stripDir d'@(view seq → d) f'@(view seqNE → f) =
     maybe (__FPathNotAPrefixError__ relfileT (toText d') (toText f'))
           (return ∘ fromSeqNE)
           (SeqNE.stripProperPrefix d f)
 
 instance Strippable RelDir where
-  stripPrefix ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
                 RelDir → RelDir → η RelDir
-  stripPrefix d'@(view seq → d) f'@(view seq → f) =
+  stripDir d'@(view seq → d) f'@(view seq → f) =
     maybe (__FPathNotAPrefixError__ reldirT (toText d') (toText f'))
           (return ∘ fromSeq)
           (SeqConversions.stripPrefix d f)

@@ -40,7 +40,7 @@ import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
 import qualified  FPath.T.FPath.RelFile
 
-import FPath           ( (⫻), stripPrefix' )
+import FPath           ( (⫻), stripDir' )
 import FPath.AbsDir    ( AbsDir, absdir, absdirT, root )
 import FPath.AbsFile   ( AbsFile, absfile, absfileT )
 import FPath.RelDir    ( RelDir, reldir, reldirT )
@@ -95,101 +95,98 @@ catenationTests =
 
 ----------------------------------------
 
-stripProperPrefixAbsFileTests ∷ TestTree
-stripProperPrefixAbsFileTests =
+stripDirAbsFileTests ∷ TestTree
+stripDirAbsFileTests =
   testGroup "absfile"
-   [ testCase "/"   $ Right [relfile|foo|] ≟ stripPrefix' root [absfile|/foo|]
+   [ testCase "/"   $ Right [relfile|foo|] ≟ stripDir' root [absfile|/foo|]
    , testCase "pfx" $
-       Right [relfile|bar|] ≟ stripPrefix' [absdir|/etc/|] [absfile|/etc/bar|]
+       Right [relfile|bar|] ≟ stripDir' [absdir|/etc/|] [absfile|/etc/bar|]
    , testCase "no pfx" $
          Left (FPathNotAPrefixError absfileT "/dev/" "/etc/bar")
-       ≟ stripPrefix' @AbsFile [absdir|/dev/|] [absfile|/etc/bar|]
+       ≟ stripDir' @AbsFile [absdir|/dev/|] [absfile|/etc/bar|]
    , testCase "equal" $
          Left (FPathNotAPrefixError absfileT "/etc/bar/" "/etc/bar")
-       ≟ stripPrefix' @AbsFile [absdir|/etc/bar/|] [absfile|/etc/bar|]
+       ≟ stripDir' @AbsFile [absdir|/etc/bar/|] [absfile|/etc/bar|]
    , testCase "longer 1" $
          Left (FPathNotAPrefixError absfileT "/etc/bar/" "/etc")
-       ≟ stripPrefix' @AbsFile [absdir|/etc/bar/|] [absfile|/etc|]
+       ≟ stripDir' @AbsFile [absdir|/etc/bar/|] [absfile|/etc|]
    , testCase "longer 2" $
          Left (FPathNotAPrefixError absfileT "/etc/udev/bar/" "/etc/udev")
-       ≟ stripPrefix' @AbsFile [absdir|/etc/udev/bar/|] [absfile|/etc/udev|]
+       ≟ stripDir' @AbsFile [absdir|/etc/udev/bar/|] [absfile|/etc/udev|]
    ]
 
-stripProperPrefixAbsDirTests ∷ TestTree
-stripProperPrefixAbsDirTests =
+stripDirAbsDirTests ∷ TestTree
+stripDirAbsDirTests =
   testGroup "absfile"
-   [ testCase "/"   $ Right [reldir|foo/|] ≟ stripPrefix' root [absdir|/foo/|]
+   [ testCase "/"   $ Right [reldir|foo/|] ≟ stripDir' root [absdir|/foo/|]
    , testCase "pfx" $
-       Right [reldir|bar/|] ≟ stripPrefix' [absdir|/etc/|] [absdir|/etc/bar/|]
+       Right [reldir|bar/|] ≟ stripDir' [absdir|/etc/|] [absdir|/etc/bar/|]
    , testCase "no pfx" $
          Left (FPathNotAPrefixError absdirT "/dev/" "/etc/bar/")
-       ≟ stripPrefix' @AbsDir [absdir|/dev/|] [absdir|/etc/bar/|]
+       ≟ stripDir' @AbsDir [absdir|/dev/|] [absdir|/etc/bar/|]
    , testCase "equal" $
          Right [reldir|./|]
-       ≟ stripPrefix' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/bar/|]
+       ≟ stripDir' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/bar/|]
    , testCase "longer 1" $
          Left (FPathNotAPrefixError absdirT "/etc/bar/" "/etc/")
-       ≟ stripPrefix' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/|]
+       ≟ stripDir' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/|]
    , testCase "longer 2" $
          Left (FPathNotAPrefixError absdirT "/etc/udev/bar/" "/etc/udev/")
-       ≟ stripPrefix' @AbsDir [absdir|/etc/udev/bar/|] [absdir|/etc/udev/|]
+       ≟ stripDir' @AbsDir [absdir|/etc/udev/bar/|] [absdir|/etc/udev/|]
    ]
 
-stripProperPrefixRelFileTests ∷ TestTree
-stripProperPrefixRelFileTests =
+stripDirRelFileTests ∷ TestTree
+stripDirRelFileTests =
   testGroup "relfile"
    [ testCase "/"   $
-       Right [relfile|foo|] ≟ stripPrefix' [reldir|./|] [relfile|foo|]
+       Right [relfile|foo|] ≟ stripDir' [reldir|./|] [relfile|foo|]
    , testCase "pfx" $
-       Right [relfile|bar|] ≟ stripPrefix' [reldir|etc/|] [relfile|etc/bar|]
+       Right [relfile|bar|] ≟ stripDir' [reldir|etc/|] [relfile|etc/bar|]
    , testCase "no pfx" $
          Left (FPathNotAPrefixError relfileT "dev/" "etc/bar")
-       ≟ stripPrefix' @RelFile [reldir|dev/|] [relfile|etc/bar|]
+       ≟ stripDir' @RelFile [reldir|dev/|] [relfile|etc/bar|]
    , testCase "equal" $
          Left (FPathNotAPrefixError relfileT "etc/bar/" "etc/bar")
-       ≟ stripPrefix' @RelFile [reldir|etc/bar/|] [relfile|etc/bar|]
+       ≟ stripDir' @RelFile [reldir|etc/bar/|] [relfile|etc/bar|]
    , testCase "longer 1" $
          Left (FPathNotAPrefixError relfileT "etc/bar/" "etc")
-       ≟ stripPrefix' @RelFile [reldir|etc/bar/|] [relfile|etc|]
+       ≟ stripDir' @RelFile [reldir|etc/bar/|] [relfile|etc|]
    , testCase "longer 2" $
          Left (FPathNotAPrefixError relfileT "etc/udev/bar/" "etc/udev")
-       ≟ stripPrefix' @RelFile [reldir|etc/udev/bar/|] [relfile|etc/udev|]
+       ≟ stripDir' @RelFile [reldir|etc/udev/bar/|] [relfile|etc/udev|]
    ]
 
-stripProperPrefixRelDirTests ∷ TestTree
-stripProperPrefixRelDirTests =
+stripDirRelDirTests ∷ TestTree
+stripDirRelDirTests =
   testGroup "reldir"
    [ testCase "/"   $
-       Right [reldir|foo/|] ≟ stripPrefix' [reldir|./|] [reldir|foo/|]
+       Right [reldir|foo/|] ≟ stripDir' [reldir|./|] [reldir|foo/|]
    , testCase "pfx" $
-       Right [reldir|bar/|] ≟ stripPrefix' [reldir|etc/|] [reldir|etc/bar/|]
+       Right [reldir|bar/|] ≟ stripDir' [reldir|etc/|] [reldir|etc/bar/|]
    , testCase "no pfx" $
          Left (FPathNotAPrefixError reldirT "dev/" "etc/bar/")
-       ≟ stripPrefix' @RelDir [reldir|dev/|] [reldir|etc/bar/|]
+       ≟ stripDir' @RelDir [reldir|dev/|] [reldir|etc/bar/|]
    , testCase "equal" $
          Right [reldir|./|]
-       ≟ stripPrefix' [reldir|etc/bar/|] [reldir|etc/bar/|]
+       ≟ stripDir' [reldir|etc/bar/|] [reldir|etc/bar/|]
    , testCase "longer 1" $
          Left (FPathNotAPrefixError reldirT "etc/bar/" "etc/")
-       ≟ stripPrefix' @RelDir [reldir|etc/bar/|] [reldir|etc/|]
+       ≟ stripDir' @RelDir [reldir|etc/bar/|] [reldir|etc/|]
    , testCase "longer 2" $
          Left (FPathNotAPrefixError reldirT "etc/udev/bar/" "etc/udev/")
-       ≟ stripPrefix' @RelDir [reldir|etc/udev/bar/|] [reldir|etc/udev/|]
+       ≟ stripDir' @RelDir [reldir|etc/udev/bar/|] [reldir|etc/udev/|]
    ]
 
-stripProperPrefixTests ∷ TestTree
-stripProperPrefixTests =
-  testGroup "stripProperPrefix" [ stripProperPrefixAbsFileTests
-                                , stripProperPrefixAbsDirTests
-                                , stripProperPrefixRelFileTests
-                                , stripProperPrefixRelDirTests
-                                ]
+stripDirTests ∷ TestTree
+stripDirTests =
+  testGroup "stripDir" [ stripDirAbsFileTests, stripDirAbsDirTests
+                       , stripDirRelFileTests, stripDirRelDirTests ]
 
 ----------------------------------------
 
 fpathTests ∷ TestTree
 fpathTests = testGroup "FPath" [ catenationTests
-                               , stripProperPrefixTests
+                               , stripDirTests
                                , FPath.tests
                                ]
 
