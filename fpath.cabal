@@ -48,13 +48,21 @@ library
   -- Modules exported by the library.
   exposed-modules: FPath
                  , FPath.AbsDir, FPath.T.FPath.AbsDir
+                 , FPath.AbsPath
                  , FPath.AbsFile, FPath.T.FPath.AbsFile
-                 , FPath.AbsOrRelType
-                 , FPath.DirType, FPath.FileType
-                 , FPath.HasParent
+                 , FPath.AbsOrRel
+                 , FPath.AppendableFPath
+                 , FPath.Basename
+                 , FPath.DirOrFile
+                 , FPath.Dirname
+                 , FPath.DirType
+                 , FPath.FPath
+                 , FPath.IO
+                 , FPath.Parent
                  , FPath.PathComponent
                  , FPath.RelDir, FPath.T.FPath.RelDir
                  , FPath.RelFile, FPath.T.FPath.RelFile
+                 , FPath.RelPath
                  , FPath.RelType
                  
                  , FPath.Error.FPathComponentError
@@ -74,7 +82,7 @@ library
                  , NonEmptyContainers.SeqNEConversions
                  , NonEmptyContainers.SeqNE
 
-                 , FPath.Fileish
+                 , FPath.FileLike
 --                 , FPath.PathCTypes.ByteString
 --                 , FPath.PathCTypes.ByteStringUtf8
                  , FPath.PathCTypes.String
@@ -86,13 +94,13 @@ library
   other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends: base, base-unicode-symbols, containers, data-textual
-               , genvalidity, genvalidity-bytestring, genvalidity-property
-               , genvalidity-text, lens, mono-traversable, mtl, parsers
-               , QuickCheck, template-haskell, tasty, tasty-hunit
-               , tasty-quickcheck, text, text-printer, unix, validity
+  build-depends: base, base-unicode-symbols, containers, data-textual, directory
+               , exceptions, genvalidity, genvalidity-bytestring
+               , genvalidity-property, genvalidity-text, lens, mono-traversable
+               , mtl, parsers, QuickCheck, template-haskell, tasty, tasty-hunit
+               , tasty-quickcheck, temporary, text, text-printer, unix, validity
 
-               , more-unicode, tfmt
+               , monaderror-io, more-unicode, tfmt
   -- Directories containing source files.
   hs-source-dirs:      src
 

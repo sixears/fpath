@@ -17,6 +17,8 @@ module FPath.RelFile
   , relfile
 
   , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
+
+  , tests
   )
 where
 
@@ -26,18 +28,20 @@ import Prelude  ( error )
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
-import Control.Monad       ( return )
-import Data.Either         ( Either, either )
-import Data.Eq             ( Eq )
-import Data.Foldable       ( foldMap, foldl1, foldl', foldr, foldr1 )
-import Data.Function       ( ($), const, id )
-import Data.List.NonEmpty  ( NonEmpty( (:|) ) )
-import Data.Maybe          ( Maybe( Just, Nothing ) )
-import Data.Monoid         ( Monoid )
-import Data.String         ( String )
-import Data.Typeable       ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts            ( IsList( fromList, toList ) )
-import Text.Show           ( Show )
+import Control.Applicative  ( pure )
+import Control.Monad        ( return )
+import Data.Either          ( Either, either )
+import Data.Eq              ( Eq )
+import Data.Foldable        ( foldMap, foldl1, foldl', foldr, foldr1 )
+import Data.Function        ( ($), const, id )
+import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
+import Data.Maybe           ( Maybe( Just, Nothing ) )
+import Data.Monoid          ( Monoid )
+import Data.String          ( String )
+import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Exts             ( IsList( fromList, toList ) )
+import System.IO            ( IO )
+import Text.Show            ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -68,6 +72,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
 import Data.MoreUnicode.Monoid   ( ф )
+import Data.MoreUnicode.Natural  ( ℕ )
+import Data.MoreUnicode.Tasty    ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -82,7 +88,7 @@ import NonEmptyContainers.IsNonEmpty        ( FromNonEmpty( fromNonEmpty )
 import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , ToMonoSeq( toSeq )
                                             )
-import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭) )
+import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭), (⋖) )
 import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
                                             , IsMonoSeqNonEmpty( seqNE )
                                             , ToMonoSeqNonEmpty( toSeqNE
@@ -98,6 +104,14 @@ import Text.Parser.Combinators  ( sepByNonEmpty )
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
+-- tasty -------------------------------
+
+import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-hunit -------------------------
+
+import Test.Tasty.HUnit  ( testCase )
+
 -- text --------------------------------
 
 import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
@@ -110,10 +124,9 @@ import qualified  Text.Printer  as  P
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.DirType           ( HasDirType( DirType ) )
-import FPath.HasParent         ( HasParent( parent )
-                               , HasParentMay( parentMay ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
 import FPath.Error.FPathError  ( AsFPathError, FPathError
@@ -121,9 +134,12 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
-import FPath.Fileish           ( Fileish( FDirType, dirfile ) )
-import FPath.PathComponent     ( PathComponent, parsePathC )
+import FPath.FileLike          ( FileLike( dirfile ) )
+import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
+import FPath.PathComponent     ( PathComponent, parsePathC, pc )
 import FPath.RelDir            ( RelDir, parseRelDir )
+import FPath.RelType           ( RelTypeC( RelType ) )
+import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
@@ -144,13 +160,17 @@ instance AsRelFile RelFile where
 
 --------------------
 
-instance HasDirType RelFile where
+instance DirTypeC RelFile where
   type DirType RelFile = RelDir
+
+--------------------
+
+instance RelTypeC RelFile where
+  type RelType RelFile = RelFile
 
 ----------------------------------------
 
-instance Fileish RelFile where
-  type FDirType RelFile = RelDir
+instance FileLike RelFile where
   dirfile = iso (\ (RelFile d f) → (d,f)) (\ (d,f) → RelFile d f)
 
 ----------------------------------------
@@ -251,6 +271,32 @@ instance HasParentMay RelFile where
                                            Nothing → RelFile ф f
                    )
 
+----------------------------------------
+  
+instance Basename RelFile where
+  basename ∷ RelFile → RelFile
+  basename (RelFile _ n) = fromNonEmpty (pure n)
+
+  updateBasename ∷ (PathComponent → PathComponent) → RelFile → RelFile
+  updateBasename f (RelFile d n) = RelFile d (f n)
+
+relFileBasenameTests ∷ TestTree
+relFileBasenameTests =
+  testGroup "basename"
+            [ testCase "rf1" $ fromSeqNE (pure [pc|r.e|])  ≟ basename rf1
+
+            , testCase "rf1 -> rf4"    $
+                rf4 ≟ updateBasename (const [pc|.x|]) rf1
+            , testCase "rf2 -> x.p"     $
+                  fromSeqNE ([pc|r|] ⋖ [[pc|x.p|]])
+                ≟ updateBasename (const [pc|x.p|]) rf2
+            , testCase "pam.d -> pam.d"   $
+                  fromSeqNE ([pc|p|] ⋖ [[pc|q|], [pc|r|]])
+                ≟ updateBasename (const [pc|r|]) rf3
+            , testCase "rf4 -> rf1"   $
+                rf1 ≟ updateBasename (const [pc|r.e|]) rf4
+            ]
+
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
@@ -295,5 +341,41 @@ __parseRelFile'__ = __parseRelFile__
 {- | quasi-quotation -}
 relfile ∷ QuasiQuoter
 relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parseRelFile'__ s ⟧)
+
+--------------------------------------------------------------------------------
+--                                   tests                                    --
+--------------------------------------------------------------------------------
+
+-- test data ---------------------------
+
+rf1 ∷ RelFile
+rf1 = fromSeqNE $ pure [pc|r.e|]
+
+rf2 ∷ RelFile
+rf2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p.x|]]
+
+rf3 ∷ RelFile
+rf3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r.mp3|]]
+
+rf4 ∷ RelFile
+rf4 = fromSeqNE $ pure [pc|.x|]
+
+----------------------------------------
+
+tests ∷ TestTree
+tests = testGroup "FPath.RelFile" [ relFileBasenameTests ]
+                
+--------------------
+
+_test ∷ IO ()
+_test = doTest tests
+
+--------------------
+
+_tests ∷ String → IO ()
+_tests = doTestS tests
+
+_testr ∷ String → ℕ → IO ()
+_testr = doTestR tests
 
 -- that's all, folks! ----------------------------------------------------------

@@ -2,7 +2,7 @@
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE LambdaCase        #-}
 --{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
+-- {-# LANGUAGE PatternSynonyms   #-}
 --{-# LANGUAGE QuasiQuotes       #-}
 --{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
@@ -10,25 +10,45 @@
 {-# LANGUAGE UnicodeSyntax       #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
+
+-- TODO
+
+-- sort out naming of Dir, DirOrRel, HasAbsOrRel, etc., etc.
+--   maybe FAbs, FRel, etc., for the compound types, maybe _Dir, _Rel for the dirOrRel fns...; also choose in which files to define them, consistently.  Maybe AbsPath -> Abs; RelPath -> Rel; leaving Path for .. things
+-- unify DirType & FDirType ?
+-- OptParse helpers
+
+-- the only tests that each module should export are 'tests' (with a no-doc flag on them)
+-- add toEither for {Abs,Rel}(Path?) {Dir,File}
+
+-- add AsAbs(Path), AsRel(Path); to allow for lenses on FPath; also AsDir & AsRel
+-- add toDir, toFile to convert, e.g., "files" returned by readlink to dirs
 
 -- unify implementations to one ("Internals") impl., with newtype encapsulations
 --    for each of {Abs,Rel}{Dir,File,Path}; Internals would be something like
 --    `Internals Seq|SeqNE FileComponent|None Basis=/|./ AllowPathBits(.|..)`
+--    NOTE: ABSDIR IS JUST A GROUNDED RELDIR; that is, AbsDir is just a RelDir,
+--    grounded at /
 
 -- try using type-level depth, to allow for non-maybe Parent whenever depth>1.
+
+-- implement Paths
 
 module FPath
   ( AbsDir, AbsFile, AbsPath, Dir, File, NonRootAbsDir, RelDir, RelFile, RelPath
   , AsFilePath( filepath )
 
-  , (⫻), (</>)
+  , AbsOrRel(..), HasAbsOrRel( absOrRel, isAbs, isRel )
+  , DirOrFile(..), HasDirOrFile( dirOrFile, isDir, isFile )
+
+  , module FPath.AppendableFPath
+
+  -- file functions
+  , (⊙), addExt, dir, dirfile, file, ext, splitExt
 
   -- quasi-quoters
   , absdir, absfile, absdirN, reldir, relfile
-
-  -- List/NonEmpty/Seq conversion fns
-  , toSeq
 
   , nonRootAbsDir
 
@@ -45,14 +65,11 @@ module FPath
 
   , root
   , stripDir, stripDir'
+
+  , getCwd        , getCwd'
     {-
-  , MyPath( AbsOrRel, FileType, toFile, toFile_
-          , getFilename, getParent, setFilename )
+parseDirAbs -- parse a text, if it's relative, make it abs to given cwd
 
-  , pathIsAbsolute
-  , rel2abs
-
-  , getCwd        , getCwd'        , getCwd_
   , resolveDirCwd , resolveDirCwd' , resolveDirCwd_
   , resolveFileCwd, resolveFileCwd', resolveFileCwd_
 -}
@@ -68,17 +85,17 @@ import Data.Bifunctor  ( first )
 import Data.Bool       ( Bool( False, True ) )
 import Data.Either     ( Either( Right ), either )
 import Data.Eq         ( Eq )
-import Data.Function   ( ($), (&), id )
+import Data.Function   ( ($), (&), const, id )
 import Data.Functor    ( fmap )
 import Data.Maybe      ( Maybe( Just, Nothing ), maybe )
 import Data.String     ( String )
 import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
+import System.IO       ( IO )
 import Text.Show       ( Show )
 
 -- base-unicode-symbols ----------------
 
 import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
@@ -99,13 +116,13 @@ import qualified  System.FilePath.Lens  as  FPLens
 import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( Iso', iso )
 import Control.Lens.Prism   ( Prism', prism' )
-import Control.Lens.Review  ( re )
 
 -- more-unicode-symbols ----------------
 
 import Data.MoreUnicode.Function   ( (⅋) )
 import Data.MoreUnicode.Functor    ( (⊳) )
 import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Natural    ( ℕ )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 import Data.MoreUnicode.Tasty      ( (≟) )
 
@@ -118,12 +135,10 @@ import Control.Monad.Except  ( MonadError )
 import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
 
-import NonEmptyContainers.SeqConversions
-                                 ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
-                                 , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE  ( (⪡) )
-import NonEmptyContainers.SeqNEConversions
-                                 ( IsMonoSeqNonEmpty( seqNE ), fromSeqNE )
+import NonEmptyContainers.SeqConversions   ( FromMonoSeq( fromSeq )
+                                           , IsMonoSeq( seq ) )
+import NonEmptyContainers.SeqNEConversions ( IsMonoSeqNonEmpty( seqNE )
+                                           , fromSeqNE )
 
 -- tasty -------------------------------
 
@@ -135,7 +150,7 @@ import Test.Tasty.HUnit  ( testCase )
 
 -- text --------------------------------
 
-import Data.Text  ( head, last, null )
+import Data.Text  ( head, null )
 
 {-
 
@@ -182,14 +197,25 @@ import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , parseAbsFile, parseAbsFile'
                                , __parseAbsFile'__, __parseAbsFile__
                                )
+import FPath.AbsOrRel          ( AbsOrRel( Abs, Rel )
+                               , HasAbsOrRel( absOrRel, isAbs, isRel ) )
+import FPath.AbsPath           ( AbsPath, parseAbsPath, parseAbsPath'
+                               , __parseAbsPath__, __parseAbsPath'__
+                               )
+import FPath.AppendableFPath   ( AppendableFPath( (⫻) ), (</>) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.DirType           ( HasDirType( DirType ) )
+import FPath.DirOrFile         ( DirOrFile( Dir, File )
+                               , HasDirOrFile( dirOrFile, isDir, isFile ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                , FPathError, FPathNotAPrefixError
                                , __FPathEmptyE__, __FPathNotAPrefixError__
                                )
-import FPath.Fileish           ( Fileish( FDirType, (⊙), addExt
-                                        , dir, dirfile, file, ext, splitExt ) )
+import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
+                                         , splitExt, updateExt ) )
+import FPath.FPath             ( parseFPath, parseFPath'
+                               , __parseFPath__, __parseFPath'__ )
+import FPath.IO                ( getCwd, getCwd' )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, parseRelDir', __parseRelDir'__
@@ -199,42 +225,13 @@ import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , parseRelFile, parseRelFile', __parseRelFile'__
                                , __parseRelFile__, relfile, relfileT
                                )
-import FPath.RelType           ( HasRelType( RelType ) )
+import FPath.RelPath           ( RelPath )
+import FPath.RelType           ( RelTypeC( RelType ) )
+import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 import FPath.Util              ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
-
-data AbsPath = AbsD AbsDir | AbsF AbsFile
-  deriving (Eq, Show)
-
-instance AsAbsDir AbsPath where
-  _AbsDir ∷ Prism' AbsPath AbsDir
-  _AbsDir = prism' AbsD (\ case (AbsD d) → Just d; _ → Nothing)
-
-instance AsNonRootAbsDir AbsPath where
-  _NonRootAbsDir ∷ Prism' AbsPath NonRootAbsDir
-  _NonRootAbsDir = prism' (AbsD ∘ toAbsDir)
-                          (\ case (AbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
-
-instance AsAbsFile AbsPath where
-  _AbsFile ∷ Prism' AbsPath AbsFile
-  _AbsFile = prism' AbsF (\ case (AbsF f) → Just f; _ → Nothing)
-
-------------------------------------------------------------
-
-data RelPath = RelD RelDir | RelF RelFile
-  deriving (Eq, Show)
-
-instance AsRelDir RelPath where
-  _RelDir ∷ Prism' RelPath RelDir
-  _RelDir = prism' RelD (\ case (RelD d) → Just d; _ → Nothing)
-
-instance AsRelFile RelPath where
-  _RelFile ∷ Prism' RelPath RelFile
-  _RelFile = prism' RelF (\ case (RelF f) → Just f; _ → Nothing)
-
-------------------------------------------------------------
 
 data Dir = DirA AbsDir | DirR RelDir
   deriving (Eq, Show)
@@ -252,6 +249,10 @@ instance AsRelDir Dir where
   _RelDir ∷ Prism' Dir RelDir
   _RelDir = prism' DirR (\ case (DirR d) → Just d; _ → Nothing)
 
+instance HasAbsOrRel Dir where
+  absOrRel (DirA _) = Abs
+  absOrRel (DirR _) = Rel
+
 ------------------------------------------------------------
 
 data File = FileA AbsFile | FileR RelFile
@@ -265,8 +266,10 @@ instance AsRelFile File where
   _RelFile ∷ Prism' File RelFile
   _RelFile = prism' FileR (\ case (FileR d) → Just d; _ → Nothing)
 
-instance Fileish File where
-  type FDirType File = Dir
+instance DirTypeC File where
+  type DirType File = Dir
+
+instance FileLike File where
 
   dirfile ∷ Iso' File (Dir, PathComponent)
   dirfile = iso (\ case FileA a → first DirA (a ⊣ dirfile)
@@ -274,8 +277,8 @@ instance Fileish File where
                 (\ case (DirA a, c) → FileA ((a,c) ⫣ dirfile)
                         (DirR r, c) → FileR ((r,c) ⫣ dirfile))
 
-fileishFileTests ∷ TestTree
-fileishFileTests =
+fileLikeFileTests ∷ TestTree
+fileLikeFileTests =
   let (~~) ∷ File → PathComponent → File
       f ~~ d' = f & file ⊢ d'
    in testGroup "file"
@@ -292,8 +295,8 @@ fileishFileTests =
                     FileR [relfile|.z|] ≟ FileR rf1 ~~ [pc|.z|]
                 ]
 
-fileishDirTests ∷ TestTree
-fileishDirTests =
+fileLikeDirTests ∷ TestTree
+fileLikeDirTests =
   let (~~) ∷ File → Dir → File
       f ~~ d' = f & dir ⊢ d'
    in testGroup "dir"
@@ -312,8 +315,8 @@ fileishDirTests =
                     FileA [absfile|/q/p/.x|] ≟ FileR rf4 ~~ DirA [absdir|/q/p/|]
                 ]
 
-fileishAddExtTests ∷ TestTree
-fileishAddExtTests =
+fileLikeAddExtTests ∷ TestTree
+fileLikeAddExtTests =
   testGroup "addExt"
     [ testCase "foo.bar" $
         FileA [absfile|/foo.bar|]     ≟ addExt (FileA [absfile|/foo|]) [pc|bar|]
@@ -323,132 +326,66 @@ fileishAddExtTests =
         FileR [relfile|p/q/r.mp3.b.r|]≟ FileR rf3 ⊙ [pc|b.r|]
     ]
 
-fileishSplitExtTests ∷ TestTree
-fileishSplitExtTests =
+fileLikeSplitExtTests ∷ TestTree
+fileLikeSplitExtTests =
   testGroup "splitExt"
     [ testCase "foo/bar" $
-        Nothing ≟ splitExt (FileR [relfile|foo/bar|])
+        (FileR [relfile|foo/bar|], Nothing) ≟ splitExt (FileR [relfile|foo/bar|])
     , testCase "r/p.x"   $
-        Just (FileR [relfile|r/p|],[pc|x|]) ≟ splitExt (FileR rf2)
+        (FileR [relfile|r/p|],Just [pc|x|]) ≟ splitExt (FileR rf2)
     , testCase "f.x/g.y" $
-          Just (FileA [absfile|/f.x/g|], [pc|y|])
+          (FileA [absfile|/f.x/g|], Just [pc|y|])
         ≟ splitExt (FileA [absfile|/f.x/g.y|])
     , testCase "f.x/g"   $
-        Nothing ≟ splitExt (FileA [absfile|/f.x/g|])
+        (FileA [absfile|/f.x/g|], Nothing) ≟ splitExt (FileA [absfile|/f.x/g|])
     ]
 
-fileishExtGetterTests ∷ TestTree
-fileishExtGetterTests =
+fileLikeExtGetterTests ∷ TestTree
+fileLikeExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] ≟ FileR [relfile|foo.z/bar.x|]   ⊣ ext
+                         Just [pc|x|] ≟ ext(FileR [relfile|foo.z/bar.x|])
                      , testCase "foo/bar" $
-                         Nothing ≟ FileA [absfile|/foo/bar|]   ⊣ ext
+                         Nothing ≟ ext (FileA [absfile|/foo/bar|])
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] ≟ FileA [absfile|/g/f.b.x.baz|] ⊣ ext
+                         Just [pc|baz|] ≟ ext (FileA [absfile|/g/f.b.x.baz|])
                      ]
 
-fileishExtSetterTests ∷ TestTree
-fileishExtSetterTests =
+fileLikeExtSetterTests ∷ TestTree
+fileLikeExtSetterTests =
   testGroup "setter"
     [ testCase "foo.bar -> foo.baz" $
           FileR [relfile|p/foo.baz|]
-        ≟ FileR [relfile|p/foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "p/foo.x -> ''"   $
-        FileR [relfile|p/foo|]     ≟ FileR [relfile|p/foo.x|] ⅋ ext ⊢ Nothing
-    , testCase "foo/bar.bar -> foo.x/bar.baz" $
-          FileA [absfile|/foo.x/bar.baz|]
-        ≟ FileA [absfile|/foo.x/bar|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "foo -> foo.baz" $
-        FileA [absfile|/foo.baz|] ≟ FileA [absfile|/foo|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "g/foo. -> g/foo..baz" $
-          FileA [absfile|/g/foo..baz|]
-        ≟ FileA [absfile|/g/foo.|] ⅋ ext ⊢ Just [pc|baz|]
+        ≟ FileR (updateExt (const [pc|baz|]) [relfile|p/foo.bar|])
+    , testCase "/foo.x/bar -> /foo.x/bar" $
+          FileA [absfile|/foo.x/bar|]
+        ≟ FileA (updateExt (const [pc|baz|]) [absfile|/foo.x/bar|])
+    , testCase "foo -> foo" $
+        FileA [absfile|/foo|] ≟ FileA (updateExt (const [pc|baz|]) [absfile|/foo|])
+    , testCase "g/foo. -> g/foo." $
+          FileA [absfile|/g/foo.|]
+        ≟ FileA (updateExt (const [pc|baz|]) [absfile|/g/foo.|])
     ]
 
-fileishExtAdjusterTests ∷ TestTree
-fileishExtAdjusterTests =
+fileLikeExtAdjusterTests ∷ TestTree
+fileLikeExtAdjusterTests =
   testGroup "adjuster"
     [ testCase ".baz -> .BAR" $
-        FileR [relfile|g/fo.BA|] ≟ FileR [relfile|g/fo.ba|] ⅋ ext ⊧ fmap toUpper
+        FileR [relfile|g/fo.BA|] ≟ FileR (updateExt toUpper [relfile|g/fo.ba|])
     , testCase ".x.b -> .x.B" $
-        FileR [relfile|f.x.B|]   ≟ FileR [relfile|f.x.b|]   ⅋ ext ⊧ fmap toUpper
+        FileR [relfile|f.x.B|]   ≟ FileR (updateExt toUpper [relfile|f.x.b|])
     , testCase ".x -> .xy"    $
-        FileA [absfile|/f.xy|] ≟ FileA [absfile|/f.x|] ⅋ ext ⊧ fmap (◇ [pc|y|])
+        FileA [absfile|/f.xy|] ≟ FileA (updateExt (◇ [pc|y|]) [absfile|/f.x|])
     , testCase ".    -> ."    $
-        FileA [absfile|/fo.|]  ≟ FileA [absfile|/fo.|] ⅋ ext ⊧ fmap (◇ [pc|y|])
+        FileA [absfile|/fo.|]  ≟ FileA (updateExt (◇ [pc|y|]) [absfile|/fo.|])
     ]
 
-fileishTests ∷ TestTree
-fileishTests =
-  testGroup "Fileish" [ fileishFileTests, fileishDirTests
-                      , fileishAddExtTests, fileishSplitExtTests
-                      , fileishExtGetterTests, fileishExtSetterTests
-                      , fileishExtAdjusterTests
-                      ]
-
-------------------------------------------------------------
-
-abspathT ∷ TypeRep
-abspathT = typeRep (Proxy ∷ Proxy AbsPath)
-
-parseAbsPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsPath
-parseAbsPath (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ abspathT
-    False → case last t of
-              '/' → AbsD ⊳ parseAbsDir  t
-              _   → AbsF ⊳ parseAbsFile t
-
-parseAbsPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsPath
-parseAbsPath' = parseAbsPath
-
-__parseAbsPath__ ∷ Printable τ ⇒ τ → AbsPath
-__parseAbsPath__ = either __ERROR'__ id ∘ parseAbsPath'
-
-__parseAbsPath'__ ∷ String → AbsPath
-__parseAbsPath'__ = __parseAbsPath__
-
-----------------------------------------
-
-parseAbsPathTests ∷ TestTree
-parseAbsPathTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseAbsPath' t
-   in testGroup "parseAbsPath"
-                [ success [absdir|/|]           _AbsDir "/"
-                , success [absdir|/etc/|]       _AbsDir "/etc/"
-                , success [absfile|/etc/group|] _AbsFile "/etc/group"
-                ]
-
-----------------------------------------
-
-relpathT ∷ TypeRep
-relpathT = typeRep (Proxy ∷ Proxy RelPath)
-
-parseRelPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelPath
-parseRelPath (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ relpathT
-    False → case last t of
-              '/' → RelD ⊳ parseRelDir  t
-              _   → RelF ⊳ parseRelFile t
-
-parseRelPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelPath
-parseRelPath' = parseRelPath
-
-__parseRelPath__ ∷ Printable τ ⇒ τ → RelPath
-__parseRelPath__ = either __ERROR'__ id ∘ parseRelPath'
-
-__parseRelPath'__ ∷ String → RelPath
-__parseRelPath'__ = __parseRelPath__
-
-parseRelPathTests ∷ TestTree
-parseRelPathTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseRelPath' t
-   in testGroup "parseRelPath"
-                [ success [reldir|./|]         _RelDir "./"
-                , success [reldir|etc/|]       _RelDir "etc/"
-                , success [relfile|etc/group|] _RelFile "etc/group"
-                ]
+fileLikeTests ∷ TestTree
+fileLikeTests =
+  testGroup "FileLike" [ fileLikeFileTests, fileLikeDirTests
+                       , fileLikeAddExtTests, fileLikeSplitExtTests
+                       , fileLikeExtGetterTests, fileLikeExtSetterTests
+                       , fileLikeExtAdjusterTests
+                       ]
 
 ------------------------------------------------------------
 
@@ -514,65 +451,6 @@ parseFileTests =
 
 ------------------------------------------------------------
 
-data FPath = FAbsD AbsDir | FAbsF AbsFile | FRelD RelDir | FRelF RelFile
-  deriving (Eq, Show)
-
-instance AsAbsDir FPath where
-  _AbsDir ∷ Prism' FPath AbsDir
-  _AbsDir = prism' FAbsD (\ case (FAbsD d) → Just d; _ → Nothing)
-
-instance AsAbsFile FPath where
-  _AbsFile ∷ Prism' FPath AbsFile
-  _AbsFile = prism' FAbsF (\ case (FAbsF f) → Just f; _ → Nothing)
-
-instance AsNonRootAbsDir FPath where
-  _NonRootAbsDir ∷ Prism' FPath NonRootAbsDir
-  _NonRootAbsDir = prism' (FAbsD ∘ toAbsDir)
-                          (\ case (FAbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
-
-instance AsRelDir FPath where
-  _RelDir ∷ Prism' FPath RelDir
-  _RelDir = prism' FRelD (\ case (FRelD d) → Just d; _ → Nothing)
-
-instance AsRelFile FPath where
-  _RelFile ∷ Prism' FPath RelFile
-  _RelFile = prism' FRelF (\ case (FRelF f) → Just f; _ → Nothing)
-
-------------------------------------------------------------
-
-fpathT ∷ TypeRep
-fpathT = typeRep (Proxy ∷ Proxy FPath)
-
-parseFPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η FPath
-parseFPath (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ fpathT
-    False → case (head t, last t) of
-              ('/','/') → FAbsD ⊳ parseAbsDir  t
-              ('/',_  ) → FAbsF ⊳ parseAbsFile t
-              (_  ,'/') → FRelD ⊳ parseRelDir  t
-              (_  ,_  ) → FRelF ⊳ parseRelFile t
-
-parseFPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η FPath
-parseFPath' = parseFPath
-
-__parseFPath__ ∷ Printable τ ⇒ τ → FPath
-__parseFPath__ = either __ERROR'__ id ∘ parseFPath'
-
-__parseFPath'__ ∷ String → FPath
-__parseFPath'__ = __parseFPath__
-
-parseFPathTests ∷ TestTree
-parseFPathTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseFPath' t
-   in testGroup "parseFPath"
-                [ success [absdir|/|]      _AbsDir  "/"
-                , success [absdir|/etc/|]  _AbsDir  "/etc/"
-                , success [absfile|/quux|] _AbsFile "/quux"
-                , success [reldir|foo/|]   _RelDir  "foo/"
-                , success [relfile|bar|]   _RelFile "bar"
-                ]
-
 ------------------------------------------------------------
 
 {- | type-level conversion to absolute version of a type; no-op on
@@ -599,28 +477,7 @@ instance HasAbsify AbsDir where
 
 ------------------------------------------------------------
 
-class AppendableFPath γ where
-  (⫻) ∷ DirType γ → RelType γ → γ
-
-instance AppendableFPath AbsDir where
-  d ⫻ f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
-
-instance AppendableFPath AbsFile where
-  d ⫻ f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
-
-instance AppendableFPath RelDir where
-  d ⫻ f = (d ⊣ seq ⊕ f ⊣ seq) ⊣ re seq
-
-instance AppendableFPath RelFile where
-  d ⫻ f = (d ⊣ seq ⪡ f ⊣ seqNE) ⊣ re seqNE
-
--- | non-unicode synonym of `(⫻)`
-(</>) ∷ AppendableFPath γ ⇒ DirType γ → RelType γ → γ
-(</>) = (⫻)
-
-------------------------------------------------------------
-
-class HasRelType π ⇒ Strippable π where
+class (DirTypeC π, RelTypeC π) ⇒ Strippable π where
   {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
        absolute (file|directory), then strip off that prefix to leave a relative
        (file|directory).  Note that a file will always keep its filename; but a
@@ -666,33 +523,8 @@ instance Strippable RelDir where
 
 ------------------------------------------------------------
 
-{-
-class Show π ⇒ MyPath π where
-  -- | convert to a File; / goes to Nothing
-  toFile      ∷ π → Maybe (Path (AbsOrRel π) File)
-
-  toFile_     ∷ π → Path (AbsOrRel π) File
-  toFile_ = _ASSERT' ∘ toFile
-
--}
-
-------------------------------------------------------------
-
-{-
-
--- | current working directory
-getCwd ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ) ⇒ μ AbsDir
-getCwd = (asIOError getWorkingDirectory) >>= parseAbsDir ∘ toText
-
-getCwd' ∷ (MonadIO μ, MonadError IOPathError μ) ⇒ μ AbsDir
-getCwd' = getCwd
-
-getCwd_ ∷ MonadIO μ ⇒ μ AbsDir
-getCwd_ = eitherIOThrowT getCwd'
-
--}
-
-----------------------------------------
+-- parseAsAbsDir - parse a path as an AbsDir; if it's not relative, parse it relative to here; if it lacks a trailing '/', add one.
+-- fns for Optparse
 
 {-
 
@@ -923,9 +755,20 @@ parent = lens getParent_ (flip setParent)
 --------------------------------------------------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath" [ parseAbsPathTests, parseRelPathTests
-                          , parseDirTests, parseFileTests, parseFPathTests
-                          , fileishTests
+tests = testGroup "FPath" [ parseDirTests, parseFileTests
+                          , fileLikeTests
                           ]
+
+--------------------
+
+_test ∷ IO ()
+_test = doTest tests
+
+_tests ∷ String → IO ()
+_tests = doTestS tests
+
+_testr ∷ String → ℕ → IO ()
+_testr = doTestR tests
+
 
 -- that's all, folks! ----------------------------------------------------------

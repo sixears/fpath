@@ -14,7 +14,8 @@
  -}
 module FPath.PathComponent
   ( PathComponent
-  , addExt, ext, parsePathC, pathComponent, pc, splitExt, toLower, toUpper
+  , addExt, ext, parsePathC, pathComponent, pc, splitExt, stub, toLower, toUpper
+  , updateExt
 
   , tests
   )
@@ -35,8 +36,9 @@ import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Monoid          ( mconcat )
 import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
-import Data.Tuple           ( snd )
+import Data.Tuple           ( fst, snd )
 import GHC.Generics         ( Generic )
+import System.IO            ( IO )
 import Text.Show            ( Show )
 
 -- base-unicode-symbols ----------------
@@ -70,6 +72,8 @@ import Control.Lens.Lens  ( Lens', lens )
 
 import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
+import Data.MoreUnicode.Natural      ( ℕ )
+import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -89,7 +93,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
--- import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( testCase )
 
 -- validity ----------------------------
 
@@ -101,11 +105,15 @@ import Data.Validity  ( Validity( validate ), declare )
 
 import qualified  FPath.PathCTypes.String  as  PathCTypes
 
+import FPath.DirType            ( DirTypeC( DirType ) )
 import FPath.Error.FPathComponentError
-           ( AsFPathComponentError, FPathComponentError
-           , __FPathCEmptyE__, __FPathCIllegalE__, __FPathCIllegalCharE__ )
+                                ( AsFPathComponentError, FPathComponentError
+                                , __FPathCEmptyE__, __FPathCIllegalE__
+                                , __FPathCIllegalCharE__
+                                )
 import FPath.PathCTypes.String  ( PathCChar, PathCInner, pathCChar
                                 , to_inner, to_print, to_string )
+import FPath.T.Common           ( doTest, doTestR, doTestS )
 import FPath.Util               ( QuasiQuoter
                                 , __ERROR'__, mkQuasiQuoterExp, mkVisS )
 
@@ -146,6 +154,10 @@ instance Textual PathComponent where
                   ∤ (jjoin ⊳ char '.' ⊵ parseNoDotsNorBads ⊵ many parseChars)
                   
      in PathComponent ∘ to_inner ⊳ matches
+
+instance DirTypeC PathComponent where
+  -- needed for `FileLike`
+  type DirType PathComponent = ()
 
 instance Arbitrary PathComponent where
   arbitrary = genValid
@@ -235,22 +247,33 @@ infixr 6 ⊙ -- same as for ⊕
 (⊙) ∷ PathComponent → PathComponent → PathComponent
 (⊙) = addExt
 
-splitExt ∷ PathComponent → Maybe (PathComponent, PathComponent)
-splitExt (PathComponent xs) =
+splitExt ∷ PathComponent → (PathComponent, Maybe PathComponent)
+splitExt pc@(PathComponent xs) =
   case break (≡ '.') (reverse xs) of
-    (_,"")    → Nothing
-    ("",_)    → Nothing
-    (sfx,pfx) → Just (PathComponent $ init (reverse pfx),
-                      PathComponent $ reverse sfx)
+    (_,"")    → (pc, Nothing)
+    ("",_)    → (pc, Nothing)
+    (sfx,pfx) → (PathComponent $ init (reverse pfx),
+                 Just $ PathComponent (reverse sfx))
 
-ext ∷ Lens' PathComponent (Maybe PathComponent)
-ext = lens (snd ⩺ splitExt) setter
-      where setter ∷ PathComponent → Maybe PathComponent → PathComponent
-            setter p e = case (splitExt p,e) of
-                              (Just (pfx,_),Just sfx) → pfx ⊙ sfx
-                              (Just (pfx,_),Nothing ) → pfx
-                              (Nothing     ,Just sfx) → p ⊙ sfx
-                              (Nothing     ,Nothing ) → p
+stub ∷ PathComponent → PathComponent
+stub = fst ∘ splitExt
+
+stubTests ∷ TestTree
+stubTests =
+  let foo    = PathComponent "foo"
+      fooBar = PathComponent "foo.bar"
+      fooDot = PathComponent "foo."
+   in testGroup "stub" [ testCase "foo.bar" $ foo    ≟ stub fooBar
+                       , testCase "foo"     $ foo    ≟ stub foo
+                       , testCase "foo."    $ fooDot ≟ stub fooDot
+                       ]
+
+ext ∷ PathComponent → Maybe PathComponent
+ext = snd ∘ splitExt
+
+updateExt ∷ (PathComponent → PathComponent) → PathComponent → PathComponent
+updateExt f (splitExt → (p,Just e)) = p ⊙ f e
+updateExt _ p@(splitExt → (_,Nothing)) = p
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
@@ -258,6 +281,19 @@ ext = lens (snd ⩺ splitExt) setter
 
 tests ∷ TestTree
 tests =
-  testGroup "PathComponent" [ ]
+  testGroup "PathComponent" [ stubTests ]
+                
+--------------------
+
+_test ∷ IO ()
+_test = doTest tests
+
+--------------------
+
+_tests ∷ String → IO ()
+_tests = doTestS tests
+
+_testr ∷ String → ℕ → IO ()
+_testr = doTestR tests
 
 -- that's all, folks! ----------------------------------------------------------

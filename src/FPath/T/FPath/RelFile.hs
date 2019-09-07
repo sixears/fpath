@@ -93,6 +93,8 @@ import Data.Text  ( Text )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import qualified  FPath.RelFile
+
 import FPath.AsFilePath        ( filepath )
 import FPath.Error.FPathError  ( FPathError( FPathAbsE, FPathComponentE
                                            , FPathEmptyE, FPathNotAFileE )
@@ -103,10 +105,9 @@ import FPath.Error.FPathComponentError
                                                     , FPathComponentIllegalE
                                                     )
                                )
-import FPath.Fileish           ( Fileish( (⊙)
-                                        , addExt, dir, ext, file, splitExt ) )
-import FPath.FileType          ( Filename )
-import FPath.HasParent         ( parent, parentMay )
+import FPath.FileLike          ( FileLike( (⊙), addExt, dir, ext, file, splitExt
+                                         , updateExt ) )
+import FPath.Parent            ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
 import FPath.RelFile           ( RelFile, parseRelFile', relfile )
@@ -422,7 +423,7 @@ relFileMonoFoldableTests =
 
 relFileFileTests ∷ TestTree
 relFileFileTests =
-  let (~~) ∷ RelFile → Filename → RelFile
+  let (~~) ∷ RelFile → PathComponent → RelFile
       f ~~ d' = f & file ⊢ d'
    in testGroup "file"
                 [ testCase "rf1"       $ [pc|r.e|]   ≟ rf1 ⊣ file
@@ -472,61 +473,60 @@ relFileSplitExtTests ∷ TestTree
 relFileSplitExtTests =
   testGroup "splitExt"
     [ testCase "foo/bar" $
-        Nothing ≟ splitExt [relfile|foo/bar|]
+        ([relfile|foo/bar|], Nothing) ≟ splitExt [relfile|foo/bar|]
     , testCase "r/p.x"   $
-        Just ([relfile|r/p|],[pc|x|]) ≟ splitExt rf2
+        ([relfile|r/p|], Just [pc|x|]) ≟ splitExt rf2
     , testCase "f.x/g.y" $
-        Just ([relfile|f.x/g|], [pc|y|]) ≟ splitExt [relfile|f.x/g.y|]
+        ([relfile|f.x/g|], Just [pc|y|]) ≟ splitExt [relfile|f.x/g.y|]
     , testCase "f.x/g"   $
-        Nothing ≟ splitExt  [relfile|f.x/g|]
+        ([relfile|f.x/g|], Nothing) ≟ splitExt  [relfile|f.x/g|]
     ]
 
 relFileExtGetterTests ∷ TestTree
 relFileExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] ≟ [relfile|foo.z/bar.x|]   ⊣ ext
+                         Just [pc|x|] ≟ ext [relfile|foo.z/bar.x|]
                      , testCase "foo/bar" $
-                         Nothing ≟ [relfile|foo/bar|]   ⊣ ext
+                         Nothing ≟ ext [relfile|foo/bar|]
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] ≟ [relfile|g/f.b.x.baz|] ⊣ ext
+                         Just [pc|baz|] ≟ ext [relfile|g/f.b.x.baz|]
                      ]
 
 relFileExtSetterTests ∷ TestTree
 relFileExtSetterTests =
   testGroup "setter"
     [ testCase "foo.bar -> foo.baz" $
-          [relfile|p/foo.baz|] ≟ [relfile|p/foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "p/foo.x -> ''"   $
-          [relfile|p/foo|]     ≟ [relfile|p/foo.x|] ⅋ ext ⊢ Nothing
-    , testCase "foo/bar.bar -> foo.x/bar.baz" $
-          [relfile|foo.x/bar.baz|] ≟ [relfile|foo.x/bar|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "foo -> foo.baz" $
-          [relfile|foo.baz|] ≟ [relfile|foo|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "g/foo. -> g/foo..baz" $
-          [relfile|g/foo..baz|] ≟ [relfile|g/foo.|] ⅋ ext ⊢ Just [pc|baz|]
+            [relfile|p/foo.baz|]
+          ≟ updateExt (const [pc|baz|]) [relfile|p/foo.bar|]
+    , testCase "foo.x/bar -> foo.x/bar" $
+            [relfile|foo.x/bar|]
+          ≟ updateExt (const [pc|baz|]) [relfile|foo.x/bar|]
+    , testCase "foo -> foo" $
+          [relfile|foo|] ≟ updateExt (const [pc|baz|]) [relfile|foo|]
+    , testCase "g/foo. -> g/foo." $
+          [relfile|g/foo.|] ≟ updateExt (const [pc|baz|]) [relfile|g/foo.|]
     ]
 
 relFileExtAdjusterTests ∷ TestTree
 relFileExtAdjusterTests =
   testGroup "adjuster"
     [ testCase ".baz -> .BAR" $
-        [relfile|g/fo.BAZ|] ≟ ([relfile|g/fo.baz|] ⅋ ext ⊧ fmap toUpper)
+        [relfile|g/fo.BAZ|] ≟ updateExt toUpper [relfile|g/fo.baz|]
     , testCase ".x.b -> .x.B" $
-        [relfile|fo.x.B|] ≟ [relfile|fo.x.b|] ⅋ ext ⊧ fmap toUpper
+        [relfile|fo.x.B|] ≟ updateExt toUpper [relfile|fo.x.b|]
     , testCase ".x -> .xy"    $
-        [relfile|fo.xy|]  ≟ [relfile|fo.x|]   ⅋ ext ⊧ fmap (◇ [pc|y|])
+        [relfile|fo.xy|]  ≟ updateExt (◇ [pc|y|]) [relfile|fo.x|]
     , testCase ".    -> ."    $
-        [relfile|fo.|]    ≟ ([relfile|fo.|]   & ext ⊧ fmap (◇ [pc|y|]))
-
+        [relfile|fo.|]    ≟ updateExt (◇ [pc|y|]) [relfile|fo.|]
     ]
 
-relFileFileishTests ∷ TestTree
-relFileFileishTests =
-  testGroup "Fileish" [ relFileFileTests, relFileDirTests
-                      , relFileAddExtTests, relFileSplitExtTests
-                      , relFileExtGetterTests, relFileExtSetterTests
-                      , relFileExtAdjusterTests
-                      ]
+relFileFileLikeTests ∷ TestTree
+relFileFileLikeTests =
+  testGroup "FileLike" [ relFileFileTests, relFileDirTests
+                       , relFileAddExtTests, relFileSplitExtTests
+                       , relFileExtGetterTests, relFileExtSetterTests
+                       , relFileExtAdjusterTests
+                       ]
 
 tests ∷ TestTree
 tests =
@@ -538,7 +538,8 @@ tests =
                       , relFileIsMonoSeqNETests
                       , relFileParentGroupTests
                       , relFileFilepathTests
-                      , relFileFileishTests
+                      , relFileFileLikeTests
+                      , FPath.RelFile.tests
                       ]
 
 ----------------------------------------

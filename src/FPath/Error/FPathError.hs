@@ -8,6 +8,7 @@
 module FPath.Error.FPathError
   ( AsFPathError( _FPathError ), FPathError(..)
   , AsFPathNotAPrefixError( _FPathNotAPrefixError ), FPathNotAPrefixError(..)
+  , FPathIOError
   , __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__, __FPathAbsE__
   , __FPathNotADirE__, __FPathNotAFileE__, __FPathNotAPrefixError__
   , __FPathRootDirE__
@@ -17,13 +18,14 @@ where
 
 -- base --------------------------------
 
-import Control.Monad  ( return )
-import Data.Either    ( Either, either )
-import Data.Eq        ( Eq )
-import Data.Function  ( ($), id )
-import Data.Maybe     ( Maybe( Just, Nothing ) )
-import Data.Typeable  ( TypeRep )
-import Text.Show      ( Show )
+import Control.Exception  ( Exception )
+import Control.Monad      ( return )
+import Data.Either        ( Either, either )
+import Data.Eq            ( Eq )
+import Data.Function      ( ($), id )
+import Data.Maybe         ( Maybe( Just, Nothing ) )
+import Data.Typeable      ( TypeRep )
+import Text.Show          ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
@@ -37,6 +39,10 @@ import Data.Textual  ( Printable( print ) )
 
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
+
+-- monaderror-io -----------------------
+
+import MonadError.IO.Error  ( AsIOError( _IOError ), IOError )
 
 -- mono-traversable --------------------
 
@@ -75,6 +81,8 @@ class TMap α where
 data FPathNotAPrefixError = FPathNotAPrefixError TypeRep Text Text
   deriving (Eq, Show)
 
+instance Exception FPathNotAPrefixError
+
 class AsFPathNotAPrefixError ε where
   _FPathNotAPrefixError ∷ Prism' ε FPathNotAPrefixError
 
@@ -108,6 +116,8 @@ data FPathError = FPathEmptyE       TypeRep
                 | FPathRootDirE     TypeRep
                 | FPathNotAPrefixE  FPathNotAPrefixError
   deriving (Eq, Show)
+
+instance Exception FPathError
 
 class AsFPathError ε where
   _FPathError ∷ Prism' ε FPathError
@@ -215,5 +225,37 @@ mapTypeRepE f = either (throwError ∘ (_FPathError #) ∘ omap f) return
 mapTextE ∷ (MonadError ε η, AsFPathError ε) ⇒
               (Text → Text) → Either FPathError α → η α
 mapTextE f = either (throwError ∘ (_FPathError #) ∘ tmap f) return
+
+------------------------------------------------------------
+
+data FPathIOError = FPIO_PATH_ERROR  FPathError
+                  | FPIO_IO_ERROR    IOError
+  deriving Eq
+
+instance Exception FPathIOError
+
+-- $( makePrisms ''FPathIOError )
+
+_FPIO_PATH_ERROR ∷ Prism' FPathIOError FPathError
+_FPIO_PATH_ERROR = prism' (\ e → FPIO_PATH_ERROR e)
+                          (\ case FPIO_PATH_ERROR e → Just e; _ → Nothing)
+
+_FPIO_IO_ERROR ∷ Prism' FPathIOError IOError
+_FPIO_IO_ERROR = prism' (\ e → FPIO_IO_ERROR e)
+                        (\ case FPIO_IO_ERROR e → Just e; _ → Nothing)
+
+instance Show FPathIOError where
+  show (FPIO_PATH_ERROR e) = show e
+  show (FPIO_IO_ERROR   e) = show e
+
+instance AsFPathError FPathIOError where
+  _FPathError = _FPIO_PATH_ERROR
+
+instance AsIOError FPathIOError where
+  _IOError = _FPIO_IO_ERROR
+
+instance Printable FPathIOError where
+  print (FPIO_PATH_ERROR e) = print e
+  print (FPIO_IO_ERROR   e) = print e
 
 -- that's all, folks! ----------------------------------------------------------

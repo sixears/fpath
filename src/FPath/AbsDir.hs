@@ -21,8 +21,11 @@ module FPath.AbsDir
   , nonRootAbsDir
   , root
 
-  , parseAbsDir , parseAbsDir' , __parseAbsDir__ , __parseAbsDir'__
-  , parseAbsDirN, parseAbsDirN', __parseAbsDirN__, __parseAbsDirN'__
+  , parseAbsDir  , parseAbsDir'  , __parseAbsDir__  , __parseAbsDir'__
+  , parseAbsDirP , parseAbsDirP'  , __parseAbsDirP__ -- , __parseAbsDirP'__
+  , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
+
+  , tests
   )
 where
 
@@ -32,21 +35,25 @@ import Prelude  ( error )
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
-import Control.Monad  ( mapM, return )
-import Data.Either    ( Either( Left, Right ), either )
-import Data.Eq        ( Eq )
-import Data.Foldable  ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
-import Data.Function  ( ($), id )
-import Data.Functor   ( fmap )
-import Data.Maybe     ( Maybe( Just, Nothing ), maybe )
-import Data.Monoid    ( Monoid )
-import Data.String    ( String )
-import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts       ( IsList( fromList, toList ), Item )
-import Text.Show      ( Show )
+import Control.Applicative  ( pure )
+import Control.Monad        ( mapM, return )
+import Data.Either          ( Either( Left, Right ), either )
+import Data.Eq              ( Eq )
+import Data.Foldable        ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
+import Data.Function        ( ($), (&), const, id )
+import Data.Functor         ( fmap )
+import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
+import Data.Maybe           ( Maybe( Just, Nothing ), maybe )
+import Data.Monoid          ( Monoid )
+import Data.String          ( String )
+import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Exts             ( IsList( fromList, toList ), Item )
+import System.IO            ( IO )
+import Text.Show            ( Show )
 
 -- base-unicode-symbols ----------------
 
+import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (∅), (⊕) )
 
@@ -64,7 +71,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Cons    ( unsnoc )
 import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( iso )
-import Control.Lens.Lens    ( lens )
+import Control.Lens.Lens    ( Lens, Lens', lens )
 import Control.Lens.Prism   ( Prism', prism' )
 
 -- mono-traversable --------------------
@@ -79,9 +86,13 @@ import Data.NonNull          ( fromNullable )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⋫) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
+import Data.MoreUnicode.Lens         ( (⊣), (⊢) )
 import Data.MoreUnicode.Monad        ( (≫) )
 import Data.MoreUnicode.Monoid       ( ф )
+import Data.MoreUnicode.Natural      ( ℕ )
+import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -100,7 +111,7 @@ import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
 import NonEmptyContainers.SeqConversions
                                     ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
                                     , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE     ( SeqNE, (⫸) )
+import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪭), pattern (:||>), (⫸), (⪪) )
 import NonEmptyContainers.SeqNEConversions
                                     ( FromMonoSeqNonEmpty( fromSeqNE )
                                     , IsMonoSeqNonEmpty( seqNE )
@@ -115,9 +126,17 @@ import Text.Parser.Combinators  ( endBy, endByNonEmpty )
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
+-- tasty -------------------------------
+
+import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-hunit -------------------------
+
+import Test.Tasty.HUnit  ( testCase )
+
 -- text --------------------------------
 
-import Data.Text  ( splitOn )
+import Data.Text  ( Text, last, empty, splitOn )
 
 -- text-printer ------------------------
 
@@ -128,16 +147,31 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.DirType           ( HasDirType( DirType ) )
+import FPath.Basename          ( Basename( basename, updateBasename ) )
+import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathComponentError
-                               ( FPathComponentError )
-import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathRootDirE )
-                               , __FPathComponentE__, __FPathEmptyE__
-                               , __FPathAbsE__, __FPathNonAbsE__
+                               ( FPathComponentError( FPathComponentEmptyE
+                                                    , FPathComponentIllegalCharE
+                                                    ) )
+import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathNotADirE
+                                                         , FPathComponentE
+                                                         , FPathEmptyE
+                                                         , FPathNonAbsE
+                                                         , FPathRootDirE
+                                                         )
+                               , __FPathComponentE__
+                               , __FPathEmptyE__
+                               , __FPathNonAbsE__
                                , __FPathNotADirE__
+                               , __FPathRootDirE__
+                               , mapTypeRepE
                                )
-import FPath.HasParent         ( HasParent( parent ),HasParentMay( parentMay ) )
-import FPath.PathComponent     ( PathComponent, parsePathC )
+import FPath.Parent            ( HasParent( parent ), HasParentMay( parentMay ) )
+import FPath.PathComponent     ( PathComponent, parsePathC, pc, stub )
+import FPath.RelDir            ( RelDir, reldir )
+import FPath.RelType           ( RelTypeC( RelType ) )
+import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.Util              ( QuasiQuoter
                                , __ERROR'__, mkQuasiQuoterExp )
 
@@ -147,15 +181,24 @@ import FPath.Util              ( QuasiQuoter
 -- a non-root dir is a path component appended to a (possibly-root) absolute
 -- directory
 newtype NonRootAbsDir = NonRootAbsDir (SeqNE PathComponent)
--- data NonRootAbsDir = NonRootAbsDir PathComponent AbsDir
   deriving (Eq, Show)
 
 type instance Element NonRootAbsDir = PathComponent
 
 --------------------
 
-instance HasDirType AbsDir where
+instance DirTypeC AbsDir where
   type DirType AbsDir = AbsDir
+
+--------------------
+
+instance RelTypeC AbsDir where
+  type RelType AbsDir = RelDir
+
+--------------------
+
+instance RelTypeC NonRootAbsDir where
+  type RelType NonRootAbsDir = RelDir
 
 --------------------
 
@@ -183,7 +226,7 @@ instance AsNonRootAbsDir AbsDir where
                                  AbsRootDir        → Nothing)
 --------------------
 
-instance HasDirType NonRootAbsDir where
+instance DirTypeC NonRootAbsDir where
   type DirType NonRootAbsDir = AbsDir
 
 --------------------
@@ -282,12 +325,7 @@ instance IsMonoSeqNonEmpty NonRootAbsDir where
 ----------------------------------------
 
 instance FromMonoSeq AbsDir where
-  fromSeq xs = {-
-               go (Seq.reverse $ xs)
-               where go Seq.Empty = AbsRootDir
-                     go (y :<| ys) = AbsNonRootDir (NonRootAbsDir y (go ys))
-               -}
-               case fromNullable xs of
+  fromSeq xs = case fromNullable xs of
                  Nothing → AbsRootDir
                  Just ps → fromSeqNE (toSeqNE ps)
 
@@ -376,7 +414,8 @@ instance HasParent NonRootAbsDir where
            where getParent ∷ NonRootAbsDir → AbsDir
                  getParent (SeqNE.unsnoc ∘ toSeqNE → (ps,_)) = fromSeq ps
                  setParent ∷ NonRootAbsDir → AbsDir → NonRootAbsDir
-                 setParent (SeqNE.unsnoc ∘ toSeqNE → (_, p)) d = fromSeqNE (toSeq d ⫸ p)
+                 setParent (SeqNE.unsnoc ∘ toSeqNE → (_, p)) d =
+                   fromSeqNE (toSeq d ⫸ p)
 
 ----------------------------------------
 
@@ -445,16 +484,101 @@ __parseAbsDir__ = either __ERROR'__ id ∘ parseAbsDir'
 __parseAbsDir'__ ∷ String → AbsDir
 __parseAbsDir'__ = __parseAbsDir__
 
+--------------------
+                            
+parseAbsDirTests ∷ TestTree
+parseAbsDirTests =
+  let pamNUL      = "/etc/pam\0/"
+      pamF        = "/etc/pam"
+      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+                     in FPathComponentE fpcice absdirT pamNUL
+      emptyCompCE = FPathComponentE FPathComponentEmptyE absdirT "/etc//pam.d/"
+      _parseAbsDir ∷ MonadError FPathError η ⇒ Text → η AbsDir
+      _parseAbsDir = parseAbsDir'
+   in testGroup "parseAbsDir"
+                [ testCase "root"  $ Right root   ≟ _parseAbsDir "/"
+                , testCase "etc"   $ Right etc    ≟ _parseAbsDir "/etc/"
+                , testCase "pam.d" $ Right pamd   ≟ _parseAbsDir "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgm    ≟ _parseAbsDir "/w/g/M/"
+                , testCase "no trailing /" $
+                      Left (FPathNotADirE absdirT pamF) ≟ _parseAbsDir pamF
+                , testCase "empty" $
+                      Left (FPathEmptyE absdirT)  ≟ _parseAbsDir ""
+                , testCase "no leading /" $
+                      Left (FPathNonAbsE absdirT "etc/") ≟ _parseAbsDir "etc/"
+                , testCase "bad component" $
+                      Left illegalCE ≟ _parseAbsDir pamNUL
+                , testCase "empty component" $
+                      Left emptyCompCE ≟ _parseAbsDir "/etc//pam.d/"
+                ]
+
+----------------------------------------
+
+{- | Like `parseAbsDir`, but non-empty input that doesn't end in a '/' character
+     has a '/' appended rather than failing as a non-file (thus, "permissive
+     `parseAbsDir`" -}
+parseAbsDirP ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsDir
+parseAbsDirP (toText → t) =
+  let safeLast "" = Nothing
+      safeLast s  = Just $ last s
+   in case safeLast t of
+        Nothing  → parseAbsDir empty
+        Just '/' → parseAbsDir t
+        _        → parseAbsDir (t ⊕ "/")
+                              
+parseAbsDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsDir
+parseAbsDirP' = parseAbsDirP
+
+__parseAbsDirP__ ∷ Printable τ ⇒ τ → AbsDir
+__parseAbsDirP__ = either __ERROR'__ id ∘ parseAbsDirP'
+
+__parseAbsDirP'__ ∷ String → AbsDir
+__parseAbsDirP'__ = __parseAbsDirP__
+
+--------------------
+
+parseAbsDirPTests ∷ TestTree
+parseAbsDirPTests =
+  let pamNUL      = "/etc/pam\0/"
+      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+                     in FPathComponentE fpcice absdirT pamNUL
+      emptyCompCE = FPathComponentE FPathComponentEmptyE absdirT "/etc//pam.d/"
+      _parseAbsDirP ∷ MonadError FPathError η ⇒ Text → η AbsDir
+      _parseAbsDirP = parseAbsDirP'
+   in testGroup "parseAbsDirP"
+                [ testCase "root"  $ Right root   ≟ _parseAbsDirP "/"
+                , testCase "etc"   $ Right etc    ≟ _parseAbsDirP "/etc/"
+                , testCase "etc"   $ Right etc    ≟ _parseAbsDirP "/etc"
+                , testCase "pam.d" $ Right pamd   ≟ _parseAbsDirP "/etc/pam.d"
+                , testCase "pam.d" $ Right pamd   ≟ _parseAbsDirP "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgm    ≟ _parseAbsDirP "/w/g/M/"
+                , testCase "wgm"   $ Right wgm    ≟ _parseAbsDirP "/w/g/M"
+                , testCase "empty" $
+                      Left (FPathEmptyE absdirT)  ≟ _parseAbsDirP ""
+                , testCase "no leading /" $
+                      Left (FPathNonAbsE absdirT "etc/") ≟ _parseAbsDirP "etc/"
+                , testCase "bad component" $
+                      Left illegalCE ≟ _parseAbsDirP pamNUL
+                , testCase "empty component" $
+                      Left emptyCompCE ≟ _parseAbsDirP "/etc//pam.d/"
+                ]
+
+----------------------------------------
+
+{- | try to parse a `Textual` as an non-root absolute directory -}
 parseAbsDirN ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒
                τ → η NonRootAbsDir
 parseAbsDirN t = do
---  d ← parseAbsDir t
-  parseAbsDir t ≫ \ case
-    AbsRootDir → __FPathAbsE__ nrabsdirT (toText t)
+  mapTypeRepE (const nrabsdirT) $ parseAbsDir t ≫ \ case
+    AbsRootDir → __FPathRootDirE__ nrabsdirT
     AbsNonRootDir d' → return d'
+
+--------------------
 
 parseAbsDirN' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η NonRootAbsDir
 parseAbsDirN' = parseAbsDirN
+
+--------------------
 
 __parseAbsDirN__ ∷ String → NonRootAbsDir
 __parseAbsDirN__ s = case parseAbsDir' s of
@@ -464,6 +588,95 @@ __parseAbsDirN__ s = case parseAbsDir' s of
 
 __parseAbsDirN'__ ∷ String → NonRootAbsDir
 __parseAbsDirN'__ = __parseAbsDirN__
+
+--------------------
+
+parseAbsDirNTests ∷ TestTree
+parseAbsDirNTests =
+  let pamNUL      = "/etc/pam\0/"
+      pamF        = "/etc/pam"
+      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+                     in FPathComponentE fpcice nrabsdirT pamNUL
+      emptyCompCE = FPathComponentE FPathComponentEmptyE nrabsdirT "/etc//pam/"
+      parseAbsDirN_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
+      parseAbsDirN_ = parseAbsDirN'
+   in testGroup "parseAbsDirN"
+                [ testCase "etc"   $ Right etcN    ≟ parseAbsDirN_ "/etc/"
+                , testCase "pam.d" $ Right pamdN   ≟ parseAbsDirN_ "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgmN    ≟ parseAbsDirN_ "/w/g/M/"
+                , testCase "root"  $
+                      Left (FPathRootDirE nrabsdirT) ≟ parseAbsDirN_ "/"
+                , testCase "no trailing /" $
+                      Left (FPathNotADirE nrabsdirT pamF) ≟ parseAbsDirN_ pamF
+                , testCase "empty" $
+                      Left (FPathEmptyE nrabsdirT)  ≟ parseAbsDirN_ ""
+                , testCase "no leading /" $
+                      Left (FPathNonAbsE nrabsdirT "etc/") ≟ parseAbsDirN_ "etc/"
+                , testCase "bad component" $
+                      Left illegalCE ≟ parseAbsDirN_ pamNUL
+                , testCase "empty component" $
+                      Left emptyCompCE ≟ parseAbsDirN_ "/etc//pam/"
+                ]
+
+----------------------------------------
+
+{- | Like `parseAbsDirN`, but non-empty input that doesn't end in a '/'
+      character has a '/' appended rather than failing as a non-file (thus,
+      "permissive `parseAbsDirN`" -}
+parseAbsDirNP ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒
+               τ → η NonRootAbsDir
+parseAbsDirNP (toText → t) = do
+  let safeLast "" = Nothing
+      safeLast s  = Just $ last s
+   in case safeLast t of
+        Nothing  → parseAbsDirN empty
+        Just '/' → parseAbsDirN t
+        _        → parseAbsDirN (t ⊕ "/")
+
+--------------------
+
+parseAbsDirNP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η NonRootAbsDir
+parseAbsDirNP' = parseAbsDirNP
+
+--------------------
+
+__parseAbsDirNP__ ∷ String → NonRootAbsDir
+__parseAbsDirNP__ s = case parseAbsDir' s of
+                       Left e → __ERROR'__ e
+                       Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
+                       Right (AbsNonRootDir nr) → nr
+
+__parseAbsDirNP'__ ∷ String → NonRootAbsDir
+__parseAbsDirNP'__ = __parseAbsDirNP__
+
+--------------------
+
+parseAbsDirNPTests ∷ TestTree
+parseAbsDirNPTests =
+  let pamNUL      = "/etc/pam\0/"
+      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+                     in FPathComponentE fpcice nrabsdirT pamNUL
+      emptyCompCE = FPathComponentE FPathComponentEmptyE nrabsdirT "/etc//pam/"
+      parseAbsDirNP_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
+      parseAbsDirNP_ = parseAbsDirNP'
+   in testGroup "parseAbsDirNP"
+                [ testCase "etc"   $ Right etcN  ≟ parseAbsDirNP_ "/etc"
+                , testCase "pam.d" $ Right pamdN ≟ parseAbsDirNP_ "/etc/pam.d"
+                , testCase "wgm"   $ Right wgmN  ≟ parseAbsDirNP_ "/w/g/M"
+                , testCase "root"  $
+                      Left (FPathRootDirE nrabsdirT) ≟ parseAbsDirNP_ "/"
+                , testCase "empty" $
+                      Left (FPathEmptyE nrabsdirT)  ≟ parseAbsDirNP_ ""
+                , testCase "no leading /" $
+                        Left (FPathNonAbsE nrabsdirT "etc/")
+                      ≟ parseAbsDirNP_ "etc/"
+                , testCase "bad component" $
+                      Left illegalCE ≟ parseAbsDirNP_ pamNUL
+                , testCase "empty component" $
+                      Left emptyCompCE ≟ parseAbsDirNP_ "/etc//pam/"
+                ]
+
+----------------------------------------
 
 {- | quasi-quoter for AbsDir -}
 absdir ∷ QuasiQuoter
@@ -475,10 +688,169 @@ absdirN ∷ QuasiQuoter
 absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parseAbsDirN__ s ⟧)
 
 ----------------------------------------
+  
+instance HasDirname AbsDir where
+  dirname ∷ Lens' AbsDir AbsDir
+  dirname = lens (\ case AbsRootDir → AbsRootDir; AbsNonRootDir d → d ⊣ dirname)
+                 (\ o d → case o of
+                            AbsRootDir → d
+                            AbsNonRootDir n → AbsNonRootDir $ n & parent ⊢ d
+                 )
+
+absDirDirnameTests ∷ TestTree
+absDirDirnameTests =
+  testGroup "AbsDir"
+            [ testCase "root"  $ root ≟ root ⊣ dirname
+            , testCase "pam.d" $ etc  ≟ pamd ⊣ dirname
+
+            , testCase "root  -> etc"     $ etc ≟ root ⅋ dirname ⊢ etc
+            , testCase "etc   -> etc"     $ etc ≟ etc ⅋ dirname ⊢ root
+            , testCase "pam.d -> pam.d"   $ pamd ≟ pamd ⅋ dirname ⊢ etc
+            , testCase "pam.d -> /pam.d"  $
+                fromList [[pc|pam.d|]] ≟ pamd ⅋ dirname ⊢ root
+            , testCase "/pam.d -> pam.d"  $
+                pamd ≟ fromList [[pc|pam.d|]] ⅋ dirname ⊢ etc
+            ]
+
+--------------------
+
+instance HasDirname NonRootAbsDir where
+  dirname ∷ Lens' NonRootAbsDir AbsDir
+  dirname = parent
+
+nonRootAbsDirDirnameTests ∷ TestTree
+nonRootAbsDirDirnameTests =
+  testGroup "NonRootAbsDir"
+            [ testCase "etcN"  $ root ≟ etcN ⊣ dirname
+            , testCase "wgmN"  $ fromList [[pc|w|],[pc|g|]] ≟ wgmN ⊣ dirname
+
+            , testCase "etc   -> etc"     $ etcN ≟ etcN ⅋ dirname ⊢ root
+            , testCase "pam.d -> pam.d"   $ pamdN ≟ pamdN ⅋ dirname ⊢ etc
+            , testCase "pam.d -> /pam.d"  $
+                fromNonEmpty (pure [pc|pam.d|]) ≟ pamdN ⅋ dirname ⊢ root
+            , testCase "/pam.d -> pam.d"  $
+                pamdN ≟ fromNonEmpty (pure [pc|pam.d|]) ⅋ dirname ⊢ etc
+            ]
+
+dirnameTests ∷ TestTree
+dirnameTests = testGroup "dirname" [ absDirDirnameTests
+                                   , nonRootAbsDirDirnameTests ]
+
+----------------------------------------
+  
+instance Basename AbsDir where
+  basename ∷ AbsDir → RelDir
+  basename AbsRootDir = fromList []
+  basename (AbsNonRootDir n) = basename n
+
+  updateBasename ∷ (PathComponent → PathComponent) → AbsDir → AbsDir
+  updateBasename _ AbsRootDir = AbsRootDir
+  updateBasename f (AbsNonRootDir n) = AbsNonRootDir (updateBasename f n)
+
+absDirBasenameTests ∷ TestTree
+absDirBasenameTests =
+  testGroup "AbsDir"
+            [ testCase "root"  $ [reldir|./|] ≟ basename root
+            , testCase "pam.d" $ [reldir|pam.d/|]  ≟ basename pamd
+
+            , testCase "root  -> root"    $
+                root ≟ updateBasename (const [pc|etc|]) root
+            , testCase "etc   -> etc"     $
+                etc ≟ updateBasename (const [pc|etc|]) etc
+            , testCase "pam.d -> pam.d"   $
+                pamd ≟ updateBasename (const [pc|pam.d|]) pamd
+            , testCase "pam.d -> pam.d"   $
+                pamd ≟ updateBasename (const [pc|pam.d|])
+                                      (fromList [[pc|etc|], [pc|pam|]])
+            ]
+
+--------------------
+
+instance Basename NonRootAbsDir where
+  basename ∷ NonRootAbsDir → RelDir
+  basename (NonRootAbsDir (_ :⫸ p)) = fromList [p]
+
+  updateBasename ∷ (PathComponent → PathComponent) → NonRootAbsDir
+                 → NonRootAbsDir
+  updateBasename f (NonRootAbsDir (ps :⫸ p)) = NonRootAbsDir (ps :⫸ f p)
+
+nonRootAbsDirBasenameTests ∷ TestTree
+nonRootAbsDirBasenameTests =
+  let pam = fromNonEmpty $ [pc|etc|] :| [[pc|pam|]]
+   in testGroup "NonRootAbsDir"
+                [ testCase "etcN"  $ [reldir|etc/|] ≟ basename etcN
+                , testCase "wgmN"  $ [reldir|M/|]   ≟ basename wgmN
+
+                , testCase "etc   -> etc"   $
+                    etcN  ≟ updateBasename (const [pc|etc|]) etcN
+                , testCase "pam.d -> pam" $ pam ≟ updateBasename stub pamdN
+                , testCase "/pam.d -> etc"  $
+                    etcN ≟ updateBasename
+                             (\ p → if p ≡ [pc|pam.d|] then [pc|etc|] else p)
+                             (fromNonEmpty $ pure [pc|pam.d|])
+                ]
+
+--------------------
+
+basenameTests ∷ TestTree
+basenameTests = testGroup "basename" [ absDirBasenameTests
+                                     , nonRootAbsDirBasenameTests ]
+
+----------------------------------------
 --             constants              --
 ----------------------------------------
 
 root ∷ AbsDir
 root = AbsRootDir
+
+--------------------------------------------------------------------------------
+--                                   tests                                    --
+--------------------------------------------------------------------------------
+
+-- test data ---------------------------
+
+etc ∷ AbsDir
+etc = fromSeq $ pure [pc|etc|]
+
+pamd ∷ AbsDir
+pamd = fromSeq $ [pc|etc|] ⪪ pure [pc|pam.d|]
+
+wgm ∷ AbsDir
+wgm = fromSeq $ [pc|w|] ⪪ [pc|g|] ⪪ pure [pc|M|]
+
+etcN ∷ NonRootAbsDir
+etcN = fromSeqNE $ pure [pc|etc|]
+
+pamdN ∷ NonRootAbsDir
+pamdN = fromSeqNE $ [pc|etc|] ⪪ pure [pc|pam.d|]
+
+wgmN ∷ NonRootAbsDir
+wgmN = fromSeqNE $ [pc|w|] ⪪ [pc|g|] ⪪ pure [pc|M|]
+
+----------------------------------------
+
+constructionTests ∷ TestTree
+constructionTests = testGroup "construction" [ parseAbsDirTests
+                                             , parseAbsDirNTests
+                                             , parseAbsDirPTests
+                                             , parseAbsDirNPTests
+                                             ]
+
+tests ∷ TestTree
+tests = testGroup "FPath.AbsDir" [ constructionTests, dirnameTests
+                                 , basenameTests ]
+                
+--------------------
+
+_test ∷ IO ()
+_test = doTest tests
+
+--------------------
+
+_tests ∷ String → IO ()
+_tests = doTestS tests
+
+_testr ∷ String → ℕ → IO ()
+_testr = doTestR tests
 
 -- that's all, folks! ----------------------------------------------------------

@@ -3,32 +3,33 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 
-module FPath.FileType
-  ( Filename, HasFileType( FileType ), IsFile )
+{- | Classes for methods common to most all FPath types , such as `dirname` -}
+
+module FPath.Dirname
+  ( HasDirname( dirname ) )
 where
 
--- mono-traversable --------------------
+-- base --------------------------------
 
-import Data.MonoTraversable  ( Element )
+import Data.Maybe  ( Maybe )
 
--- non-empty-containers ----------------
+-- lens --------------------------------
 
-import NonEmptyContainers.SeqNEConversions  ( IsMonoSeqNonEmpty )
+import Control.Lens.Lens  ( Lens, Lens' )
 
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.DirType        ( DirTypeC( DirType ) )
 import FPath.PathComponent  ( PathComponent )
 
 --------------------------------------------------------------------------------
 
-type Filename = PathComponent
-
-class HasFileType α where
-  type FileType α
-
-{- | Just a marker class for types that represent a file -}
-class (Element α ~ PathComponent, IsMonoSeqNonEmpty α) ⇒ IsFile α
+class DirTypeC α ⇒ HasDirname α where
+  {- | Well-typed version of `dirname` utility; note that `dirname` of "/" is
+       "/", and `dirname` of "./" is "./".
+   -}
+  dirname ∷ Lens' α (DirType α)
 
 -- that's all, folks! ----------------------------------------------------------

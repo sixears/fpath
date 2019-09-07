@@ -12,12 +12,10 @@ where
 
 import Control.Applicative  ( pure )
 import Data.Bool            ( Bool( False, True ) )
-import Data.Either          ( Either( Left, Right  ) )
 import Data.Function        ( ($), (&), const )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
-import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import GHC.Exts             ( fromList, toList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
@@ -61,10 +59,6 @@ import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
 import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
-
 -- non-empty-containers ----------------
 
 import NonEmptyContainers.SeqConversions ( IsMonoSeq( seq ) )
@@ -84,27 +78,17 @@ import Test.Tasty.QuickCheck  ( testProperty )
 -- text --------------------------------
 
 import qualified  Data.Text  as  Text
-import Data.Text  ( Text )
 
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
+import qualified  FPath.AbsDir
 
-import FPath.AbsDir            ( AbsDir, absdir, nonRootAbsDir, parseAbsDir' )
+import FPath.AbsDir            ( AbsDir, absdir, nonRootAbsDir )
 import FPath.AsFilePath        ( filepath )
-import FPath.HasParent         ( parent, parentMay )
+import FPath.Parent            ( parent, parentMay )
 import FPath.PathComponent     ( pc, toUpper )
-
-import FPath.Error.FPathError  ( FPathError( FPathComponentE, FPathEmptyE
-                                           , FPathNonAbsE , FPathNotADirE )
-                               )
-import FPath.Error.FPathComponentError
-                               ( FPathComponentError( FPathComponentEmptyE
-                                                    , FPathComponentIllegalCharE
-                                                    )
-                               )
-
 import FPath.T.Common          ( doTest, doTestR, doTestS
                                , propInvertibleString, propInvertibleText
                                , propInvertibleUtf8 )
@@ -120,33 +104,6 @@ absdirQQTests =
             , testCase "/etc/pam.d" $ pamd ≟ [absdir|/etc/pam.d/|]
             , testCase "/w/g/M" $ wgm ≟ [absdir|/w/g/M/|]
             ]
-
-parseAbsDirTests ∷ TestTree
-parseAbsDirTests =
-  let absdirT     = typeRep (Proxy ∷ Proxy AbsDir)
-      pamNUL      = "/etc/pam\0/"
-      pamF        = "/etc/pam"
-      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
-                     in FPathComponentE fpcice absdirT pamNUL
-      emptyCompCE = FPathComponentE FPathComponentEmptyE absdirT "/etc//pam.d/"
-      parseAbsDir_ ∷ MonadError FPathError η ⇒ Text → η AbsDir
-      parseAbsDir_ = parseAbsDir'
-   in testGroup "parseAbsDir"
-                [ testCase "root"  $ Right root   ≟ parseAbsDir_ "/"
-                , testCase "etc"   $ Right etc    ≟ parseAbsDir_ "/etc/"
-                , testCase "pam.d" $ Right pamd   ≟ parseAbsDir_ "/etc/pam.d/"
-                , testCase "wgm"   $ Right wgm    ≟ parseAbsDir_ "/w/g/M/"
-                , testCase "no trailing /" $
-                      Left (FPathNotADirE absdirT pamF) ≟ parseAbsDir_ pamF
-                , testCase "empty" $
-                      Left (FPathEmptyE absdirT)  ≟ parseAbsDir_ ""
-                , testCase "no leading /" $
-                      Left (FPathNonAbsE absdirT "etc/") ≟ parseAbsDir_ "etc/"
-                , testCase "bad component" $
-                      Left illegalCE ≟ parseAbsDir_ pamNUL
-                , testCase "empty component" $
-                      Left emptyCompCE ≟ parseAbsDir_ "/etc//pam.d/"
-                ]
 
 absDirShowTests ∷ TestTree
 absDirShowTests =
@@ -369,8 +326,7 @@ absDirFilepathTests =
             ]
 
 absDirConstructionTests ∷ TestTree
-absDirConstructionTests = testGroup "construction" [ parseAbsDirTests
-                                                   , absdirQQTests ]
+absDirConstructionTests = testGroup "construction" [ absdirQQTests ]
 
 absDirTextualGroupTests ∷ TestTree
 absDirTextualGroupTests =
@@ -392,6 +348,7 @@ tests =
                      , absDirIsMonoSeqTests
                      , absDirParentGroupTests
                      , absDirFilepathTests
+                     , FPath.AbsDir.tests
                      ]
 
 ----------------------------------------

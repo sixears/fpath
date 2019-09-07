@@ -33,6 +33,10 @@ import Test.Tasty.HUnit  ( testCase )
 ------------------------------------------------------------
 
 import qualified  FPath
+import qualified  FPath.AbsPath
+import qualified  FPath.FPath
+import qualified  FPath.IO
+import qualified  FPath.RelPath
 import qualified  FPath.T.FPath.AbsDir
 import qualified  FPath.T.FPath.AbsFile
 import qualified  FPath.T.FPath.NonRootAbsDir
@@ -190,6 +194,9 @@ fpathTests ∷ TestTree
 fpathTests = testGroup "FPath" [ catenationTests
                                , stripDirTests
                                , FPath.tests
+                               , FPath.AbsPath.tests
+                               , FPath.FPath.tests
+                               , FPath.RelPath.tests
                                ]
 
 tests ∷ TestTree
@@ -200,6 +207,7 @@ tests = testGroup "fpath" [ FPath.T.FPath.PathComponent.tests
                           , FPath.T.FPath.RelFile.tests
                           , FPath.T.FPath.AbsFile.tests
                           , fpathTests
+                          , FPath.IO.tests
                           ]
 
 ----------------------------------------

@@ -23,7 +23,7 @@ module NonEmptyContainers.SeqNE
   )
 where
 
-import Prelude  ( error )
+import Prelude  ( error, undefined )
 
 -- base --------------------------------
 
@@ -388,9 +388,10 @@ pattern (:|>) :: Seqish κ ⇒ Seq α -> α -> κ α
 pattern xs :|> x <- (maybeSeqR -> Just (xs,x))
 
 infixl 5 :⪭
-{- | pattern rightwards decomposition of a `Seqish` κ -}
+{- | pattern rightwards (de)composition of a `Seqish` κ -}
 pattern (:⪭) :: Seqish κ ⇒ Seq α -> α -> κ α
-pattern xs :⪭ x <- (maybeSeqR -> Just (xs,x))
+pattern xs :⪭ x <- (maybeSeqR -> Just (xs,x)) -- decomposition (pattern)
+        where xs :⪭ x = xs ⪭ x                -- composition (construction)
 
 infixr 5 :<|
 {- | pattern leftwards decomposition of a `Seqish` κ -}
@@ -401,6 +402,7 @@ infixr 5 :⪬
 {- | pattern leftwards decomposition of a `Seqish` κ -}
 pattern (:⪬) :: Seqish κ ⇒ α -> Seq α -> κ α
 pattern x :⪬ xs <- (maybeSeqL -> Just (x,xs))
+        where xs :⪬ x = xs ⪬ x
 
 {- | decompose a `SeqNE` leftwards -}
 uncons ∷ SeqNE α → (α, Seq α)
@@ -427,25 +429,25 @@ infixl 5 ⋗
 
 
 infixl 5 :<||
-{- | compose a `SeqNE α` from a `Seq α` and an `α` (leftwards) -}
+{- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (leftwards) -}
 pattern (:<||) :: α -> Seq α -> SeqNE α
 pattern x :<|| xs <- (uncons -> (x,xs))
   where x :<|| xs = x <|| xs
 
 infixl 5 :⫷
-{- | compose a `SeqNE α` from a `Seq α` and an `α` (leftwards) -}
+{- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (leftwards) -}
 pattern (:⫷) :: α -> Seq α -> SeqNE α
 pattern x :⫷ xs <- (uncons -> (x,xs))
   where x :⫷ xs = x <|| xs
 
 infixl 5 :||>
-{- | compose a `SeqNE α` from a `Seq α` and an `α` (rightwards) -}
+{- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (rightwards) -}
 pattern (:||>) :: Seq α -> α -> SeqNE α
 pattern xs :||> x <- (unsnoc -> (xs,x))
   where xs :||> x = xs ||> x
 
 infixl 5 :⫸
-{- | compose a `SeqNE α` from a `Seq α` and an `α` (rightwards) -}
+{- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (rightwards) -}
 pattern (:⫸) :: Seq α -> α -> SeqNE α
 pattern xs :⫸ x <- (unsnoc -> (xs,x))
   where xs :⫸ x = xs ||> x

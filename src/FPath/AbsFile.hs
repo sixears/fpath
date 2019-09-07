@@ -17,6 +17,8 @@ module FPath.AbsFile
   , absfile
 
   , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
+
+  , tests
   )
 where
 
@@ -26,6 +28,7 @@ import Prelude  ( error )
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
+import Control.Applicative  ( pure )
 import Control.Monad        ( return )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
@@ -37,6 +40,7 @@ import Data.Monoid          ( Monoid )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ) )
+import System.IO            ( IO )
 import Text.Show            ( Show )
 
 -- base-unicode-symbols ----------------
@@ -69,6 +73,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Monoid       ( ф )
+import Data.MoreUnicode.Natural      ( ℕ )
+import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -83,7 +89,7 @@ import NonEmptyContainers.IsNonEmpty        ( FromNonEmpty( fromNonEmpty )
 import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , ToMonoSeq( toSeq )
                                             )
-import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭) )
+import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭), (⋖) )
 import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
                                             , IsMonoSeqNonEmpty( seqNE )
                                             , ToMonoSeqNonEmpty( toSeqNE
@@ -99,6 +105,14 @@ import Text.Parser.Combinators  ( sepByNonEmpty )
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
+-- tasty -------------------------------
+
+import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-hunit -------------------------
+
+import Test.Tasty.HUnit  ( testCase )
+
 -- text --------------------------------
 
 import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
@@ -111,9 +125,10 @@ import qualified  Text.Printer  as  P
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.AbsDir            ( AbsDir, parseAbsDir, root )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.DirType           ( HasDirType( DirType ) )
-
+import FPath.Basename          ( Basename( basename, updateBasename ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathComponentError
                                ( FPathComponentError )
 import FPath.Error.FPathError  ( AsFPathError, FPathError
@@ -121,10 +136,12 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathNonAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
-import FPath.Fileish           ( Fileish( FDirType, dirfile ) )
-import FPath.HasParent         ( HasParent( parent ),HasParentMay( parentMay ) )
-import FPath.PathComponent     ( PathComponent, parsePathC )
-import FPath.AbsDir            ( AbsDir, parseAbsDir, root )
+import FPath.FileLike          ( FileLike( dirfile ) )
+import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
+import FPath.PathComponent     ( PathComponent, parsePathC, pc )
+import FPath.RelFile           ( RelFile, relfile )
+import FPath.RelType           ( RelTypeC( RelType ) )
+import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
@@ -145,13 +162,17 @@ instance AsAbsFile AbsFile where
 
 --------------------
 
-instance HasDirType AbsFile where
+instance DirTypeC AbsFile where
   type DirType AbsFile = AbsDir
+
+--------------------
+
+instance RelTypeC AbsFile where
+  type RelType AbsFile = RelFile
 
 ----------------------------------------
 
-instance Fileish AbsFile where
-  type FDirType AbsFile = AbsDir
+instance FileLike AbsFile where
   dirfile = iso (\ (AbsFile d f) → (d,f)) (\ (d,f) → AbsFile d f)
 
 ----------------------------------------
@@ -253,6 +274,32 @@ instance HasParentMay AbsFile where
                    )
 
 
+----------------------------------------
+  
+instance Basename AbsFile where
+  basename ∷ AbsFile → RelFile
+  basename (AbsFile _ n) = fromNonEmpty (pure n)
+
+  updateBasename ∷ (PathComponent → PathComponent) → AbsFile → AbsFile
+  updateBasename f (AbsFile d n) = AbsFile d (f n)
+
+absFileBasenameTests ∷ TestTree
+absFileBasenameTests =
+  testGroup "basename"
+            [ testCase "af1" $ [relfile|r.e|]  ≟ basename af1
+
+            , testCase "af1 -> af4"    $
+                af4 ≟ updateBasename (const [pc|.x|]) af1
+            , testCase "af2 -> x.p"     $
+                  fromSeqNE ([pc|r|] ⋖ [[pc|x.p|]])
+                ≟ updateBasename (const [pc|x.p|]) af2
+            , testCase "pam.d -> pam.d"   $
+                  fromSeqNE ([pc|p|] ⋖ [[pc|q|], [pc|r|]])
+                ≟ updateBasename (const [pc|r|]) af3
+            , testCase "af4 -> af1"   $
+                af1 ≟ updateBasename (const [pc|r.e|]) af4
+            ]
+
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --
 ------------------------------------------------------------
@@ -297,5 +344,42 @@ __parseAbsFile'__ = __parseAbsFile__
 {- | quasi-quotation -}
 absfile ∷ QuasiQuoter
 absfile = mkQuasiQuoterExp "absfile" (\ s → ⟦ __parseAbsFile'__ s ⟧)
+
+--------------------------------------------------------------------------------
+--                                   tests                                    --
+--------------------------------------------------------------------------------
+
+-- test data ---------------------------
+
+
+af1 ∷ AbsFile
+af1 = fromSeqNE $ pure [pc|r.e|]
+
+af2 ∷ AbsFile
+af2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p.x|]]
+
+af3 ∷ AbsFile
+af3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r.mp3|]]
+
+af4 ∷ AbsFile
+af4 = fromSeqNE $ pure [pc|.x|]
+
+----------------------------------------
+
+tests ∷ TestTree
+tests = testGroup "FPath.AbsFile" [ absFileBasenameTests ]
+                
+--------------------
+
+_test ∷ IO ()
+_test = doTest tests
+
+--------------------
+
+_tests ∷ String → IO ()
+_tests = doTestS tests
+
+_testr ∷ String → ℕ → IO ()
+_testr = doTestR tests
 
 -- that's all, folks! ----------------------------------------------------------

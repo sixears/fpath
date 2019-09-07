@@ -5,8 +5,8 @@
 
 {- | Classes for methods common to most all FPath types , such as `dirname` -}
 
-module FPath.RelType
-  ( RelTypeC( RelType ) )
+module FPath.Parent
+  ( HasParent( parent ), HasParentMay( parentMay ) )
 where
 
 -- base --------------------------------
@@ -21,15 +21,22 @@ import Control.Lens.Lens  ( Lens, Lens' )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.DirType        ( DirTypeC( DirType ) )
 import FPath.PathComponent  ( PathComponent )
 
 --------------------------------------------------------------------------------
 
-class RelTypeC α where
-  {- | the relative "version" of a type; e.g., `RelType RelFile = AbsFile` -}
-  type RelType α
+class DirTypeC α ⇒ HasParent α where
+  {- | The parent directory of a thing.  Note that this is stricter than
+       `dirname`; e.g., `root` or `"./"` don't have a `parent` (at the type
+       level), though they are their own `dirname`s.
+   -}
+  parent ∷ Lens' α (DirType α)
 
-{- | Just a marker class for types that represent a relative path -}
--- class (Element α ~ PathComponent, IsMonoSeq α) ⇒ IsRel α
+class DirTypeC α ⇒ HasParentMay α where
+  {- | Like `parent`, but applicable to types (e.g., `AbsDir`, `RelDir`) where
+       the value might have no parent (e.g., root or `"./"`).
+   -}
+  parentMay ∷ Lens' α (Maybe (DirType α))
 
 -- that's all, folks! ----------------------------------------------------------

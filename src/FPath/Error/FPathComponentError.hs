@@ -9,11 +9,12 @@ where
 
 -- base --------------------------------
 
-import Data.Char      ( Char )
-import Data.Eq        ( Eq )
-import Data.Function  ( ($), id )
-import Data.String    ( String )
-import Text.Show      ( Show )
+import Control.Exception  ( Exception )
+import Data.Char          ( Char )
+import Data.Eq            ( Eq )
+import Data.Function      ( ($), id )
+import Data.String        ( String )
+import Text.Show          ( Show )
 
 -- data-textual ------------------------
 
@@ -42,6 +43,8 @@ data FPathComponentError = FPathComponentEmptyE
                          | FPathComponentIllegalCharE Char String
                          | FPathComponentIllegalE     String
   deriving (Eq, Show)
+
+instance Exception FPathComponentError
 
 ----------------------------------------
 

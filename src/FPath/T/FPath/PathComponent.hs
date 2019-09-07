@@ -10,7 +10,7 @@ where
 
 -- base --------------------------------
 
-import Data.Function    ( ($), (&) )
+import Data.Function    ( ($), (&), const )
 import Data.Functor     ( fmap )
 import Data.Maybe       ( Maybe( Just, Nothing ) )
 import Data.String      ( String )
@@ -65,7 +65,7 @@ import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
 import qualified  FPath.PathComponent
 
 import FPath.PathComponent  ( PathComponent
-                            , addExt, ext, pc, splitExt, toUpper )
+                            , addExt, ext, pc, splitExt, toUpper, updateExt )
 
 import FPath.T.Common       ( doTest, doTestR, doTestS )
 
@@ -130,52 +130,50 @@ addExtTests =
 splitExtTests ∷ TestTree
 splitExtTests =
   testGroup "splitExt"
-    [ testCase "foo.bar" $ Just ([pc|foo|],[pc|bar|]) ≟ splitExt [pc|foo.bar|]
-    , testCase "f.o.bar" $ Just ([pc|f.o|],[pc|bar|]) ≟ splitExt [pc|f.o.bar|]
-    , testCase "foo."    $ Nothing                    ≟ splitExt [pc|foo.|]
-    , testCase "foo"     $ Nothing                    ≟ splitExt [pc|foo|]
+    [ testCase "foo.bar" $ ([pc|foo|],Just [pc|bar|]) ≟ splitExt [pc|foo.bar|]
+    , testCase "f.o.bar" $ ([pc|f.o|],Just [pc|bar|]) ≟ splitExt [pc|f.o.bar|]
+    , testCase "foo."    $ ([pc|foo.|],Nothing)       ≟ splitExt [pc|foo.|]
+    , testCase "foo"     $ ([pc|foo|],Nothing)        ≟ splitExt [pc|foo|]
     ]
 
 extGetterTests ∷ TestTree
 extGetterTests =
-  testGroup "getter" [ testCase ".bar" $ Just [pc|bar|] ≟ [pc|foo.bar|]   ⊣ ext
-                     , testCase "-"    $ Nothing        ≟ [pc|foo|]       ⊣ ext
-                     , testCase "."    $ Nothing        ≟ [pc|foo.|]      ⊣ ext
-                     , testCase "baz"  $ Just [pc|baz|] ≟ [pc|f.b.x.baz|] ⊣ ext
+  testGroup "getter" [ testCase ".bar" $ Just [pc|bar|] ≟ ext [pc|foo.bar|]
+                     , testCase "-"    $ Nothing        ≟ ext [pc|foo|]
+                     , testCase "."    $ Nothing        ≟ ext [pc|foo.|]
+                     , testCase "baz"  $ Just [pc|baz|] ≟ ext [pc|f.b.x.baz|]
                      ]
 
 extSetterTests ∷ TestTree
 extSetterTests =
-  testGroup "setter"
+  testGroup "updateExt (const)"
     [ testCase ".bar -> .baz" $
-          [pc|foo.baz|] ≟ [pc|foo.bar|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase ".bar -> ''"   $
-          [pc|foo|]     ≟ [pc|foo.bar|] ⅋ ext ⊢ Nothing
+          [pc|foo.baz|] ≟ updateExt (const [pc|baz|]) [pc|foo.bar|]
     , testCase ".x.bar -> .x.baz" $
-          [pc|foo.x.baz|] ≟ [pc|foo.x.bar|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase "'' -> .baz" $
-          [pc|foo.baz|] ≟ [pc|foo|] ⅋ ext ⊢ Just [pc|baz|]
-    , testCase ". -> ..baz" $
-          [pc|foo..baz|] ≟ [pc|foo.|] ⅋ ext ⊢ Just [pc|baz|]
+          [pc|foo.x.baz|] ≟ updateExt (const [pc|baz|]) [pc|foo.x.bar|]
+    , testCase "'' -> ''" $
+          [pc|foo|] ≟ updateExt (const [pc|baz|]) [pc|foo|]
+    , testCase ". -> ." $
+          [pc|foo.|] ≟ updateExt (const [pc|baz|]) [pc|foo.|]
     ]
 
-extAdjusterTests ∷ TestTree
-extAdjusterTests =
-  testGroup "adjuster"
+updateExtTests ∷ TestTree
+updateExtTests =
+  testGroup "updateExt"
     [ testCase ".baz -> .BAR" $
-        [pc|fo.BAZ|] ≟ ([pc|fo.baz|] ⅋ ext ⊧ fmap toUpper)
+        [pc|fo.BAZ|] ≟ updateExt toUpper [pc|fo.baz|]
     , testCase ".x.b -> .x.B" $
-        [pc|fo.x.B|] ≟ [pc|fo.x.b|] ⅋ ext ⊧ fmap toUpper
+        [pc|fo.x.B|] ≟ updateExt toUpper [pc|fo.x.b|]
     , testCase ".x -> .xy"    $
-        [pc|fo.xy|]  ≟ [pc|fo.x|]   ⅋ ext ⊧ fmap (◇ [pc|y|])
+        [pc|fo.xy|]  ≟ updateExt (◇ [pc|y|]) [pc|fo.x|]
     , testCase ".    -> ."    $
-        [pc|fo.|]    ≟ ([pc|fo.|]   & ext ⊧ fmap (◇ [pc|y|]))
+        [pc|fo.|]    ≟ updateExt (◇ [pc|y|]) [pc|fo.|]
 
     ]
 
 extTests ∷ TestTree
 extTests = testGroup "ext" [ addExtTests, splitExtTests, extGetterTests
-                           , extSetterTests, extAdjusterTests ]
+                           , extSetterTests, updateExtTests ]
 
 ----------------------------------------
 

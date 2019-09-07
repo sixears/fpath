@@ -13,14 +13,12 @@ where
 
 import Control.Applicative  ( pure )
 import Data.Bool            ( Bool( False, True ) )
-import Data.Either          ( Either( Left, Right  ) )
 import Data.Foldable        ( foldr )
 import Data.Function        ( ($), (&), const )
 import Data.Functor         ( fmap )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
-import Data.Typeable        ( Proxy( Proxy ), typeRep )
 import GHC.Exts             ( fromList, toList )
 import Numeric.Natural      ( Natural )
 import System.IO            ( IO )
@@ -39,7 +37,7 @@ import qualified  Data.Sequence  as  Seq
 -- data-textual ------------------------
 
 import Data.Textual  ( Parsed( Parsed )
-                     , fromString, parseString, toString, toText )
+                     , fromString, parseString, toText )
 
 -- lens --------------------------------
 
@@ -63,10 +61,6 @@ import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
 import Data.MoreUnicode.Tasty            ( (≟), (≣) )
 
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
-
 -- non-empty-containers ----------------
 
 import NonEmptyContainers.SeqConversions ( IsMonoSeq( seq ) )
@@ -86,24 +80,17 @@ import Test.Tasty.QuickCheck  ( testProperty )
 -- text --------------------------------
 
 import qualified  Data.Text  as  Text
-import Data.Text  ( Text )
 
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
+import qualified  FPath.RelDir
+
 import FPath.AsFilePath        ( filepath )
-import FPath.Error.FPathError  ( FPathError( FPathAbsE, FPathComponentE
-                                           , FPathNotADirE )
-                               )
-import FPath.Error.FPathComponentError
-                               ( FPathComponentError( FPathComponentEmptyE
-                                                    , FPathComponentIllegalCharE
-                                                    )
-                               )
-import FPath.HasParent         ( parentMay )
+import FPath.Parent            ( parentMay )
 import FPath.PathComponent     ( pc, toUpper )
-import FPath.RelDir            ( RelDir, parseRelDir', reldir )
+import FPath.RelDir            ( RelDir, reldir )
 
 import FPath.T.Common          ( doTest, doTestR, doTestS
                                , propAssociative, propInvertibleString
@@ -112,33 +99,6 @@ import FPath.T.Common          ( doTest, doTestR, doTestS
 import FPath.T.FPath.TestData  ( r0, r1, r2, r3 )
 
 --------------------------------------------------------------------------------
-
-parseRelDirTests ∷ TestTree
-parseRelDirTests =
-  let reldirT     = typeRep (Proxy ∷ Proxy RelDir)
-      pamF        = "etc/pam"
-      illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
-                       in FPathComponentE fpcice reldirT s
-      badChar s p = testCase ("bad component " ⊕ toString s) $
-                        Left (illegalCE s p) ≟ parseRelDir_ s
-      emptyCompCE t = FPathComponentE FPathComponentEmptyE reldirT t
-      parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
-      parseRelDir_ = parseRelDir'
-   in testGroup "parseRelDir"
-                [ testCase "r0" $ Right r0 ≟ parseRelDir_ "./"
-                , testCase "r1" $ Right r1 ≟ parseRelDir_ "r/"
-                , testCase "r2" $ Right r2 ≟ parseRelDir_ "r/p/"
-                , testCase "r3" $ Right r3 ≟ parseRelDir_ "p/q/r/"
-                , testCase "no trailing /" $
-                      Left (FPathNotADirE reldirT pamF) ≟ parseRelDir_ pamF
-                , testCase "leading /" $
-                      Left (FPathAbsE reldirT "/r/") ≟ parseRelDir_ "/r/"
-                , badChar "x/\0/y/" "\0"
-                , badChar "r/p\0/" "p\0"
-                , badChar "\0r/p/" "\0r"
-                , testCase "empty component" $
-                      Left (emptyCompCE "r//p/") ≟ parseRelDir_ "r//p/"
-                ]
 
 reldirQQTests ∷ TestTree
 reldirQQTests =
@@ -395,8 +355,7 @@ relDirFilepathTests =
             ]
 
 relDirConstructionTests ∷ TestTree
-relDirConstructionTests = testGroup "construction" [ parseRelDirTests
-                                                   , reldirQQTests ]
+relDirConstructionTests = testGroup "construction" [ reldirQQTests ]
 
 relDirTextualGroupTests ∷ TestTree
 relDirTextualGroupTests =
@@ -415,6 +374,7 @@ tests =
                      , relDirIsMonoSeqTests
                      , relDirParentMayTests
                      , relDirFilepathTests
+                     , FPath.RelDir.tests
                      ]
 
 ----------------------------------------
