@@ -9,7 +9,7 @@
 
 module FPath.AbsPath
   ( AbsPath(..), AsAbsPath( _AbsPath )
-  , parseAbsPath, parseAbsPath', __parseAbsPath__, __parseAbsPath'__
+  , abspathT, parseAbsPath, parseAbsPath', __parseAbsPath__, __parseAbsPath'__
 
   , tests
   )

@@ -15,18 +15,17 @@ module FPath.IO
   )
 where
 
-import Debug.Trace  ( trace, traceShow )
-
 -- base --------------------------------
 
 import Control.Monad           ( join, return )
 import Control.Monad.IO.Class  ( MonadIO )
-import Data.Either             ( Either( Right ) )
+import Data.Either             ( Either( Left, Right ) )
 import Data.Functor            ( fmap )
 import Data.Function           ( ($), const )
 import Data.List               ( reverse )
 import Data.String             ( String )
 import Data.Tuple              ( fst, snd )
+import Data.Typeable           ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts                ( toList )
 import System.IO               ( IO, print )
 
@@ -101,12 +100,15 @@ import System.Posix.Directory  ( changeWorkingDirectory, getWorkingDirectory )
 
 import FPath.AbsDir            ( AbsDir,  parseAbsDir, __parseAbsDirP__ )
 import FPath.AbsFile           ( AbsFile, absfileT )
+import FPath.AbsPath           ( AbsPath( AbsD, AbsF ), abspathT )
 import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( basename )
 import FPath.Dirname           ( dirname )
 import FPath.Error.FPathError  ( AsFPathError, FPathIOError
-                               , __FPathEmptyE__, __FPathNotAFileE__ )
+                               , _FPathEmptyE
+                               , __FPathEmptyE__, __FPathNotAFileE__
+                               )
 import FPath.FileLike          ( FileLike( dirfile ) )
 import FPath.FPath             ( parseFPath )
 import FPath.RelFile           ( parseRelFile, relfile )
@@ -192,6 +194,52 @@ instance PResolvable AbsDir where
                 AbsDir → τ → μ AbsDir
   pResolveDir d (toText → f) = inDirT d $ _inDirT f getCwd
 
+pResolveAbsDirTests ∷ TestTree
+pResolveAbsDirTests =
+  let getCwd_ ∷ IO (Either FPathIOError AbsDir)
+      getCwd_ = ѥ getCwd
+
+      tName   = "FPath.IO.pResolveTests.AbsDir"
+      inTmp   = inSystemTempDirectory tName
+      withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
+      withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
+
+      pResolve_ ∷ Text → IO (Either FPathIOError AbsDir)
+      pResolve_ = ѥ ∘ pResolve
+
+      pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsDir)
+      pResolveDir_ d = ѥ ∘ pResolveDir d
+
+      getTmpdir ∷ IO AbsDir
+      getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
+   in testGroup "AbsDir"
+        [ testCase "inTmp ./" $ inTmp $ \ d → pResolve_ "./" ≫ (Right d ≟)
+        , testCase "inTmp . (forgiveness of pResolve wrt trailing /)" $
+            inTmp $ \ d → pResolve_ "."  ≫ (Right d ≟)
+        , testCase "inTmp .." $
+            inTmp $ \ d → getTmpdir ≫ \ tmpdir →
+                    pResolve_ ".."  ≫ (Right tmpdir ≟)
+
+        , testCase "inTmp ../ (dirname)" $
+            inTmp $ \ d → getTmpdir ≫ \ tmpdir →
+                    pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
+        , testCase "inTmp ../ (basename)" $
+            inTmp $ \ d → getTmpdir ≫ \ tmpdir →
+                    pResolve_ "../" ≫ ((Right d ≟) ∘
+                                         fmap (⫻ basename d))
+
+        , testCase "withTmp ./" $
+            withTmp $ \ d → pResolveDir_ d "./" ≫ (Right d ≟)
+        , testCase "withTmp ." $
+            withTmp $ \ d → pResolveDir_ d "." ≫ (Right d ≟)
+        , testCase "withTmp .." $
+            withTmp $ \ d → getTmpdir ≫ \ tmpdir →
+                      pResolveDir_ d ".." ≫ (Right tmpdir ≟)
+
+        ]
+
+----------------------------------------
+
 {- | Physically resolve every directory up to and including the dirname of the
      input stringlike; and then tacks the file basename onto the end.  Treats a
      trailing '/' as a dir, and this fails.
@@ -213,7 +261,7 @@ instance PResolvable AbsFile where
 
       (_, Empty    ) → -- just a file, no dir part
                        do c ∷ AbsDir ← pResolveDir d ("."∷Text)
-                          f' ← traceShow ("c",c,d) $ parseRelFile (toText f)
+                          f' ← parseRelFile (toText f)
                           (c ⫻) ⊳ parseRelFile f
 
       (x    , y    ) → -- dir + file
@@ -221,103 +269,116 @@ instance PResolvable AbsFile where
                           f' ← parseRelFile (toList x)
                           (c ⫻) ⊳ parseRelFile (toList x)
 
-{- | Given a path, which might well relative include '..' and/or '.', physically
-   resolve that to an AbsPath.  Relative paths are contextual to the cwd.
- -}
--- presolve ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ) ⇒
---            Text → μ AbsPath
-
--- instance PResolvable AbsPath where
-
-pResolveTests ∷ TestTree
-pResolveTests =
+pResolveAbsFileTests ∷ TestTree
+pResolveAbsFileTests =
   let getCwd_ ∷ IO (Either FPathIOError AbsDir)
       getCwd_ = ѥ getCwd
 
-      tName   = "FPath.IO.pResolveTests"
-      inTmp   = inSystemTempDirectory   tName
+      tName   = "FPath.IO.pResolveTests.AbsFile"
+      inTmp   = inSystemTempDirectory tName
       withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
       withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
 
-      pResolve_ ∷ PResolvable α ⇒ Text → IO (Either FPathIOError α)
+      pResolve_ ∷ Text → IO (Either FPathIOError AbsFile)
       pResolve_ = ѥ ∘ pResolve
 
-      pResolveDir_ ∷ PResolvable α ⇒ AbsDir → Text → IO (Either FPathIOError α)
+      pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsFile)
       pResolveDir_ d = ѥ ∘ pResolveDir d
 
       getTmpdir ∷ IO AbsDir
       getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
-   in testGroup "pResolve"
-        [ testGroup "AbsDir" 
-            [ testCase "inTmp ./" $
-                inTmp $ \ d → pResolve_ "./" ≫ (Right d ≟)
-            , testCase "inTmp . (forgiveness of pResolve wrt trailing /)" $
-                inTmp $ \ d → pResolve_ "."  ≫ (Right d ≟)
-            , testCase "inTmp .." $
-                inTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                        pResolve_ ".."  ≫ (Right tmpdir ≟)
-
-            , testCase "inTmp ../ (dirname)" $
-                inTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                        pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
-            , testCase "inTmp ../ (basename)" $
-                inTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                        pResolve_ "../" ≫ ((Right d ≟) ∘
-                                             fmap (⫻ basename d))
-
-            , testCase "withTmp ./" $
-                withTmp $ \ d → pResolveDir_ d "./" ≫ (Right d ≟)
-            , testCase "withTmp ." $
-                withTmp $ \ d → pResolveDir_ d "." ≫ (Right d ≟)
-            , testCase "withTmp .." $
-                withTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                          pResolveDir_ d ".." ≫ (Right tmpdir ≟)
-
-            ]
-
-        , testGroup "AbsFile" 
-            [ testCase "inTmp '' x" $
-                inTmp $ \ d → pResolve_ "x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "withTmp '' x" $
-                withTmp $ \ d → pResolveDir_ d "x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "inTmp ./ x" $
-                inTmp $ \ d → pResolve_ "./x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "withTmp ./ x" $
-                withTmp $ \ d → pResolveDir_ d "./x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "inTmp ../ x" $
-                inTmp $ \ d → pResolve_ "../x" ≫
-                              (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "withTmp ../ x" $
-                withTmp $ \ d → pResolveDir_ d "../x" ≫
-                              (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            ]
-
-        , testGroup "AbsPath" 
-            [ testCase "inTmp '' x" $
-                inTmp $ \ d → pResolve_ "x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "withTmp '' x" $
-                withTmp $ \ d → pResolveDir_ d "x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "inTmp ./ x" $
-                inTmp $ \ d → pResolve_ "./x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "withTmp ./ x" $
-                withTmp $ \ d → pResolveDir_ d "./x" ≫
-                              (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "inTmp ../ x" $
-                inTmp $ \ d → pResolve_ "../x" ≫
-                              (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            , testCase "withTmp ../ x" $
-                withTmp $ \ d → pResolveDir_ d "../x" ≫
-                              (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
-            ]
+   in testGroup "AbsFile"
+        [ testCase "inTmp '' x" $
+            inTmp $ \ d → pResolve_ "x" ≫ (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+        , testCase "withTmp '' x" $
+            withTmp $ \ d → pResolveDir_ d "x" ≫
+                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+        , testCase "inTmp ./ x" $
+            inTmp $ \ d → pResolve_ "./x" ≫
+                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+        , testCase "withTmp ./ x" $
+            withTmp $ \ d → pResolveDir_ d "./x" ≫
+                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+        , testCase "inTmp ../ x" $
+            inTmp $ \ d → pResolve_ "../x" ≫
+                          (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
+        , testCase "withTmp ../ x" $
+            withTmp $ \ d → pResolveDir_ d "../x" ≫
+                          (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
         ]
-        
+
+
+{- | Given a path, which might well relative include '..' and/or '.', physically
+     resolve that to an AbsPath.  Relative paths are contextual to the cwd.
+     Input with a trailing '/', "/.", or "/.."; or the special cases "." and
+     ".." are resolved to directories; without are resolved to files.  Empty
+     input strings cause a failure.
+ -}
+instance PResolvable AbsPath where
+  pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
+                 MonadIO μ)⇒
+                AbsDir → τ → μ AbsPath
+  pResolveDir d (toString → [])                       = __FPathEmptyE__ abspathT
+  pResolveDir d t@(toString → ".")                    = AbsD ⊳ pResolveDir d t
+  pResolveDir d t@(toString → "..")                   = AbsD ⊳ pResolveDir d t
+  pResolveDir d t@(reverse ∘ toString → '/' : _)      = AbsD ⊳ pResolveDir d t
+  pResolveDir d t@(reverse ∘ toString → '.' : '/' : _)= AbsD ⊳ pResolveDir d t
+  pResolveDir d t@(reverse ∘ toString → '.':'.':'/':_)= AbsD ⊳ pResolveDir d t
+  pResolveDir d t                                     = AbsF ⊳ pResolveDir d t
+
+
+pResolveAbsPathTests ∷ TestTree
+pResolveAbsPathTests =
+  let getCwd_ ∷ IO (Either FPathIOError AbsDir)
+      getCwd_ = ѥ getCwd
+
+      tName   = "FPath.IO.pResolveTests.AbsPath"
+      inTmp   = inSystemTempDirectory tName
+      withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
+      withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
+
+      pResolve_ ∷ Text → IO (Either FPathIOError AbsPath)
+      pResolve_ = ѥ ∘ pResolve
+
+      pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsPath)
+      pResolveDir_ d = ѥ ∘ pResolveDir d
+
+      getTmpdir ∷ IO AbsDir
+      getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
+
+   in testGroup "AbsPath"
+        [ testCase "withTmp ''" $
+            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE abspathT) ≟)
+        , testCase "withTmp ./" $
+            withTmp $ \ d → pResolveDir_ d "./" ≫ (Right (AbsD d) ≟)
+        , testCase "withTmp ." $
+            withTmp $ \ d → pResolveDir_ d "." ≫ (Right (AbsD d) ≟)
+        , testCase "withTmp .." $
+            withTmp $ \ d → pResolveDir_ d ".." ≫ (Right (AbsD (d ⊣ dirname)) ≟)
+        , testCase "withTmp ../" $
+            withTmp $ \ d → pResolveDir_ d "../" ≫(Right (AbsD (d ⊣ dirname)) ≟)
+        , testCase "withTmp ../." $
+            withTmp $ \ d → pResolveDir_ d "../."≫(Right (AbsD (d ⊣ dirname)) ≟)
+        , testCase "withTmp ./../." $
+            withTmp $ \ d →
+                      pResolveDir_ d "./../."≫(Right (AbsD (d ⊣ dirname)) ≟)
+        , testCase "withTmp .././." $
+            withTmp $ \ d →
+                      pResolveDir_ d ".././."≫(Right (AbsD (d ⊣ dirname)) ≟)
+
+        , testCase "withTmp ''" $
+            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE abspathT) ≟)
+        , testCase "withTmp '' x" $
+            withTmp $ \ d → pResolveDir_ d "x" ≫
+                          (Right (AbsF (d ⫻ [relfile|x|])) ≟)
+        , testCase "withTmp ./ x" $
+            withTmp $ \ d → pResolveDir_ d "./x" ≫
+                          (Right (AbsF (d ⫻ [relfile|x|])) ≟)
+        , testCase "withTmp ../ x" $
+            withTmp $ \ d → pResolveDir_ d "../x" ≫
+                          (Right (AbsF (d ⊣ dirname ⫻ [relfile|x|])) ≟)
+        ]
+
 --------------------------------------------------------------------------------
 --                                   tests                                    --
 --------------------------------------------------------------------------------
@@ -328,6 +389,9 @@ inSystemTempDirectory t io =
     bracket (getWorkingDirectory ≫  \ o → changeWorkingDirectory d ⪼ return o)
             changeWorkingDirectory
             (\ _ → io $ __parseAbsDirP__ d)
+
+pResolveTests = testGroup "pResolve" [ pResolveAbsDirTests, pResolveAbsFileTests
+                                     , pResolveAbsPathTests ]
 
 tests ∷ TestTree
 tests = testGroup "FPath.IO" [ getCwdTests, pResolveTests ]

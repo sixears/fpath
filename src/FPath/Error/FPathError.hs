@@ -9,7 +9,11 @@ module FPath.Error.FPathError
   ( AsFPathError( _FPathError ), FPathError(..)
   , AsFPathNotAPrefixError( _FPathNotAPrefixError ), FPathNotAPrefixError(..)
   , FPathIOError
-  , __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__, __FPathAbsE__
+
+  , _FPathAbsE, _FPathComponentE, _FPathEmptyE, _FPathNonAbsE, _FPathNotADirE
+  , _FPathNotAFileE, _FPathNotAPrefixError, _FPathRootDirE
+
+  , __FPathAbsE__, __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__
   , __FPathNotADirE__, __FPathNotAFileE__, __FPathNotAPrefixError__
   , __FPathRootDirE__
   , mapTypeRepE, tmap, mapTextE
