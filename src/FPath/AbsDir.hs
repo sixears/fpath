@@ -71,7 +71,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Cons    ( unsnoc )
 import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( iso )
-import Control.Lens.Lens    ( Lens, Lens', lens )
+import Control.Lens.Lens    ( Lens', lens )
 import Control.Lens.Prism   ( Prism', prism' )
 
 -- mono-traversable --------------------
@@ -111,7 +111,7 @@ import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
 import NonEmptyContainers.SeqConversions
                                     ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
                                     , ToMonoSeq( toSeq ) )
-import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), pattern (:⪭), pattern (:||>), (⫸), (⪪) )
+import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), (⫸), (⪪) )
 import NonEmptyContainers.SeqNEConversions
                                     ( FromMonoSeqNonEmpty( fromSeqNE )
                                     , IsMonoSeqNonEmpty( seqNE )
@@ -769,10 +769,12 @@ absDirBasenameTests =
 instance Basename NonRootAbsDir where
   basename ∷ NonRootAbsDir → RelDir
   basename (NonRootAbsDir (_ :⫸ p)) = fromList [p]
+  basename _ = error "FPath.AbsDir.basename irrefutable pattern"
 
   updateBasename ∷ (PathComponent → PathComponent) → NonRootAbsDir
                  → NonRootAbsDir
   updateBasename f (NonRootAbsDir (ps :⫸ p)) = NonRootAbsDir (ps :⫸ f p)
+  updateBasename _ _ = error "FPath.AbsDir.updateBasename irrefutable pattern"
 
 nonRootAbsDirBasenameTests ∷ TestTree
 nonRootAbsDirBasenameTests =

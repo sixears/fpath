@@ -11,7 +11,7 @@ module FPath.Error.FPathError
   , FPathIOError
 
   , _FPathAbsE, _FPathComponentE, _FPathEmptyE, _FPathNonAbsE, _FPathNotADirE
-  , _FPathNotAFileE, _FPathNotAPrefixError, _FPathRootDirE
+  , _FPathNotAFileE, _FPathRootDirE
 
   , __FPathAbsE__, __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__
   , __FPathNotADirE__, __FPathNotAFileE__, __FPathNotAPrefixError__

@@ -64,14 +64,10 @@ import Data.GenValidity.ByteString  ( )
 
 import Data.GenValidity.Text  ( )
 
--- lens --------------------------------
-
-import Control.Lens.Lens  ( Lens', lens )
-
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
-import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
+import Data.MoreUnicode.Functor      ( (⊳) )
 import Data.MoreUnicode.Natural      ( ℕ )
 import Data.MoreUnicode.Tasty        ( (≟) )
 
@@ -248,10 +244,10 @@ infixr 6 ⊙ -- same as for ⊕
 (⊙) = addExt
 
 splitExt ∷ PathComponent → (PathComponent, Maybe PathComponent)
-splitExt pc@(PathComponent xs) =
+splitExt p@(PathComponent xs) =
   case break (≡ '.') (reverse xs) of
-    (_,"")    → (pc, Nothing)
-    ("",_)    → (pc, Nothing)
+    (_,"")    → (p, Nothing)
+    ("",_)    → (p, Nothing)
     (sfx,pfx) → (PathComponent $ init (reverse pfx),
                  Just $ PathComponent (reverse sfx))
 
@@ -272,8 +268,9 @@ ext ∷ PathComponent → Maybe PathComponent
 ext = snd ∘ splitExt
 
 updateExt ∷ (PathComponent → PathComponent) → PathComponent → PathComponent
-updateExt f (splitExt → (p,Just e)) = p ⊙ f e
-updateExt _ p@(splitExt → (_,Nothing)) = p
+updateExt f p@(splitExt → (s, x)) = case x of
+                                       Just e  → s ⊙ f e
+                                       Nothing → p
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

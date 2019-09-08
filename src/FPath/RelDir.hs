@@ -279,12 +279,12 @@ instance HasParentMay RelDir where
   
 instance Basename RelDir where
   basename ∷ RelDir → RelDir
+  basename (RelDir (_ Seq.:|> p)) = fromList [p]
   basename r@(RelDir Seq.Empty) = r
-  basename r@(RelDir (_ :⪭ p)) = fromList [p]
 
   updateBasename ∷ (PathComponent → PathComponent) → RelDir → RelDir
-  updateBasename f r@(RelDir Seq.Empty) = r
-  updateBasename f (RelDir (ps :⪭ p)) = RelDir (ps :⪭ f p)
+  updateBasename f (RelDir (ps Seq.:|> p)) = RelDir (ps :⪭ f p)
+  updateBasename _ r@(RelDir Seq.Empty) = r
 
 basenameTests ∷ TestTree
 basenameTests =

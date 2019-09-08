@@ -15,14 +15,13 @@ import Data.Maybe  ( Maybe )
 
 -- lens --------------------------------
 
-import Control.Lens.Lens  ( Lens, Lens' )
+import Control.Lens.Lens  ( Lens' )
 
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
 import FPath.DirType        ( DirTypeC( DirType ) )
-import FPath.PathComponent  ( PathComponent )
 
 --------------------------------------------------------------------------------
 

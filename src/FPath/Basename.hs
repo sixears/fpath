@@ -9,14 +9,6 @@ module FPath.Basename
   ( Basename( basename, updateBasename ) )
 where
 
--- base --------------------------------
-
-import Data.Maybe  ( Maybe )
-
--- lens --------------------------------
-
-import Control.Lens.Lens  ( Lens, Lens' )
-
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------

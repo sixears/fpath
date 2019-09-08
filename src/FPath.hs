@@ -19,6 +19,22 @@
 -- unify DirType & FDirType ?
 -- OptParse helpers
 
+------------------------------------------------------------
+
+-- parseAsAbsDir - parse a path as an AbsDir; if it's not relative, parse it relative to here; if it lacks a trailing '/', add one.
+-- fns for Optparse
+
+-- 'parse' for each type (i.e., a class, that uses per-type methods?) / instance of Parsecable ?
+{-
+  class Parse α where
+    parse ∷ (AsFilePathError ε, MonadError ε η, Printable τ) ⇒ τ → η α
+
+  instance Parse AbsFile where
+    parse = parseAbsFile
+-}
+
+----------------------------------------
+
 -- the only tests that each module should export are 'tests' (with a no-doc flag on them)
 -- add toEither for {Abs,Rel}(Path?) {Dir,File}
 
@@ -86,7 +102,6 @@ import Data.Bool       ( Bool( False, True ) )
 import Data.Either     ( Either( Right ), either )
 import Data.Eq         ( Eq )
 import Data.Function   ( ($), (&), const, id )
-import Data.Functor    ( fmap )
 import Data.Maybe      ( Maybe( Just, Nothing ), maybe )
 import Data.String     ( String )
 import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
@@ -119,9 +134,8 @@ import Control.Lens.Prism   ( Prism', prism' )
 
 -- more-unicode-symbols ----------------
 
-import Data.MoreUnicode.Function   ( (⅋) )
 import Data.MoreUnicode.Functor    ( (⊳) )
-import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (⩼), (##) )
 import Data.MoreUnicode.Natural    ( ℕ )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 import Data.MoreUnicode.Tasty      ( (≟) )
@@ -520,235 +534,6 @@ instance Strippable RelDir where
     maybe (__FPathNotAPrefixError__ reldirT (toText d') (toText f'))
           (return ∘ fromSeq)
           (SeqConversions.stripPrefix d f)
-
-------------------------------------------------------------
-
--- parseAsAbsDir - parse a path as an AbsDir; if it's not relative, parse it relative to here; if it lacks a trailing '/', add one.
--- fns for Optparse
-
-{-
-
--- | given a FilePath, which might well include .. and/or ., convert that to
---   an AbsDir, relative to the cwd if it is relative.  Note that this performs
---   IO since the only safe way to do this is to cd to that dir and pwd.  Thus,
---   e.g., permissions may spoil this operation.
-resolveDir ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ) ⇒
-               AbsDir → Text → μ AbsDir
-resolveDir dir fn =
-  let inDir = withCurrentDirectory (toFPath dir)
-      inFn  = withCurrentDirectory (toString fn)
-   in liftIO (inDir (inFn (splitMError getCwd))) >>= fromRight
-
-resolveDir' ∷ (MonadIO μ, MonadError IOPathError μ) ⇒
-               AbsDir → Text → μ AbsDir
-resolveDir' = resolveDir
-
-resolveDir_ ∷ MonadIO μ ⇒ AbsDir → Text → μ AbsDir
-resolveDir_ dir fn = eitherIOThrowT $ resolveDir' dir fn
-
--}
-
-----------------------------------------
-
-{-
-
-resolveDirCwd ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ) ⇒
-                 Text → μ AbsDir
-resolveDirCwd f = getCwd >>= \d → resolveDir d f
-
-resolveDirCwd' ∷ (MonadIO μ, MonadError IOPathError μ) ⇒ Text → μ AbsDir
-resolveDirCwd' = resolveDirCwd
-
-resolveDirCwd_ ∷ MonadIO μ ⇒ Text → μ AbsDir
-resolveDirCwd_ = eitherIOThrowT ∘ resolveDirCwd'
-
--}
-
-----------------------------------------
-
-{-
-
--- | resolve a FilePath to an AbsFile by checking the filesystem.  See
---  `resolveDir`.
-resolveFile ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ)⇒
-               AbsDir → Text → μ AbsFile
-resolveFile dir fn = do
-  let fn' = toString fn
-  dirpath  ← resolveDir dir (toText $ fn' ^. FPLens.directory)
-  fileName ← parseRelFile (toText $ fn' ^. FPLens.filename)
-  return $ dirpath </> fileName
-
-resolveFile' ∷ (MonadIO μ, MonadError IOPathError μ) ⇒
-                AbsDir → Text → μ AbsFile
-resolveFile' = resolveFile
-
-resolveFile_ ∷ MonadIO μ ⇒ AbsDir → Text → μ AbsFile
-resolveFile_ dir fn = eitherIOThrowT $ resolveFile' dir fn
-
--}
-
-----------------------------------------
-
-{-
-
-resolveFileCwd ∷ (MonadIO μ, AsIOError ε, AsPathError ε, MonadError ε μ) ⇒
-                  Text → μ AbsFile
-resolveFileCwd f = getCwd >>= \d → resolveFile d f
-
-resolveFileCwd' ∷ (MonadIO μ, MonadError IOPathError μ) ⇒ Text → μ AbsFile
-resolveFileCwd' = resolveFileCwd
-
-resolveFileCwd_ ∷ MonadIO μ ⇒ Text → μ AbsFile
-resolveFileCwd_ = eitherIOThrowT ∘ resolveFileCwd'
-
--}
-
-----------------------------------------
-
-{-
-
-rel2abs ∷ (MonadError ε μ, AsPathError ε) ⇒ AbsDir → Text → μ AbsDir
-rel2abs _ t@(pathIsAbsolute → True) = parseAbsDir t
-rel2abs d t                          = (Path.</>) d ⊳ (parseRelDir t)
-
--}
-----------------------------------------
-
-{-
-
-_ASSERT ∷ Show χ ⇒ Either χ α → α
-_ASSERT (Right r) = r
-_ASSERT (Left e)  = error $ show e
-
-_ASSERT' ∷ Maybe α → α
-_ASSERT' (Just j) = j
-_ASSERT' Nothing  = error "Nothing!"
-
--}
-
---------------------
-
-----------------------------------------
-
-{-
-
-parseDir ∷ (AsPathError ε, MonadError ε μ) ⇒
-             Text → μ (Either AbsDir RelDir)
-parseDir t = if pathIsAbsolute t
-              then Left  ⊳ parseAbsDir t
-              else Right ⊳ parseRelDir t
-
-parseDir' ∷ MonadError PathError μ ⇒ Text → μ (Either AbsDir RelDir)
-parseDir' = parseDir
-
--}
-
-----------------------------------------
-
-{-
-
-parseFile ∷ (AsPathError ε, MonadError ε μ) ⇒
-             Text → μ (Either AbsFile RelFile)
-parseFile t = if pathIsAbsolute t
-              then Left  ⊳ parseAbsFile t
-              else Right ⊳ parseRelFile t
-
-parseFile' ∷ MonadError PathError μ ⇒ Text → μ (Either AbsFile RelFile)
-parseFile' = parseFile
-
--}
-
-----------------------------------------
-
-{-
-parseFileAbs ∷ (AsPathError ε, MonadError ε μ) ⇒
-                AbsDir → Text → μ AbsFile
-parseFileAbs d = fmap (either id (d </>))  ∘ parseFile
-
-parseFileAbs' ∷ MonadError PathError μ ⇒ AbsDir → Text → μ AbsFile
-parseFileAbs' = parseFileAbs
-
--}
-
-----------------------------------------
-
-{-
-
-parseDirAbs ∷ (AsPathError ε, MonadError ε μ) ⇒
-                AbsDir → Text → μ AbsDir
-parseDirAbs d = fmap (either id (d </>))  ∘ parseDir
-
-parseDirAbs' ∷ MonadError PathError μ ⇒ AbsDir → Text → μ AbsDir
-parseDirAbs' = parseDirAbs
-
--}
-
-----------------------------------------
-
-{-
-
-setFileExtension ∷ (AsPathError ε, MonadError ε μ) ⇒
-                    Text → Path β File → μ (Path β File)
-setFileExtension e fn =
-  mapMError (pathError ([fmt|setFileExtension: (%t)|] e) (toFilePath fn)) $
-      Path.setFileExtension (toString e) fn
-
-
-setFileExtension' ∷ MonadError PathError μ ⇒
-                     Text → Path β File → μ (Path β File)
-setFileExtension' = setFileExtension
-
-setFileExtension_ ∷ Text → Path β File → Path β File
-setFileExtension_ e = _ASSERT ∘ setFileExtension' e
-
--}
-
-----------------------------------------
-
-{-
-
--- | The extension of _any_ path - not just files.  Dirs can have extensions
---   too!, e.g., .d directories (though admittedly they are an
---   order-of-magnitude more rare)
-ext ∷ MyPath π ⇒ π → Text
---   root (/) is considered to have an extension of ""
-ext = maybe "" pack ∘ (Path.fileExtension ⊳) ∘ toFile
-
-extension ∷ MyPath π ⇒ Lens' π Text
-extension = lens ext (flip setExt)
-
--}
-
-----------------------------------------
-
-{-
-
--- | WARNING this lens is partial, you cannot get the filename of the root
---   directory.  I would love to find a better way to handle this.
-
--- | > filename ∷ MyPath (Path β τ) ⇒ Lens' (Path β τ) (Path Rel τ)
-filename ∷ MyPath π ⇒
-            Lens π (Path (AbsOrRel π) τ) (Path Rel (FileType π)) (Path Rel τ)
-
-filename = lens getFilename (flip setFilename)
-
--}
-
-----------------------------------------
-
-{-
-
--- | WARNING this lens is partial, you cannot get the parent of the root
---   directory, or a relative file/dir without a parent.  I would love to find a
---   better way to handle this.
-
-parent ∷ (FileType (Path α τ) ~ τ, AbsOrRel (Path α τ) ~ α,
-           MyPath (Path α τ)) ⇒
-          Lens (Path α τ) (Path β τ) (Path α Dir) (Path β Dir)
-
-parent = lens getParent_ (flip setParent)
-
--}
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

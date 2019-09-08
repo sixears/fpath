@@ -7,15 +7,15 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 
 module FPath.FileLike
-  ( FileLike( (⊙), (<.>), addExt, dir, dirfile, ext, file, splitExt, updateExt )
+  ( FileLike( (⊙), (<.>)
+            , addExt, dir, dirfile, ext, file, split, splitExt, updateExt )
   )
 where
 
 -- base --------------------------------
 
-import Data.Function  ( (&) )
-import Data.Maybe     ( Maybe( Just, Nothing ) )
-import Data.Tuple     ( snd )
+import Data.Maybe  ( Maybe( Just, Nothing ) )
+import Data.Tuple  ( snd )
 
 -- base-unicode-symbols ----------------
 
@@ -29,7 +29,7 @@ import Control.Lens.Tuple  ( _1, _2 )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢) )
+import Data.MoreUnicode.Lens       ( (⊣), (⫣) )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -82,7 +82,7 @@ class DirTypeC α ⇒ FileLike α where
   splitExt a = let (d,f) = a ⊣ dirfile
                 in case splitExt f of
                      (b, Just e)  → ((d,b) ⫣ dirfile, Just e)
-                     (b, Nothing) → (a, Nothing)
+                     (_, Nothing) → (a, Nothing)
 
   ext ∷ α → Maybe PathComponent
   ext = snd ∘ splitExt

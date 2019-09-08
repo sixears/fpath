@@ -23,7 +23,7 @@ module NonEmptyContainers.SeqNE
   )
 where
 
-import Prelude  ( error, undefined )
+import Prelude  ( error )
 
 -- base --------------------------------
 
@@ -384,23 +384,25 @@ instance Seqish SeqNE where
 
 infixl 5 :|>
 {- | pattern rightwards decomposition of a `Seqish` κ -}
-pattern (:|>) :: Seqish κ ⇒ Seq α -> α -> κ α
+pattern (:|>) ∷ Seqish κ ⇒ Seq α -> α -> κ α
 pattern xs :|> x <- (maybeSeqR -> Just (xs,x))
+        where xs :|> x = xs ⪭ x
 
 infixl 5 :⪭
 {- | pattern rightwards (de)composition of a `Seqish` κ -}
-pattern (:⪭) :: Seqish κ ⇒ Seq α -> α -> κ α
+pattern (:⪭) ∷ Seqish κ ⇒ Seq α -> α -> κ α
 pattern xs :⪭ x <- (maybeSeqR -> Just (xs,x)) -- decomposition (pattern)
         where xs :⪭ x = xs ⪭ x                -- composition (construction)
 
 infixr 5 :<|
 {- | pattern leftwards decomposition of a `Seqish` κ -}
-pattern (:<|) :: Seqish κ ⇒ α -> Seq α -> κ α
+pattern (:<|) ∷ Seqish κ ⇒ α -> Seq α -> κ α
 pattern x :<| xs <- (maybeSeqL -> Just (x,xs))
+        where xs :<| x = xs ⪬ x
 
 infixr 5 :⪬
 {- | pattern leftwards decomposition of a `Seqish` κ -}
-pattern (:⪬) :: Seqish κ ⇒ α -> Seq α -> κ α
+pattern (:⪬) ∷ Seqish κ ⇒ α -> Seq α -> κ α
 pattern x :⪬ xs <- (maybeSeqL -> Just (x,xs))
         where xs :⪬ x = xs ⪬ x
 
@@ -430,25 +432,25 @@ infixl 5 ⋗
 
 infixl 5 :<||
 {- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (leftwards) -}
-pattern (:<||) :: α -> Seq α -> SeqNE α
+pattern (:<||) ∷ α -> Seq α -> SeqNE α
 pattern x :<|| xs <- (uncons -> (x,xs))
   where x :<|| xs = x <|| xs
 
 infixl 5 :⫷
 {- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (leftwards) -}
-pattern (:⫷) :: α -> Seq α -> SeqNE α
+pattern (:⫷) ∷ α -> Seq α -> SeqNE α
 pattern x :⫷ xs <- (uncons -> (x,xs))
   where x :⫷ xs = x <|| xs
 
 infixl 5 :||>
 {- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (rightwards) -}
-pattern (:||>) :: Seq α -> α -> SeqNE α
+pattern (:||>) ∷ Seq α -> α -> SeqNE α
 pattern xs :||> x <- (unsnoc -> (xs,x))
   where xs :||> x = xs ||> x
 
 infixl 5 :⫸
 {- | (de)compose a `SeqNE α` from a `Seq α` and an `α` (rightwards) -}
-pattern (:⫸) :: Seq α -> α -> SeqNE α
+pattern (:⫸) ∷ Seq α -> α -> SeqNE α
 pattern xs :⫸ x <- (unsnoc -> (xs,x))
   where xs :⫸ x = xs ||> x
 

@@ -24,10 +24,8 @@ import Data.Functor            ( fmap )
 import Data.Function           ( ($), const )
 import Data.List               ( reverse )
 import Data.String             ( String )
-import Data.Tuple              ( fst, snd )
-import Data.Typeable           ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts                ( toList )
-import System.IO               ( IO, print )
+import System.IO               ( IO )
 
 -- base-unicode-symbols ----------------
 
@@ -37,7 +35,7 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 -- containers --------------------------
 
-import Data.Sequence  ( Seq( Empty, (:|>) ), breakr, fromList )
+import Data.Sequence  ( Seq( Empty ), breakr, fromList )
 
 -- data-textual ------------------------
 
@@ -60,7 +58,7 @@ import MonadError.IO.Error  ( AsIOError )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Functor  ( (⊳) )
-import Data.MoreUnicode.Lens     ( (⊣), (⫣), (##) )
+import Data.MoreUnicode.Lens     ( (⊣), (##) )
 import Data.MoreUnicode.Monad    ( (≫), (⪼) )
 import Data.MoreUnicode.Natural  ( ℕ )
 import Data.MoreUnicode.Tasty    ( (≟) )
@@ -69,17 +67,13 @@ import Data.MoreUnicode.Tasty    ( (≟) )
 
 import Control.Monad.Except  ( ExceptT, MonadError )
 
--- non-empty-containers ----------------
-
-import NonEmptyContainers.SeqNE             ( pattern (:⪭) )
-
 -- tasty -------------------------------
 
 import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( assertFailure, testCase )
+import Test.Tasty.HUnit  ( testCase )
 
 -- temporary ---------------------------
 
@@ -109,8 +103,6 @@ import FPath.Error.FPathError  ( AsFPathError, FPathIOError
                                , _FPathEmptyE
                                , __FPathEmptyE__, __FPathNotAFileE__
                                )
-import FPath.FileLike          ( FileLike( dirfile ) )
-import FPath.FPath             ( parseFPath )
 import FPath.RelFile           ( parseRelFile, relfile )
 import FPath.T.Common          ( doTest, doTestR, doTestS )
 
@@ -196,10 +188,7 @@ instance PResolvable AbsDir where
 
 pResolveAbsDirTests ∷ TestTree
 pResolveAbsDirTests =
-  let getCwd_ ∷ IO (Either FPathIOError AbsDir)
-      getCwd_ = ѥ getCwd
-
-      tName   = "FPath.IO.pResolveTests.AbsDir"
+  let tName   = "FPath.IO.pResolveTests.AbsDir"
       inTmp   = inSystemTempDirectory tName
       withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
       withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
@@ -217,16 +206,13 @@ pResolveAbsDirTests =
         , testCase "inTmp . (forgiveness of pResolve wrt trailing /)" $
             inTmp $ \ d → pResolve_ "."  ≫ (Right d ≟)
         , testCase "inTmp .." $
-            inTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                    pResolve_ ".."  ≫ (Right tmpdir ≟)
+            inTmp ∘ const $
+                    getTmpdir ≫ \ tmpdir → pResolve_ ".."  ≫ (Right tmpdir ≟)
 
         , testCase "inTmp ../ (dirname)" $
-            inTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                    pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
+            inTmp $ \ d → pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
         , testCase "inTmp ../ (basename)" $
-            inTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                    pResolve_ "../" ≫ ((Right d ≟) ∘
-                                         fmap (⫻ basename d))
+            inTmp $ \ d → pResolve_ "../" ≫ ((Right d ≟) ∘ fmap (⫻ basename d))
 
         , testCase "withTmp ./" $
             withTmp $ \ d → pResolveDir_ d "./" ≫ (Right d ≟)
@@ -261,20 +247,15 @@ instance PResolvable AbsFile where
 
       (_, Empty    ) → -- just a file, no dir part
                        do c ∷ AbsDir ← pResolveDir d ("."∷Text)
-                          f' ← parseRelFile (toText f)
                           (c ⫻) ⊳ parseRelFile f
 
       (x    , y    ) → -- dir + file
                        do c ← pResolveDir d (toList y)
-                          f' ← parseRelFile (toList x)
                           (c ⫻) ⊳ parseRelFile (toList x)
 
 pResolveAbsFileTests ∷ TestTree
 pResolveAbsFileTests =
-  let getCwd_ ∷ IO (Either FPathIOError AbsDir)
-      getCwd_ = ѥ getCwd
-
-      tName   = "FPath.IO.pResolveTests.AbsFile"
+  let tName   = "FPath.IO.pResolveTests.AbsFile"
       inTmp   = inSystemTempDirectory tName
       withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
       withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
@@ -285,8 +266,6 @@ pResolveAbsFileTests =
       pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsFile)
       pResolveDir_ d = ѥ ∘ pResolveDir d
 
-      getTmpdir ∷ IO AbsDir
-      getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
    in testGroup "AbsFile"
         [ testCase "inTmp '' x" $
             inTmp $ \ d → pResolve_ "x" ≫ (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
@@ -318,7 +297,7 @@ instance PResolvable AbsPath where
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ AbsPath
-  pResolveDir d (toString → [])                       = __FPathEmptyE__ abspathT
+  pResolveDir _ (toString → [])                       = __FPathEmptyE__ abspathT
   pResolveDir d t@(toString → ".")                    = AbsD ⊳ pResolveDir d t
   pResolveDir d t@(toString → "..")                   = AbsD ⊳ pResolveDir d t
   pResolveDir d t@(reverse ∘ toString → '/' : _)      = AbsD ⊳ pResolveDir d t
@@ -329,22 +308,12 @@ instance PResolvable AbsPath where
 
 pResolveAbsPathTests ∷ TestTree
 pResolveAbsPathTests =
-  let getCwd_ ∷ IO (Either FPathIOError AbsDir)
-      getCwd_ = ѥ getCwd
-
-      tName   = "FPath.IO.pResolveTests.AbsPath"
-      inTmp   = inSystemTempDirectory tName
+  let tName   = "FPath.IO.pResolveTests.AbsPath"
       withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
       withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
 
-      pResolve_ ∷ Text → IO (Either FPathIOError AbsPath)
-      pResolve_ = ѥ ∘ pResolve
-
       pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsPath)
       pResolveDir_ d = ѥ ∘ pResolveDir d
-
-      getTmpdir ∷ IO AbsDir
-      getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
 
    in testGroup "AbsPath"
         [ testCase "withTmp ''" $
@@ -390,6 +359,7 @@ inSystemTempDirectory t io =
             changeWorkingDirectory
             (\ _ → io $ __parseAbsDirP__ d)
 
+pResolveTests ∷ TestTree
 pResolveTests = testGroup "pResolve" [ pResolveAbsDirTests, pResolveAbsFileTests
                                      , pResolveAbsPathTests ]
 

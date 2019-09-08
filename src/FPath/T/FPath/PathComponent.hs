@@ -10,8 +10,7 @@ where
 
 -- base --------------------------------
 
-import Data.Function    ( ($), (&), const )
-import Data.Functor     ( fmap )
+import Data.Function    ( ($), const )
 import Data.Maybe       ( Maybe( Just, Nothing ) )
 import Data.String      ( String )
 import Numeric.Natural  ( Natural )
@@ -35,8 +34,6 @@ import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Function   ( (⅋) )
-import Data.MoreUnicode.Lens       ( (⊣), (⊢), (⊧) )
 import Data.MoreUnicode.Tasty      ( (≟) )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 
