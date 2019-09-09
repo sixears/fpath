@@ -68,11 +68,7 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile, parseAbsFile )
-import FPath.AbsOrRel          ( AbsOrRel( Abs, Rel )
-                               , HasAbsOrRel( absOrRel ) )
 import FPath.AbsPath           ( AsAbsPath(_AbsPath ), AbsPath( AbsD, AbsF ) )
-import FPath.DirOrFile         ( DirOrFile( Dir, File )
-                               , HasDirOrFile( dirOrFile ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, reldir
@@ -129,21 +125,6 @@ instance AsAbsPath FPath where
                                      FAbsF f → Just $ AbsF f
                                      _       → Nothing
                     )
-
-----------------------------------------
-
-instance HasAbsOrRel FPath where
-  absOrRel (FAbsD _) = Abs
-  absOrRel (FAbsF _) = Abs
-  absOrRel (FRelD _) = Rel
-  absOrRel (FRelF _) = Rel
-
-instance HasDirOrFile FPath where
-  dirOrFile (FAbsD _) = Dir
-  dirOrFile (FAbsF _) = File
-  dirOrFile (FRelD _) = Dir
-  dirOrFile (FRelF _) = File
-
 
 ------------------------------------------------------------
 

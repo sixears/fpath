@@ -71,8 +71,6 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile, parseAbsFile )
-import FPath.DirOrFile         ( DirOrFile( Dir, File )
-                               , HasDirOrFile( dirOrFile ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Util              ( __ERROR'__ )
 
@@ -101,10 +99,6 @@ instance AsNonRootAbsDir AbsPath where
 instance AsAbsFile AbsPath where
   _AbsFile ∷ Prism' AbsPath AbsFile
   _AbsFile = prism' AbsF (\ case (AbsF f) → Just f; _ → Nothing)
-
-instance HasDirOrFile AbsPath where
-  dirOrFile (AbsD _) = Dir
-  dirOrFile (AbsF _) = File
 
 ------------------------------------------------------------
 

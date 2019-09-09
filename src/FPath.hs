@@ -1,14 +1,9 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE LambdaCase        #-}
---{-# LANGUAGE OverloadedStrings #-}
--- {-# LANGUAGE PatternSynonyms   #-}
---{-# LANGUAGE QuasiQuotes       #-}
---{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
---{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UnicodeSyntax       #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE InstanceSigs     #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE UnicodeSyntax    #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 -- {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -54,9 +49,6 @@
 module FPath
   ( AbsDir, AbsFile, AbsPath, Dir, File, NonRootAbsDir, RelDir, RelFile, RelPath
   , AsFilePath( filepath )
-
-  , AbsOrRel(..), HasAbsOrRel( absOrRel, isAbs, isRel )
-  , DirOrFile(..), HasDirOrFile( dirOrFile, isDir, isFile )
 
   , module FPath.AppendableFPath
 
@@ -211,15 +203,11 @@ import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , parseAbsFile, parseAbsFile'
                                , __parseAbsFile'__, __parseAbsFile__
                                )
-import FPath.AbsOrRel          ( AbsOrRel( Abs, Rel )
-                               , HasAbsOrRel( absOrRel, isAbs, isRel ) )
 import FPath.AbsPath           ( AbsPath, parseAbsPath, parseAbsPath'
                                , __parseAbsPath__, __parseAbsPath'__
                                )
 import FPath.AppendableFPath   ( AppendableFPath( (⫻) ), (</>) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.DirOrFile         ( DirOrFile( Dir, File )
-                               , HasDirOrFile( dirOrFile, isDir, isFile ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                , FPathError, FPathNotAPrefixError
@@ -262,10 +250,6 @@ instance AsNonRootAbsDir Dir where
 instance AsRelDir Dir where
   _RelDir ∷ Prism' Dir RelDir
   _RelDir = prism' DirR (\ case (DirR d) → Just d; _ → Nothing)
-
-instance HasAbsOrRel Dir where
-  absOrRel (DirA _) = Abs
-  absOrRel (DirR _) = Rel
 
 ------------------------------------------------------------
 

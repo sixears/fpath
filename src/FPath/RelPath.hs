@@ -63,8 +63,6 @@ import Data.Text  ( last, null )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.DirOrFile         ( DirOrFile( Dir, File )
-                               , HasDirOrFile( dirOrFile ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, reldir )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
@@ -92,10 +90,6 @@ instance AsRelDir RelPath where
 instance AsRelFile RelPath where
   _RelFile ∷ Prism' RelPath RelFile
   _RelFile = prism' RelF (\ case (RelF f) → Just f; _ → Nothing)
-
-instance HasDirOrFile RelPath where
-  dirOrFile (RelD _) = Dir
-  dirOrFile (RelF _) = File
 
 ----------------------------------------
 

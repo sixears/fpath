@@ -50,10 +50,8 @@ library
                  , FPath.AbsDir, FPath.T.FPath.AbsDir
                  , FPath.AbsPath
                  , FPath.AbsFile, FPath.T.FPath.AbsFile
-                 , FPath.AbsOrRel
                  , FPath.AppendableFPath
                  , FPath.Basename
-                 , FPath.DirOrFile
                  , FPath.Dirname
                  , FPath.DirType
                  , FPath.FPath
