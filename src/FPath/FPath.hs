@@ -61,6 +61,7 @@ import Data.Text  ( head, last, null )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.Abs               ( AsAbs(_Abs ), Abs( AbsD, AbsF ) )
 import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
                                , ToAbsDir( toAbsDir )
@@ -68,8 +69,8 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile, parseAbsFile )
-import FPath.AbsPath           ( AsAbsPath(_AbsPath ), AbsPath( AbsD, AbsF ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
+import FPath.Rel               ( AsRel(_Rel ), Rel( RelD, RelF ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, reldir
                                )
@@ -117,14 +118,26 @@ instance AsRelFile FPath where
 
 ----------------------------------------
 
-instance AsAbsPath FPath where
-  _AbsPath = prism' (\ p → case p of AbsD d → FAbsD d
-                                     AbsF f → FAbsF f
-                    )
-                    (\ p → case p of FAbsD d → Just $ AbsD d
-                                     FAbsF f → Just $ AbsF f
-                                     _       → Nothing
-                    )
+instance AsAbs FPath where
+  _Abs = prism' (\ p → case p of AbsD d → FAbsD d
+                                 AbsF f → FAbsF f
+                )
+                (\ p → case p of FAbsD d → Just $ AbsD d
+                                 FAbsF f → Just $ AbsF f
+                                 _       → Nothing
+                )
+
+
+----------------------------------------
+
+instance AsRel FPath where
+  _Rel = prism' (\ p → case p of RelD d → FRelD d
+                                 RelF f → FRelF f
+                )
+                (\ p → case p of FRelD d → Just $ RelD d
+                                 FRelF f → Just $ RelF f
+                                 _       → Nothing
+                )
 
 ------------------------------------------------------------
 

@@ -6,9 +6,9 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module FPath.RelPath
-  ( AsRelPath( _RelPath ), RelPath(..)
-  , parseRelPath, parseRelPath', __parseRelPath__, __parseRelPath'__
+module FPath.Rel
+  ( AsRel( _Rel ), Rel(..)
+  , parseRel, parseRel', __parseRel__, __parseRel'__
 
   , tests
   )
@@ -72,55 +72,55 @@ import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
 
-data RelPath = RelD RelDir | RelF RelFile
+data Rel = RelD RelDir | RelF RelFile
   deriving (Eq, Show)
 
-class AsRelPath α where
-  _RelPath ∷ Prism' α RelPath
+class AsRel α where
+  _Rel ∷ Prism' α Rel
 
-instance AsRelPath RelPath where
-  _RelPath = id
+instance AsRel Rel where
+  _Rel = id
 
 ----------------------------------------
 
-instance AsRelDir RelPath where
-  _RelDir ∷ Prism' RelPath RelDir
+instance AsRelDir Rel where
+  _RelDir ∷ Prism' Rel RelDir
   _RelDir = prism' RelD (\ case (RelD d) → Just d; _ → Nothing)
 
-instance AsRelFile RelPath where
-  _RelFile ∷ Prism' RelPath RelFile
+instance AsRelFile Rel where
+  _RelFile ∷ Prism' Rel RelFile
   _RelFile = prism' RelF (\ case (RelF f) → Just f; _ → Nothing)
 
 ----------------------------------------
 
 relpathT ∷ TypeRep
-relpathT = typeRep (Proxy ∷ Proxy RelPath)
+relpathT = typeRep (Proxy ∷ Proxy Rel)
 
-parseRelPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelPath
-parseRelPath (toText → t) =
+parseRel ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Rel
+parseRel (toText → t) =
   case null t of
     True → __FPathEmptyE__ relpathT
     False → case last t of
               '/' → RelD ⊳ parseRelDir  t
               _   → RelF ⊳ parseRelFile t
 
-parseRelPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelPath
-parseRelPath' = parseRelPath
+parseRel' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Rel
+parseRel' = parseRel
 
-__parseRelPath__ ∷ Printable τ ⇒ τ → RelPath
-__parseRelPath__ = either __ERROR'__ id ∘ parseRelPath'
+__parseRel__ ∷ Printable τ ⇒ τ → Rel
+__parseRel__ = either __ERROR'__ id ∘ parseRel'
 
-__parseRelPath'__ ∷ String → RelPath
-__parseRelPath'__ = __parseRelPath__
+__parseRel'__ ∷ String → Rel
+__parseRel'__ = __parseRel__
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
 --------------------------------------------------------------------------------
 
-parseRelPathTests ∷ TestTree
-parseRelPathTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseRelPath' t
-   in testGroup "parseRelPath"
+parseRelTests ∷ TestTree
+parseRelTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseRel' t
+   in testGroup "parseRel"
                 [ success [reldir|./|]         _RelDir "./"
                 , success [reldir|etc/|]       _RelDir "etc/"
                 , success [relfile|etc/group|] _RelFile "etc/group"
@@ -128,6 +128,6 @@ parseRelPathTests =
 
 
 tests ∷ TestTree
-tests = testGroup "RelPath" [ parseRelPathTests ]
+tests = testGroup "Rel" [ parseRelTests ]
                 
 -- that's all, folks! ----------------------------------------------------------

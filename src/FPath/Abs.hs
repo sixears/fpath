@@ -7,9 +7,9 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module FPath.AbsPath
-  ( AbsPath(..), AsAbsPath( _AbsPath )
-  , abspathT, parseAbsPath, parseAbsPath', __parseAbsPath__, __parseAbsPath'__
+module FPath.Abs
+  ( Abs(..), AsAbs( _Abs )
+  , absT, parseAbs, parseAbs', __parseAbs__, __parseAbs'__
 
   , tests
   )
@@ -76,66 +76,66 @@ import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
 
-data AbsPath = AbsD AbsDir | AbsF AbsFile
+data Abs = AbsD AbsDir | AbsF AbsFile
   deriving (Eq, Show)
 
-class AsAbsPath α where
-  _AbsPath ∷ Prism' α AbsPath
+class AsAbs α where
+  _Abs ∷ Prism' α Abs
 
-instance AsAbsPath AbsPath where
-  _AbsPath = id
+instance AsAbs Abs where
+  _Abs = id
 
 ----------------------------------------
 
-instance AsAbsDir AbsPath where
-  _AbsDir ∷ Prism' AbsPath AbsDir
+instance AsAbsDir Abs where
+  _AbsDir ∷ Prism' Abs AbsDir
   _AbsDir = prism' AbsD (\ case (AbsD d) → Just d; _ → Nothing)
 
-instance AsNonRootAbsDir AbsPath where
-  _NonRootAbsDir ∷ Prism' AbsPath NonRootAbsDir
+instance AsNonRootAbsDir Abs where
+  _NonRootAbsDir ∷ Prism' Abs NonRootAbsDir
   _NonRootAbsDir = prism' (AbsD ∘ toAbsDir)
                           (\ case (AbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
 
-instance AsAbsFile AbsPath where
-  _AbsFile ∷ Prism' AbsPath AbsFile
+instance AsAbsFile Abs where
+  _AbsFile ∷ Prism' Abs AbsFile
   _AbsFile = prism' AbsF (\ case (AbsF f) → Just f; _ → Nothing)
 
 ------------------------------------------------------------
 
-abspathT ∷ TypeRep
-abspathT = typeRep (Proxy ∷ Proxy AbsPath)
+absT ∷ TypeRep
+absT = typeRep (Proxy ∷ Proxy Abs)
 
-parseAbsPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsPath
-parseAbsPath (toText → t) =
+parseAbs ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Abs
+parseAbs (toText → t) =
   case null t of
-    True → __FPathEmptyE__ abspathT
+    True → __FPathEmptyE__ absT
     False → case last t of
               '/' → AbsD ⊳ parseAbsDir  t
               _   → AbsF ⊳ parseAbsFile t
 
-parseAbsPathTests ∷ TestTree
-parseAbsPathTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseAbsPath' t
-   in testGroup "parseAbsPath"
+parseAbsTests ∷ TestTree
+parseAbsTests =
+  let success d f t = testCase t $ Right (d ## f) ≟ parseAbs' t
+   in testGroup "parseAbs"
                 [ success [absdir|/|]           _AbsDir "/"
                 , success [absdir|/etc/|]       _AbsDir "/etc/"
                 , success [absfile|/etc/group|] _AbsFile "/etc/group"
                 ]
 
-parseAbsPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsPath
-parseAbsPath' = parseAbsPath
+parseAbs' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Abs
+parseAbs' = parseAbs
 
-__parseAbsPath__ ∷ Printable τ ⇒ τ → AbsPath
-__parseAbsPath__ = either __ERROR'__ id ∘ parseAbsPath'
+__parseAbs__ ∷ Printable τ ⇒ τ → Abs
+__parseAbs__ = either __ERROR'__ id ∘ parseAbs'
 
-__parseAbsPath'__ ∷ String → AbsPath
-__parseAbsPath'__ = __parseAbsPath__
+__parseAbs'__ ∷ String → Abs
+__parseAbs'__ = __parseAbs__
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
 --------------------------------------------------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "AbsPath" [ parseAbsPathTests ]
+tests = testGroup "Abs" [ parseAbsTests ]
                 
 -- that's all, folks! ----------------------------------------------------------

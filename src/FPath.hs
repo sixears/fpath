@@ -9,10 +9,11 @@
 
 -- TODO
 
--- sort out naming of Dir, DirOrRel, HasAbsOrRel, etc., etc.
+-- sort out naming of Dir, etc., etc.
 --   maybe FAbs, FRel, etc., for the compound types, maybe _Dir, _Rel for the dirOrRel fns...; also choose in which files to define them, consistently.  Maybe AbsPath -> Abs; RelPath -> Rel; leaving Path for .. things
 -- unify DirType & FDirType ?
 -- OptParse helpers
+-- import-export whole modules?
 
 ------------------------------------------------------------
 
@@ -47,7 +48,7 @@
 -- implement Paths
 
 module FPath
-  ( AbsDir, AbsFile, AbsPath, Dir, File, NonRootAbsDir, RelDir, RelFile, RelPath
+  ( AbsDir, AbsFile, Abs, Dir, File, NonRootAbsDir, RelDir, RelFile, Rel
   , AsFilePath( filepath )
 
   , module FPath.AppendableFPath
@@ -60,13 +61,14 @@ module FPath
 
   , nonRootAbsDir
 
+  , parseAbs     , parseAbs'     , __parseAbs__     , __parseAbs'__
   , parseAbsDir  , parseAbsDir'  , __parseAbsDir__  , __parseAbsDir'__
   , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
   , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
-  , parseAbsPath , parseAbsPath' , __parseAbsPath__ , __parseAbsPath'__
   , parseDir     , parseDir'     , __parseDir__     , __parseDir'__
   , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
   , parseFPath   , parseFPath'   , __parseFPath__   , __parseFPath'__
+  , parseRel     , parseRel'     , __parseRel__     , __parseRel'__
   , parseRelDir  , parseRelDir'  , __parseRelDir__  , __parseRelDir'__
   , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
   , seq, seqNE
@@ -187,6 +189,9 @@ import Fluffy.Text           ( last )
 ------------------------------------------------------------
 
 
+import FPath.Abs               ( Abs, parseAbs, parseAbs'
+                               , __parseAbs__, __parseAbs'__
+                               )
 import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
                                , ToAbsDir( toAbsDir )
@@ -203,9 +208,6 @@ import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , parseAbsFile, parseAbsFile'
                                , __parseAbsFile'__, __parseAbsFile__
                                )
-import FPath.AbsPath           ( AbsPath, parseAbsPath, parseAbsPath'
-                               , __parseAbsPath__, __parseAbsPath'__
-                               )
 import FPath.AppendableFPath   ( AppendableFPath( (⫻) ), (</>) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
@@ -219,6 +221,9 @@ import FPath.FPath             ( parseFPath, parseFPath'
                                , __parseFPath__, __parseFPath'__ )
 import FPath.IO                ( getCwd, getCwd' )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
+import FPath.Rel               ( Rel, parseRel, parseRel'
+                               , __parseRel__, __parseRel'__
+                               )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, parseRelDir', __parseRelDir'__
                                , __parseRelDir__, reldir, reldirT
@@ -227,7 +232,7 @@ import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , parseRelFile, parseRelFile', __parseRelFile'__
                                , __parseRelFile__, relfile, relfileT
                                )
-import FPath.RelPath           ( RelPath )
+import FPath.Rel               ( Rel )
 import FPath.RelType           ( RelTypeC( RelType ) )
 import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )

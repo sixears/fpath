@@ -92,9 +92,9 @@ import System.Posix.Directory  ( changeWorkingDirectory, getWorkingDirectory )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.Abs               ( Abs( AbsD, AbsF ), absT )
 import FPath.AbsDir            ( AbsDir,  parseAbsDir, __parseAbsDirP__ )
 import FPath.AbsFile           ( AbsFile, absfileT )
-import FPath.AbsPath           ( AbsPath( AbsD, AbsF ), abspathT )
 import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( basename )
@@ -288,16 +288,16 @@ pResolveAbsFileTests =
 
 
 {- | Given a path, which might well relative include '..' and/or '.', physically
-     resolve that to an AbsPath.  Relative paths are contextual to the cwd.
+     resolve that to an Abs.  Relative paths are contextual to the cwd.
      Input with a trailing '/', "/.", or "/.."; or the special cases "." and
      ".." are resolved to directories; without are resolved to files.  Empty
      input strings cause a failure.
  -}
-instance PResolvable AbsPath where
+instance PResolvable Abs where
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
-                AbsDir → τ → μ AbsPath
-  pResolveDir _ (toString → [])                       = __FPathEmptyE__ abspathT
+                AbsDir → τ → μ Abs
+  pResolveDir _ (toString → [])                       = __FPathEmptyE__ absT
   pResolveDir d t@(toString → ".")                    = AbsD ⊳ pResolveDir d t
   pResolveDir d t@(toString → "..")                   = AbsD ⊳ pResolveDir d t
   pResolveDir d t@(reverse ∘ toString → '/' : _)      = AbsD ⊳ pResolveDir d t
@@ -306,18 +306,18 @@ instance PResolvable AbsPath where
   pResolveDir d t                                     = AbsF ⊳ pResolveDir d t
 
 
-pResolveAbsPathTests ∷ TestTree
-pResolveAbsPathTests =
-  let tName   = "FPath.IO.pResolveTests.AbsPath"
+pResolveAbsTests ∷ TestTree
+pResolveAbsTests =
+  let tName   = "FPath.IO.pResolveTests.Abs"
       withTmp ∷ (MonadIO μ, MonadMask μ) ⇒ (AbsDir → μ α) → μ α
       withTmp = withSystemTempDirectory tName ∘ (∘ __parseAbsDirP__)
 
-      pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsPath)
+      pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError Abs)
       pResolveDir_ d = ѥ ∘ pResolveDir d
 
-   in testGroup "AbsPath"
+   in testGroup "Abs"
         [ testCase "withTmp ''" $
-            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE abspathT) ≟)
+            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE absT) ≟)
         , testCase "withTmp ./" $
             withTmp $ \ d → pResolveDir_ d "./" ≫ (Right (AbsD d) ≟)
         , testCase "withTmp ." $
@@ -336,7 +336,7 @@ pResolveAbsPathTests =
                       pResolveDir_ d ".././."≫(Right (AbsD (d ⊣ dirname)) ≟)
 
         , testCase "withTmp ''" $
-            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE abspathT) ≟)
+            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE absT) ≟)
         , testCase "withTmp '' x" $
             withTmp $ \ d → pResolveDir_ d "x" ≫
                           (Right (AbsF (d ⫻ [relfile|x|])) ≟)
@@ -361,7 +361,7 @@ inSystemTempDirectory t io =
 
 pResolveTests ∷ TestTree
 pResolveTests = testGroup "pResolve" [ pResolveAbsDirTests, pResolveAbsFileTests
-                                     , pResolveAbsPathTests ]
+                                     , pResolveAbsTests ]
 
 tests ∷ TestTree
 tests = testGroup "FPath.IO" [ getCwdTests, pResolveTests ]

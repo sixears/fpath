@@ -47,8 +47,8 @@ library
   ghc-options:     -W -Wall -fhelpful-errors
   -- Modules exported by the library.
   exposed-modules: FPath
+                 , FPath.Abs
                  , FPath.AbsDir, FPath.T.FPath.AbsDir
-                 , FPath.AbsPath
                  , FPath.AbsFile, FPath.T.FPath.AbsFile
                  , FPath.AppendableFPath
                  , FPath.Basename
@@ -58,9 +58,9 @@ library
                  , FPath.IO
                  , FPath.Parent
                  , FPath.PathComponent
+                 , FPath.Rel
                  , FPath.RelDir, FPath.T.FPath.RelDir
                  , FPath.RelFile, FPath.T.FPath.RelFile
-                 , FPath.RelPath
                  , FPath.RelType
                  
                  , FPath.Error.FPathComponentError
