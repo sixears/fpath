@@ -20,7 +20,7 @@ import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import GHC.Exts             ( fromList, toList )
-import Numeric.Natural      ( Natural )
+import System.Exit          ( ExitCode )
 import System.IO            ( IO )
 import Text.Show            ( Show( show ) )
 
@@ -73,6 +73,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( propAssociative, propInvertibleString, propInvertibleText
+                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
+
 -- tasty-quickcheck --------------------
 
 import Test.Tasty.QuickCheck  ( testProperty )
@@ -91,11 +96,6 @@ import FPath.AsFilePath        ( filepath )
 import FPath.Parent            ( parentMay )
 import FPath.PathComponent     ( pc, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
-
-import FPath.T.Common          ( doTest, doTestR, doTestS
-                               , propAssociative, propInvertibleString
-                               , propInvertibleText, propInvertibleUtf8
-                               )
 import FPath.T.FPath.TestData  ( r0, r1, r2, r3 )
 
 --------------------------------------------------------------------------------
@@ -379,15 +379,15 @@ tests =
 
 ----------------------------------------
 
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → Natural → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

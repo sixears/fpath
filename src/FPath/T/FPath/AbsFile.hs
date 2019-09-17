@@ -22,7 +22,7 @@ import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), typeRep )
-import Numeric.Natural      ( Natural )
+import System.Exit          ( ExitCode )
 import System.IO            ( IO )
 import Text.Show            ( Show( show ) )
 
@@ -81,6 +81,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( propInvertibleString, propInvertibleText, propInvertibleUtf8
+                  , runTestsP, runTestsReplay, runTestTree )
+
 -- tasty-quickcheck --------------------
 
 import Test.Tasty.QuickCheck  ( testProperty )
@@ -112,8 +117,6 @@ import FPath.Parent            ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.AbsDir            ( AbsDir, absdir )
 import FPath.AbsFile           ( AbsFile, parseAbsFile', absfile )
-import FPath.T.Common          ( doTest, doTestR, doTestS, propInvertibleString
-                               , propInvertibleText, propInvertibleUtf8 )
 import FPath.T.FPath.TestData  ( af1, af2, af3, af4, a0, a1, a2, a3 )
 
 --------------------------------------------------------------------------------
@@ -567,15 +570,15 @@ tests =
 
 ----------------------------------------
 
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → Natural → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs     #-}
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE QuasiQuotes      #-}
 {-# LANGUAGE TypeFamilies     #-}
 {-# LANGUAGE UnicodeSyntax    #-}
 {-# LANGUAGE ViewPatterns     #-}
@@ -9,11 +10,13 @@
 
 -- TODO
 
--- sort out naming of Dir, etc., etc.
---   maybe FAbs, FRel, etc., for the compound types, maybe _Dir, _Rel for the dirOrRel fns...; also choose in which files to define them, consistently.  Maybe AbsPath -> Abs; RelPath -> Rel; leaving Path for .. things
--- unify DirType & FDirType ?
--- OptParse helpers
+-- separate out tasty handlers
+
+-- OptParse helpers; ReadM instances
 -- import-export whole modules?
+-- separate out temp handlers
+
+-- separate out parsecable, add parsec for {Rel,Abs}{File,Dir}
 
 ------------------------------------------------------------
 
@@ -28,8 +31,6 @@
   instance Parse AbsFile where
     parse = parseAbsFile
 -}
-
-----------------------------------------
 
 -- the only tests that each module should export are 'tests' (with a no-doc flag on them)
 -- add toEither for {Abs,Rel}(Path?) {Dir,File}
@@ -90,17 +91,18 @@ where
 
 -- base --------------------------------
 
-import Control.Monad   ( return )
-import Data.Bifunctor  ( first )
-import Data.Bool       ( Bool( False, True ) )
-import Data.Either     ( Either( Right ), either )
-import Data.Eq         ( Eq )
-import Data.Function   ( ($), (&), const, id )
-import Data.Maybe      ( Maybe( Just, Nothing ), maybe )
-import Data.String     ( String )
-import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
-import System.IO       ( IO )
-import Text.Show       ( Show )
+import Control.Monad    ( return )
+import Data.Bifunctor   ( first )
+import Data.Bool        ( Bool( False, True ) )
+import Data.Either      ( Either( Right ), either )
+import Data.Eq          ( Eq )
+import Data.Function    ( ($), (&), const, id )
+import Data.Maybe       ( Maybe( Just, Nothing ), maybe )
+import Data.String      ( String )
+import Data.Typeable    ( Proxy( Proxy ), TypeRep, typeRep )
+import System.Exit      ( ExitCode )
+import System.IO        ( IO )
+import Text.Show        ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -155,6 +157,10 @@ import Test.Tasty  ( TestTree, testGroup )
 -- tasty-hunit -------------------------
 
 import Test.Tasty.HUnit  ( testCase )
+
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 
 -- text --------------------------------
 
@@ -232,9 +238,7 @@ import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , parseRelFile, parseRelFile', __parseRelFile'__
                                , __parseRelFile__, relfile, relfileT
                                )
-import FPath.Rel               ( Rel )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 import FPath.Util              ( __ERROR'__ )
 
@@ -535,14 +539,15 @@ tests = testGroup "FPath" [ parseDirTests, parseFileTests
 
 --------------------
 
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+--------------------
 
-_testr ∷ String → ℕ → IO ()
-_testr = doTestR tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

@@ -51,6 +51,7 @@ library
                  , FPath.AbsDir, FPath.T.FPath.AbsDir
                  , FPath.AbsFile, FPath.T.FPath.AbsFile
                  , FPath.AppendableFPath
+                 , FPath.AsFilePath
                  , FPath.Basename
                  , FPath.Dirname
                  , FPath.DirType
@@ -66,7 +67,7 @@ library
                  , FPath.Error.FPathComponentError
                  , FPath.Error.FPathError
 
-                 , FPath.T.Common, FPath.T.FPath
+                 , FPath.T.FPath
                  , FPath.T.FPath.NonRootAbsDir
                  , FPath.T.FPath.PathComponent
                  , FPath.T.FPath.TestData
@@ -98,7 +99,7 @@ library
                , mtl, parsers, QuickCheck, template-haskell, tasty, tasty-hunit
                , tasty-quickcheck, temporary, text, text-printer, unix, validity
 
-               , monaderror-io, more-unicode, tfmt
+               , exited, monaderror-io, more-unicode, tasty-plus, tfmt
   -- Directories containing source files.
   hs-source-dirs:      src
 

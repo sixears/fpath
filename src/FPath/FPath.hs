@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
@@ -19,6 +20,7 @@ import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
+import System.Exit    ( ExitCode )
 import System.IO      ( IO )
 import Text.Show      ( Show )
 
@@ -53,6 +55,10 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+
 -- text --------------------------------
 
 import Data.Text  ( head, last, null )
@@ -77,7 +83,6 @@ import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , parseRelFile, relfile
                                )
-import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
@@ -184,13 +189,15 @@ tests = testGroup "FPath" [ parseFPathTests ]
 
 --------------------
 
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+--------------------
 
-_testr ∷ String → ℕ → IO ()
-_testr = doTestR tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
+
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

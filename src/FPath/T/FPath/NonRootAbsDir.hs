@@ -19,7 +19,7 @@ import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
-import Numeric.Natural      ( Natural )
+import System.Exit          ( ExitCode )
 import System.IO            ( IO )
 import Text.Show            ( show )
 
@@ -66,6 +66,12 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( Assertion, testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( propInvertibleString, propInvertibleText, propInvertibleUtf8
+                  , runTestsP, runTestsReplay, runTestTree )
+
+
 -- tasty-quickcheck --------------------
 
 import Test.Tasty.QuickCheck  ( testProperty )
@@ -82,9 +88,6 @@ import FPath.AsFilePath        ( filepath )
 import FPath.AbsDir            ( AbsDir, NonRootAbsDir, absdirN )
 import FPath.Parent            ( parent, parentMay )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
-import FPath.T.Common          ( doTest, doTestR, doTestS
-                               , propInvertibleString, propInvertibleText
-                               , propInvertibleUtf8 )
 import FPath.T.FPath.TestData  ( etc, etcN, pamd, pamdN, root, wgm, wgmN )
 
 --------------------------------------------------------------------------------
@@ -360,17 +363,15 @@ tests =
 
 ----------------------------------------
 
--- Cannot use Fluffy.Tasty here, as we will be a dependency of Fluffy...
-
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → Natural → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

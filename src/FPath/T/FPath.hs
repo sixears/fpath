@@ -10,15 +10,16 @@ where
 
 -- base --------------------------------
 
-import Data.Either      ( Either( Left, Right ) )
-import Data.Function    ( ($) )
-import Data.String      ( String )
-import Numeric.Natural  ( Natural )
-import System.IO        ( IO )
+import Data.Either    ( Either( Left, Right ) )
+import Data.Function  ( ($) )
+import Data.String    ( String )
+import System.Exit    ( ExitCode )
+import System.IO      ( IO )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Tasty  ( (≟) )
+import Data.MoreUnicode.Natural  ( ℕ )
+import Data.MoreUnicode.Tasty    ( (≟) )
 
 -- tasty -------------------------------
 
@@ -27,6 +28,10 @@ import Test.Tasty  ( TestTree, testGroup )
 -- tasty-hunit -------------------------
 
 import Test.Tasty.HUnit  ( testCase )
+
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -49,7 +54,6 @@ import FPath.AbsDir    ( AbsDir, absdir, absdirT, root )
 import FPath.AbsFile   ( AbsFile, absfile, absfileT )
 import FPath.RelDir    ( RelDir, reldir, reldirT )
 import FPath.RelFile   ( RelFile, relfile, relfileT )
-import FPath.T.Common  ( doTest, doTestR, doTestS )
 
 import FPath.Error.FPathError  ( FPathNotAPrefixError( FPathNotAPrefixError ) )
 
@@ -212,17 +216,15 @@ tests = testGroup "fpath" [ FPath.T.FPath.PathComponent.tests
 
 ----------------------------------------
 
--- Cannot use Fluffy.Tasty here, as we will be a dependency of Fluffy...
-
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → Natural → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

@@ -13,7 +13,7 @@ where
 import Data.Function    ( ($), const )
 import Data.Maybe       ( Maybe( Just, Nothing ) )
 import Data.String      ( String )
-import Numeric.Natural  ( Natural )
+import System.Exit      ( ExitCode )
 import System.IO        ( IO )
 
 -- base-unicode-symbols ----------------
@@ -34,6 +34,7 @@ import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 
 -- more-unicode ------------------------
 
+import Data.MoreUnicode.Natural    ( ℕ )
 import Data.MoreUnicode.Tasty      ( (≟) )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 
@@ -49,6 +50,10 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+
 -- tasty-quickcheck --------------------
 
 import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
@@ -63,8 +68,6 @@ import qualified  FPath.PathComponent
 
 import FPath.PathComponent  ( PathComponent
                             , addExt, ext, pc, splitExt, toUpper, updateExt )
-
-import FPath.T.Common       ( doTest, doTestR, doTestS )
 
 --------------------------------------------------------------------------------
 
@@ -184,17 +187,15 @@ tests =
 
 ----------------------------------------
 
--- Cannot use Fluffy.Tasty here, as we will be a dependency of Fluffy...
-
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → Natural → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

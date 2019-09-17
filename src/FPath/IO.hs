@@ -3,6 +3,7 @@
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax       #-}
 {-# LANGUAGE ViewPatterns        #-}
@@ -25,6 +26,7 @@ import Data.Function           ( ($), const )
 import Data.List               ( reverse )
 import Data.String             ( String )
 import GHC.Exts                ( toList )
+import System.Exit             ( ExitCode )
 import System.IO               ( IO )
 
 -- base-unicode-symbols ----------------
@@ -75,6 +77,10 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+
 -- temporary ---------------------------
 
 import System.IO.Temp  ( getCanonicalTemporaryDirectory, withSystemTempDirectory
@@ -104,7 +110,6 @@ import FPath.Error.FPathError  ( AsFPathError, FPathIOError
                                , __FPathEmptyE__, __FPathNotAFileE__
                                )
 import FPath.RelFile           ( parseRelFile, relfile )
-import FPath.T.Common          ( doTest, doTestR, doTestS )
 
 --------------------------------------------------------------------------------
 
@@ -366,15 +371,17 @@ pResolveTests = testGroup "pResolve" [ pResolveAbsDirTests, pResolveAbsFileTests
 tests ∷ TestTree
 tests = testGroup "FPath.IO" [ getCwdTests, pResolveTests ]
 
-_test ∷ IO ()
-_test = doTest tests
+----------------------------------------
+
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → ℕ → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------

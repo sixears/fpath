@@ -40,6 +40,7 @@ import Data.Monoid          ( Monoid )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ) )
+import System.Exit          ( ExitCode )
 import System.IO            ( IO )
 import Text.Show            ( Show )
 
@@ -113,6 +114,10 @@ import Test.Tasty  ( TestTree, testGroup )
 
 import Test.Tasty.HUnit  ( testCase )
 
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+
 -- text --------------------------------
 
 import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
@@ -141,7 +146,6 @@ import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
 import FPath.RelFile           ( RelFile, relfile )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.T.Common          ( doTest, doTestR, doTestS )
 import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
@@ -371,15 +375,15 @@ tests = testGroup "FPath.AbsFile" [ absFileBasenameTests ]
                 
 --------------------
 
-_test ∷ IO ()
-_test = doTest tests
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
 --------------------
 
-_tests ∷ String → IO ()
-_tests = doTestS tests
+_tests ∷ String → IO ExitCode
+_tests = runTestsP tests
 
-_testr ∷ String → ℕ → IO ()
-_testr = doTestR tests
+_testr ∷ String → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------
