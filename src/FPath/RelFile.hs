@@ -140,7 +140,7 @@ import FPath.FileLike          ( FileLike( dirfile ) )
 import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
 import FPath.Parseable         ( Parseable( parse, __parse'__ ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
-import FPath.RelDir            ( RelDir, parseRelDir )
+import FPath.RelDir            ( RelDir )
 import FPath.RelType           ( RelTypeC( RelType ) )
 import FPath.Util              ( QuasiQuoter, mkQuasiQuoterExp )
 
@@ -327,7 +327,7 @@ instance Parseable RelFile where
                                  return $ RelFile (fromSeq ф) f'
           Just (_, f)       → do f' ← eCompE $ parsePathC f
                                  ps' ← mapFPCE (⊕ f) $
-                                         parseRelDir (dropEnd (length f) t)
+                                         parse (dropEnd (length f) t)
                                  return $ RelFile ps' f'
 
 

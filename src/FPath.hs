@@ -68,7 +68,6 @@ module FPath
   , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
   , parseFPath   , parseFPath'   , __parseFPath__   , __parseFPath'__
   , parseRel     , parseRel'     , __parseRel__     , __parseRel'__
-  , parseRelDir  , parseRelDir'  , __parseRelDir__  , __parseRelDir'__
   , seq, seqNE
 
   , root
@@ -222,10 +221,7 @@ import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.Rel               ( Rel, parseRel, parseRel'
                                , __parseRel__, __parseRel'__
                                )
-import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
-                               , parseRelDir, parseRelDir', __parseRelDir'__
-                               , __parseRelDir__, reldir, reldirT
-                               )
+import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir, reldirT )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , relfile, relfileT
                                )
@@ -396,7 +392,7 @@ parseDir (toText → t) =
     True → __FPathEmptyE__ dirT
     False → case head t of
               '/' → DirA ⊳ parse t
-              _   → DirR ⊳ parseRelDir t
+              _   → DirR ⊳ parse t
 
 parseDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Dir
 parseDir' = parseDir

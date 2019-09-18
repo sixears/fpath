@@ -64,8 +64,7 @@ import Data.Text  ( last, null )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
-                               , parseRelDir, reldir )
+import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( parse )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
@@ -103,7 +102,7 @@ parseRel (toText → t) =
   case null t of
     True → __FPathEmptyE__ relpathT
     False → case last t of
-              '/' → RelD ⊳ parseRelDir  t
+              '/' → RelD ⊳ parse  t
               _   → RelF ⊳ parse t
 
 parseRel' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Rel

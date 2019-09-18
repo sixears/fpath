@@ -6,6 +6,7 @@
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UnicodeSyntax              #-}
 {-# LANGUAGE ViewPatterns               #-}
@@ -13,11 +14,7 @@
 module FPath.RelDir
   ( AsRelDir( _RelDir ), RelDir
 
-  , reldirT
-  -- quasi-quoters
-  , reldir
-
-  , parseRelDir , parseRelDir' , __parseRelDir__ , __parseRelDir'__
+  , reldir, reldirT
 
   , tests
   )
@@ -149,6 +146,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathAbsE
                                , __FPathAbsE__, __FPathNotADirE__
                                )
 import FPath.Parent            ( HasParentMay( parentMay ) )
+import FPath.Parseable         ( Parseable( parse, __parse'__ ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc, toUpper )
 import FPath.RelType           ( RelTypeC( RelType ) )
 import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
@@ -315,35 +313,26 @@ basenameTests =
 reldirT ∷ TypeRep
 reldirT = typeRep (Proxy ∷ Proxy RelDir)
 
-{- | try to parse a `Textual` as a relative directory -}
-parseRelDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
-parseRelDir (toText → t) =
-  case unsnoc $ splitOn "/" t of
-    Nothing           → error "cannot happen: splitOn always returns something"
-    Just (("":_), _)  → __FPathAbsE__ reldirT t
-    Just ([],"")      → __FPathEmptyE__ reldirT
-    Just (["."],"")   → return $ RelDir ф
-    Just ((x:xs), "") → do let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
-                                       FPathComponentError → η' α
-                               mkCompE ce = __FPathComponentE__ ce reldirT t
-                               eCompE ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
-                                        Either FPathComponentError α → η'' α
-                               eCompE = either mkCompE return
+instance Parseable RelDir where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
+  parse (toText → t) =
+    case unsnoc $ splitOn "/" t of
+      Nothing           → error "cannot happen: splitOn always returns something"
+      Just (("":_), _)  → __FPathAbsE__ reldirT t
+      Just ([],"")      → __FPathEmptyE__ reldirT
+      Just (["."],"")   → return $ RelDir ф
+      Just ((x:xs), "") → do
+        let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                      FPathComponentError → η' α
+            mkCompE ce = __FPathComponentE__ ce reldirT t
+            eCompE ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
+                     Either FPathComponentError α → η'' α
+            eCompE = either mkCompE return
 
-                           p  ← eCompE $ parsePathC x
-                           ps ← eCompE $ mapM parsePathC xs
-                           return $ RelDir (p <| Seq.fromList ps)
-    _                 → __FPathNotADirE__ reldirT t
-
-
-parseRelDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
-parseRelDir' = parseRelDir
-
-__parseRelDir__ ∷ Printable τ ⇒ τ → RelDir
-__parseRelDir__ = either __ERROR'__ id ∘ parseRelDir'
-
-__parseRelDir'__ ∷ String → RelDir
-__parseRelDir'__ = __parseRelDir__
+        p  ← eCompE $ parsePathC x
+        ps ← eCompE $ mapM parsePathC xs
+        return $ RelDir (p <| Seq.fromList ps)
+      _                 → __FPathNotADirE__ reldirT t
 
 --------------------
 
@@ -356,7 +345,7 @@ parseRelDirTests =
                         Left (illegalCE s p) ≟ parseRelDir_ s
       emptyCompCE t = FPathComponentE FPathComponentEmptyE reldirT t
       parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
-      parseRelDir_ = parseRelDir'
+      parseRelDir_ = parse
    in testGroup "parseRelDir"
                 [ testCase "r0" $ Right r0 ≟ parseRelDir_ "./"
                 , testCase "r1" $ Right r1 ≟ parseRelDir_ "r/"
@@ -383,9 +372,9 @@ parseRelDirP (toText → t) =
   let safeLast "" = Nothing
       safeLast s  = Just $ last s
    in case safeLast t of
-        Nothing  → parseRelDir empty
-        Just '/' → parseRelDir t
-        _        → parseRelDir (t ⊕ "/")
+        Nothing  → parse empty
+        Just '/' → parse t
+        _        → parse (t ⊕ "/")
                               
 parseRelDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
 parseRelDirP' = parseRelDirP
@@ -428,7 +417,8 @@ parseRelDirPTests =
 
 {- | quasi-quotation -}
 reldir ∷ QuasiQuoter
-reldir = mkQuasiQuoterExp "reldir" (\ s → ⟦ __parseRelDir'__ s ⟧)
+-- reldir = mkQuasiQuoterExp "reldir" (\ s → ⟦ __parse'__ @RelDir s ⟧)
+reldir = mkQuasiQuoterExp "reldir" (\ s → ⟦ __parse'__ @RelDir s ⟧)
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
