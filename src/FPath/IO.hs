@@ -109,7 +109,8 @@ import FPath.Error.FPathError  ( AsFPathError, FPathIOError
                                , _FPathEmptyE
                                , __FPathEmptyE__, __FPathNotAFileE__
                                )
-import FPath.RelFile           ( parseRelFile, relfile )
+import FPath.Parseable         ( parse )
+import FPath.RelFile           ( relfile )
 
 --------------------------------------------------------------------------------
 
@@ -252,11 +253,11 @@ instance PResolvable AbsFile where
 
       (_, Empty    ) → -- just a file, no dir part
                        do c ∷ AbsDir ← pResolveDir d ("."∷Text)
-                          (c ⫻) ⊳ parseRelFile f
+                          (c ⫻) ⊳ parse f
 
       (x    , y    ) → -- dir + file
                        do c ← pResolveDir d (toList y)
-                          (c ⫻) ⊳ parseRelFile (toList x)
+                          (c ⫻) ⊳ parse (toList x)
 
 pResolveAbsFileTests ∷ TestTree
 pResolveAbsFileTests =

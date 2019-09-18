@@ -74,15 +74,14 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , absdir, parseAbsDir
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
-                               , absfile, parseAbsFile )
+                               , absfile )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
+import FPath.Parseable         ( parse )
 import FPath.Rel               ( AsRel(_Rel ), Rel( RelD, RelF ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir
                                , parseRelDir, reldir
                                )
-import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
-                               , parseRelFile, relfile
-                               )
+import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile, relfile )
 import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
@@ -155,9 +154,9 @@ parseFPath (toText → t) =
     True → __FPathEmptyE__ fpathT
     False → case (head t, last t) of
               ('/','/') → FAbsD ⊳ parseAbsDir  t
-              ('/',_  ) → FAbsF ⊳ parseAbsFile t
+              ('/',_  ) → FAbsF ⊳ parse        t
               (_  ,'/') → FRelD ⊳ parseRelDir  t
-              (_  ,_  ) → FRelF ⊳ parseRelFile t
+              (_  ,_  ) → FRelF ⊳ parse        t
 
 parseFPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η FPath
 parseFPath' = parseFPath

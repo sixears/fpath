@@ -112,9 +112,10 @@ import FPath.Error.FPathComponentError
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, ext, file, splitExt
                                          , updateExt ) )
 import FPath.Parent            ( parent, parentMay )
+import FPath.Parseable         ( parse' )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
-import FPath.RelFile           ( RelFile, parseRelFile', relfile )
+import FPath.RelFile           ( RelFile, relfile )
 import FPath.T.FPath.TestData  ( rf1, rf2, rf3, rf4, r0, r1, r2, r3 )
 
 --------------------------------------------------------------------------------
@@ -139,7 +140,7 @@ parseRelFileTests =
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
                       Left (FPathNotAFileE relfileT t) ≟ parseRelFile_ t
       parseRelFile_ ∷ MonadError FPathError η ⇒ Text → η RelFile
-      parseRelFile_ = parseRelFile'
+      parseRelFile_ = parse'
    in testGroup "parseRelFile"
                 [ testCase "rf1" $ Right rf1 ≟ parseRelFile_ "r.e"
                 , testCase "rf1" $ Right rf1 ≟ parseRelFile_ "./r.e"

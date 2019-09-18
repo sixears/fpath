@@ -70,9 +70,9 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , NonRootAbsDir
                                , absdir, parseAbsDir, toAbsDir
                                )
-import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
-                               , absfile, parseAbsFile )
+import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
+import FPath.Parseable         ( parse )
 import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
@@ -112,7 +112,7 @@ parseAbs (toText → t) =
     True → __FPathEmptyE__ absT
     False → case last t of
               '/' → AbsD ⊳ parseAbsDir  t
-              _   → AbsF ⊳ parseAbsFile t
+              _   → AbsF ⊳ parse t
 
 parseAbsTests ∷ TestTree
 parseAbsTests =

@@ -114,9 +114,10 @@ import FPath.Error.FPathComponentError
 import FPath.FileLike          ( (⊙)
                                , addExt, dir, ext, file, splitExt, updateExt )
 import FPath.Parent            ( parent, parentMay )
+import FPath.Parseable         ( parse' )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.AbsDir            ( AbsDir, absdir )
-import FPath.AbsFile           ( AbsFile, parseAbsFile', absfile )
+import FPath.AbsFile           ( AbsFile, absfile )
 import FPath.T.FPath.TestData  ( af1, af2, af3, af4, a0, a1, a2, a3 )
 
 --------------------------------------------------------------------------------
@@ -141,7 +142,7 @@ parseAbsFileTests =
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
                       Left (FPathNotAFileE absfileT t) ≟ parseAbsFile_ t
       parseAbsFile_ ∷ MonadError FPathError η ⇒ Text → η AbsFile
-      parseAbsFile_ = parseAbsFile'
+      parseAbsFile_ = parse'
    in testGroup "parseAbsFile"
                 [ testCase "af1" $ Right af1 ≟ parseAbsFile_ "/r.e"
                 , testCase "af4" $ Right af4 ≟ parseAbsFile_ "/.x"

@@ -5,6 +5,7 @@
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -12,11 +13,7 @@
 module FPath.AbsFile
   ( AbsDir, AbsFile, AsAbsFile( _AbsFile )
 
-  , absfileT
-  -- quasi-quoters
-  , absfile
-
-  , parseAbsFile , parseAbsFile' , __parseAbsFile__ , __parseAbsFile'__
+  , absfile, absfileT
 
   , tests
   )
@@ -143,10 +140,11 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                )
 import FPath.FileLike          ( FileLike( dirfile ) )
 import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
+import FPath.Parseable         ( Parseable( parse, __parse'__ ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
 import FPath.RelFile           ( RelFile, relfile )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
+import FPath.Util              ( QuasiQuoter, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
@@ -312,42 +310,34 @@ absfileT ∷ TypeRep
 absfileT = typeRep (Proxy ∷ Proxy AbsFile)
 
 {- | try to parse a `Textual` as an absolute file -}
-parseAbsFile ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsFile
-parseAbsFile (toText → t) =
-  let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
-                   FPathComponentError → η' α
-      mkCompE ce = __FPathComponentE__ ce absfileT t
-      eCompE     ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
-                   Either FPathComponentError α → η'' α
-      eCompE = either mkCompE return
-      -- map the type marker on FPathError
-      mapFPCE ∷ (AsFPathError ε', MonadError ε' η') ⇒
-                (Text → Text) → Either FPathError α → η' α
-      mapFPCE f = mapTextE f ∘ mapTypeRepE (const absfileT)
-   in case unsnoc $ splitOn "/" t of
-        Nothing           → error "error: splitOn always returns something"
-        Just ([],"")      → __FPathEmptyE__ absfileT
-        Just (_, "")      → __FPathNotAFileE__ absfileT t
-        Just ([""], f)    → do f' ← eCompE $ parsePathC f
-                               return $ AbsFile (fromSeq ф) f'
-        Just (("":_), f)  → do f' ← eCompE $ parsePathC f
-                               ps' ← mapFPCE (⊕ f) $
-                                       parseAbsDir (dropEnd (length f) t)
-                               return $ AbsFile ps' f'
-        Just (_, _)      → __FPathNonAbsE__ absfileT t
-
-parseAbsFile' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsFile
-parseAbsFile' = parseAbsFile
-
-__parseAbsFile__ ∷ Printable τ ⇒ τ → AbsFile
-__parseAbsFile__ = either __ERROR'__ id ∘ parseAbsFile'
-
-__parseAbsFile'__ ∷ String → AbsFile
-__parseAbsFile'__ = __parseAbsFile__
+instance Parseable AbsFile where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsFile
+  parse (toText → t) =
+    let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                     FPathComponentError → η' α
+        mkCompE ce = __FPathComponentE__ ce absfileT t
+        eCompE     ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
+                     Either FPathComponentError α → η'' α
+        eCompE = either mkCompE return
+        -- map the type marker on FPathError
+        mapFPCE ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                  (Text → Text) → Either FPathError α → η' α
+        mapFPCE f = mapTextE f ∘ mapTypeRepE (const absfileT)
+     in case unsnoc $ splitOn "/" t of
+          Nothing           → error "error: splitOn always returns something"
+          Just ([],"")      → __FPathEmptyE__ absfileT
+          Just (_, "")      → __FPathNotAFileE__ absfileT t
+          Just ([""], f)    → do f' ← eCompE $ parsePathC f
+                                 return $ AbsFile (fromSeq ф) f'
+          Just (("":_), f)  → do f' ← eCompE $ parsePathC f
+                                 ps' ← mapFPCE (⊕ f) $
+                                         parseAbsDir (dropEnd (length f) t)
+                                 return $ AbsFile ps' f'
+          Just (_, _)      → __FPathNonAbsE__ absfileT t
 
 {- | quasi-quotation -}
 absfile ∷ QuasiQuoter
-absfile = mkQuasiQuoterExp "absfile" (\ s → ⟦ __parseAbsFile'__ s ⟧)
+absfile = mkQuasiQuoterExp "absfile" (\ s → ⟦ __parse'__ @AbsFile s ⟧)
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

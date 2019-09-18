@@ -58,6 +58,7 @@ library
                  , FPath.FPath
                  , FPath.IO
                  , FPath.Parent
+                 , FPath.Parseable
                  , FPath.PathComponent
                  , FPath.Rel
                  , FPath.RelDir, FPath.T.FPath.RelDir

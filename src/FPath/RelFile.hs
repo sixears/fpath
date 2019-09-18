@@ -5,6 +5,7 @@
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -12,11 +13,7 @@
 module FPath.RelFile
   ( AsRelFile( _RelFile ), RelDir, RelFile
 
-  , relfileT
-  -- quasi-quoters
-  , relfile
-
-  , parseRelFile , parseRelFile' , __parseRelFile__ , __parseRelFile'__
+  , relfile, relfileT
 
   , tests
   )
@@ -141,10 +138,11 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                )
 import FPath.FileLike          ( FileLike( dirfile ) )
 import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
+import FPath.Parseable         ( Parseable( parse, __parse'__ ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
 import FPath.RelDir            ( RelDir, parseRelDir )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.Util              ( QuasiQuoter, __ERROR'__, mkQuasiQuoterExp )
+import FPath.Util              ( QuasiQuoter, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
@@ -308,43 +306,34 @@ relFileBasenameTests =
 relfileT ∷ TypeRep
 relfileT = typeRep (Proxy ∷ Proxy RelFile)
 
-{- | try to parse a `Textual` as a relative file -}
-parseRelFile ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelFile
-parseRelFile (toText → t) =
-  let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
-                   FPathComponentError → η' α
-      mkCompE ce = __FPathComponentE__ ce relfileT t
-      eCompE     ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
-                   Either FPathComponentError α → η'' α
-      eCompE = either mkCompE return
-      -- map the type marker on FPathError
-      mapFPCE ∷ (AsFPathError ε', MonadError ε' η') ⇒
-                (Text → Text) → Either FPathError α → η' α
-      mapFPCE f = mapTextE f ∘ mapTypeRepE (const relfileT)
-   in case unsnoc $ splitOn "/" t of
-        Nothing           → error "error: splitOn always returns something"
-        Just ([],"")      → __FPathEmptyE__ relfileT
-        Just (_, "")      → __FPathNotAFileE__ relfileT t
-        Just (("":_), _)  → __FPathAbsE__ relfileT t
-        Just ([], f)      → do f' ← eCompE $ parsePathC f
-                               return $ RelFile (fromSeq ф) f'
-        Just (_, f)       → do f' ← eCompE $ parsePathC f
-                               ps' ← mapFPCE (⊕ f) $
-                                       parseRelDir (dropEnd (length f) t)
-                               return $ RelFile ps' f'
+instance Parseable RelFile where
+  parse (toText → t) = 
+    let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                     FPathComponentError → η' α
+        mkCompE ce = __FPathComponentE__ ce relfileT t
+        eCompE     ∷ (AsFPathError ε'', MonadError ε'' η'') ⇒
+                     Either FPathComponentError α → η'' α
+        eCompE = either mkCompE return
+        -- map the type marker on FPathError
+        mapFPCE ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                  (Text → Text) → Either FPathError α → η' α
+        mapFPCE f = mapTextE f ∘ mapTypeRepE (const relfileT)
+     in case unsnoc $ splitOn "/" t of
+          Nothing           → error "error: splitOn always returns something"
+          Just ([],"")      → __FPathEmptyE__ relfileT
+          Just (_, "")      → __FPathNotAFileE__ relfileT t
+          Just (("":_), _)  → __FPathAbsE__ relfileT t
+          Just ([], f)      → do f' ← eCompE $ parsePathC f
+                                 return $ RelFile (fromSeq ф) f'
+          Just (_, f)       → do f' ← eCompE $ parsePathC f
+                                 ps' ← mapFPCE (⊕ f) $
+                                         parseRelDir (dropEnd (length f) t)
+                                 return $ RelFile ps' f'
 
-parseRelFile' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelFile
-parseRelFile' = parseRelFile
-
-__parseRelFile__ ∷ Printable τ ⇒ τ → RelFile
-__parseRelFile__ = either __ERROR'__ id ∘ parseRelFile'
-
-__parseRelFile'__ ∷ String → RelFile
-__parseRelFile'__ = __parseRelFile__
 
 {- | quasi-quotation -}
 relfile ∷ QuasiQuoter
-relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parseRelFile'__ s ⟧)
+relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parse'__ @RelFile s ⟧)
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

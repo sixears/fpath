@@ -176,8 +176,8 @@ instance Arbitrary PathComponent where
 
 ----------------------------------------
 
-parsePathC ∷ (Printable ρ, AsFPathComponentError ε, MonadError ε η) ⇒
-             ρ → η PathComponent
+parsePathC ∷ (Printable τ, AsFPathComponentError ε, MonadError ε η) ⇒
+             τ → η PathComponent
 parsePathC (toString → "")                 = __FPathCEmptyE__
 parsePathC (toString → ".")                = __FPathCIllegalE__ "."
 parsePathC (toString → "..")               = __FPathCIllegalE__ ".."
@@ -185,8 +185,8 @@ parsePathC (toString → t) | any (≡ '\0') t = __FPathCIllegalCharE__ '\0' t
                           | any (≡ '/')  t = __FPathCIllegalCharE__ '/' t
                           | otherwise      = return $ PathComponent (to_inner t)
 
-parsePathC' ∷ (Printable ρ, MonadError FPathComponentError η) ⇒
-              ρ → η PathComponent
+parsePathC' ∷ (Printable τ, MonadError FPathComponentError η) ⇒
+              τ → η PathComponent
 parsePathC' = parsePathC
 
 __parsePathC__ ∷ Printable τ ⇒ τ → PathComponent
