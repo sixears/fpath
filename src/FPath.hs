@@ -64,7 +64,6 @@ module FPath
 
   , parse        , parse'        , __parse__        , __parse'__
   , parseAbs     , parseAbs'     , __parseAbs__     , __parseAbs'__
-  , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
   , parseDir     , parseDir'     , __parseDir__     , __parseDir'__
   , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
   , parseFPath   , parseFPath'   , __parseFPath__   , __parseFPath'__
@@ -201,8 +200,6 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , ToAbsDir( toAbsDir )
 
                                , absdir, absdirN, absdirT, nonRootAbsDir
-                               , parseAbsDirN, parseAbsDirN'
-                               , __parseAbsDirN'__, __parseAbsDirN__
                                , root
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )

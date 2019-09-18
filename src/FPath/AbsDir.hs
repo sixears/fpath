@@ -23,7 +23,6 @@ module FPath.AbsDir
   , root
 
   , parseAbsDirP , parseAbsDirP'  , __parseAbsDirP__ -- , __parseAbsDirP'__
-  , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
 
   , tests
   )
@@ -561,29 +560,11 @@ parseAbsDirPTests =
 
 ----------------------------------------
 
-{- | try to parse a `Textual` as an non-root absolute directory -}
-parseAbsDirN ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒
-               τ → η NonRootAbsDir
-parseAbsDirN t = do
-  mapTypeRepE (const nrabsdirT) $ parse t ≫ \ case
-    AbsRootDir → __FPathRootDirE__ nrabsdirT
-    AbsNonRootDir d' → return d'
-
---------------------
-
-parseAbsDirN' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η NonRootAbsDir
-parseAbsDirN' = parseAbsDirN
-
---------------------
-
-__parseAbsDirN__ ∷ String → NonRootAbsDir
-__parseAbsDirN__ s = case parse' s of
-                       Left e → __ERROR'__ e
-                       Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
-                       Right (AbsNonRootDir nr) → nr
-
-__parseAbsDirN'__ ∷ String → NonRootAbsDir
-__parseAbsDirN'__ = __parseAbsDirN__
+instance Parseable NonRootAbsDir where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η NonRootAbsDir
+  parse t = do mapTypeRepE (const nrabsdirT) $ parse t ≫ \ case
+                 AbsRootDir → __FPathRootDirE__ nrabsdirT
+                 AbsNonRootDir d' → return d'
 
 --------------------
 
@@ -595,7 +576,7 @@ parseAbsDirNTests =
                      in FPathComponentE fpcice nrabsdirT pamNUL
       emptyCompCE = FPathComponentE FPathComponentEmptyE nrabsdirT "/etc//pam/"
       parseAbsDirN_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
-      parseAbsDirN_ = parseAbsDirN'
+      parseAbsDirN_ = parse'
    in testGroup "parseAbsDirN"
                 [ testCase "etc"   $ Right etcN    ≟ parseAbsDirN_ "/etc/"
                 , testCase "pam.d" $ Right pamdN   ≟ parseAbsDirN_ "/etc/pam.d/"
@@ -625,9 +606,9 @@ parseAbsDirNP (toText → t) = do
   let safeLast "" = Nothing
       safeLast s  = Just $ last s
    in case safeLast t of
-        Nothing  → parseAbsDirN empty
-        Just '/' → parseAbsDirN t
-        _        → parseAbsDirN (t ⊕ "/")
+        Nothing  → parse empty
+        Just '/' → parse t
+        _        → parse (t ⊕ "/")
 
 --------------------
 
@@ -681,7 +662,7 @@ absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parse'__ @AbsDir s ⟧)
 {- | quasi-quoter for NonRootAbsDir -}
 
 absdirN ∷ QuasiQuoter
-absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parseAbsDirN__ s ⟧)
+absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parse'__ @NonRootAbsDir s ⟧)
 
 ----------------------------------------
 
