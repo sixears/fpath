@@ -127,7 +127,7 @@ import qualified  Text.Printer  as  P
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AbsDir            ( AbsDir, parseAbsDir, root )
+import FPath.AbsDir            ( AbsDir, root )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
@@ -331,7 +331,7 @@ instance Parseable AbsFile where
                                  return $ AbsFile (fromSeq ф) f'
           Just (("":_), f)  → do f' ← eCompE $ parsePathC f
                                  ps' ← mapFPCE (⊕ f) $
-                                         parseAbsDir (dropEnd (length f) t)
+                                         parse (dropEnd (length f) t)
                                  return $ AbsFile ps' f'
           Just (_, _)      → __FPathNonAbsE__ absfileT t
 

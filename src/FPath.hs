@@ -64,7 +64,6 @@ module FPath
 
   , parse        , parse'        , __parse__        , __parse'__
   , parseAbs     , parseAbs'     , __parseAbs__     , __parseAbs'__
-  , parseAbsDir  , parseAbsDir'  , __parseAbsDir__  , __parseAbsDir'__
   , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
   , parseDir     , parseDir'     , __parseDir__     , __parseDir'__
   , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
@@ -202,8 +201,6 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , ToAbsDir( toAbsDir )
 
                                , absdir, absdirN, absdirT, nonRootAbsDir
-                               , parseAbsDir, parseAbsDir'
-                               , __parseAbsDir'__, __parseAbsDir__
                                , parseAbsDirN, parseAbsDirN'
                                , __parseAbsDirN'__, __parseAbsDirN__
                                , root
@@ -401,7 +398,7 @@ parseDir (toText → t) =
   case null t of
     True → __FPathEmptyE__ dirT
     False → case head t of
-              '/' → DirA ⊳ parseAbsDir  t
+              '/' → DirA ⊳ parse t
               _   → DirR ⊳ parseRelDir t
 
 parseDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Dir

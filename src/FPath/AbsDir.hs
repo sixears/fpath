@@ -6,6 +6,7 @@
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE UnicodeSyntax       #-}
 {-# LANGUAGE ViewPatterns        #-}
@@ -21,7 +22,6 @@ module FPath.AbsDir
   , nonRootAbsDir
   , root
 
-  , parseAbsDir  , parseAbsDir'  , __parseAbsDir__  , __parseAbsDir'__
   , parseAbsDirP , parseAbsDirP'  , __parseAbsDirP__ -- , __parseAbsDirP'__
   , parseAbsDirN , parseAbsDirN' , __parseAbsDirN__ , __parseAbsDirN'__
 
@@ -173,6 +173,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathNotADirE
                                , mapTypeRepE
                                )
 import FPath.Parent            ( HasParent( parent ), HasParentMay( parentMay ) )
+import FPath.Parseable         ( Parseable( parse, parse', __parse'__ ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc, stub )
 import FPath.RelDir            ( RelDir, reldir )
 import FPath.RelType           ( RelTypeC( RelType ) )
@@ -274,7 +275,7 @@ nonRootAbsDir = prism' AbsNonRootDir go
 instance MonoFoldable AbsDir where
   otoList ∷ AbsDir → [PathComponent]
   otoList = toList
-  ofoldl' ∷ (α → PathComponent → α) → α → AbsDir → α 
+  ofoldl' ∷ (α → PathComponent → α) → α → AbsDir → α
   ofoldl' f x r = foldl' f x (toList r)
 
   ofoldr ∷ (PathComponent → α → α) → α → AbsDir → α
@@ -293,7 +294,7 @@ instance MonoFoldable AbsDir where
 instance MonoFoldable NonRootAbsDir where
   otoList ∷ NonRootAbsDir → [PathComponent]
   otoList = NonEmpty.toList ∘ toNonEmpty
-  ofoldl' ∷ (α → PathComponent → α) → α → NonRootAbsDir → α 
+  ofoldl' ∷ (α → PathComponent → α) → α → NonRootAbsDir → α
   ofoldl' f x r = foldl' f x (toNonEmpty r)
 
   ofoldr ∷ (PathComponent → α → α) → α → NonRootAbsDir → α
@@ -458,38 +459,29 @@ absdirT = typeRep (Proxy ∷ Proxy AbsDir)
 nrabsdirT ∷ TypeRep
 nrabsdirT = typeRep (Proxy ∷ Proxy NonRootAbsDir)
 
-{- | try to parse a `Textual` as an absolute directory -}
-parseAbsDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsDir
-parseAbsDir (toText → t) =
-  let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒ FPathComponentError → η' α
-      mkCompE ce = __FPathComponentE__ ce absdirT t
-      eCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
-               Either FPathComponentError α → η' α
-      eCompE = either mkCompE return
-   in case unsnoc $ splitOn "/" t of
-        Nothing            → error "no happen: splitOn always returns something"
-        Just (("":xs), "") → case NonEmpty.nonEmpty xs of
-                               Nothing → return $ root
-                               Just ys → do
-                                 ps ← eCompE $ mapM parsePathC ys
-                                 return $ absNonRootDir (fromNonEmpty ps)
-          
-        Just ([],"")      → __FPathEmptyE__ absdirT
-        Just (("":_), _)  → __FPathNotADirE__ absdirT t
+instance Parseable AbsDir where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsDir
+  parse (toText → t) =
+    let mkCompE ∷ (AsFPathError ε', MonadError ε' η')⇒FPathComponentError → η' α
+        mkCompE ce = __FPathComponentE__ ce absdirT t
+        eCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
+                 Either FPathComponentError α → η' α
+        eCompE = either mkCompE return
+     in case unsnoc $ splitOn "/" t of
+          Nothing            → error "error: splitOn always returns something"
+          Just (("":xs), "") → case NonEmpty.nonEmpty xs of
+                                 Nothing → return $ root
+                                 Just ys → do
+                                   ps ← eCompE $ mapM parsePathC ys
+                                   return $ absNonRootDir (fromNonEmpty ps)
 
-        _                 → __FPathNonAbsE__ absdirT t
+          Just ([],"")      → __FPathEmptyE__ absdirT
+          Just (("":_), _)  → __FPathNotADirE__ absdirT t
 
-parseAbsDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsDir
-parseAbsDir' = parseAbsDir
-
-__parseAbsDir__ ∷ Printable τ ⇒ τ → AbsDir
-__parseAbsDir__ = either __ERROR'__ id ∘ parseAbsDir'
-
-__parseAbsDir'__ ∷ String → AbsDir
-__parseAbsDir'__ = __parseAbsDir__
+          _                 → __FPathNonAbsE__ absdirT t
 
 --------------------
-                            
+
 parseAbsDirTests ∷ TestTree
 parseAbsDirTests =
   let pamNUL      = "/etc/pam\0/"
@@ -498,7 +490,7 @@ parseAbsDirTests =
                      in FPathComponentE fpcice absdirT pamNUL
       emptyCompCE = FPathComponentE FPathComponentEmptyE absdirT "/etc//pam.d/"
       _parseAbsDir ∷ MonadError FPathError η ⇒ Text → η AbsDir
-      _parseAbsDir = parseAbsDir'
+      _parseAbsDir = parse'
    in testGroup "parseAbsDir"
                 [ testCase "root"  $ Right root   ≟ _parseAbsDir "/"
                 , testCase "etc"   $ Right etc    ≟ _parseAbsDir "/etc/"
@@ -526,10 +518,10 @@ parseAbsDirP (toText → t) =
   let safeLast "" = Nothing
       safeLast s  = Just $ last s
    in case safeLast t of
-        Nothing  → parseAbsDir empty
-        Just '/' → parseAbsDir t
-        _        → parseAbsDir (t ⊕ "/")
-                              
+        Nothing  → parse empty
+        Just '/' → parse t
+        _        → parse (t ⊕ "/")
+
 parseAbsDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsDir
 parseAbsDirP' = parseAbsDirP
 
@@ -573,7 +565,7 @@ parseAbsDirPTests =
 parseAbsDirN ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒
                τ → η NonRootAbsDir
 parseAbsDirN t = do
-  mapTypeRepE (const nrabsdirT) $ parseAbsDir t ≫ \ case
+  mapTypeRepE (const nrabsdirT) $ parse t ≫ \ case
     AbsRootDir → __FPathRootDirE__ nrabsdirT
     AbsNonRootDir d' → return d'
 
@@ -585,7 +577,7 @@ parseAbsDirN' = parseAbsDirN
 --------------------
 
 __parseAbsDirN__ ∷ String → NonRootAbsDir
-__parseAbsDirN__ s = case parseAbsDir' s of
+__parseAbsDirN__ s = case parse' s of
                        Left e → __ERROR'__ e
                        Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
                        Right (AbsNonRootDir nr) → nr
@@ -645,7 +637,7 @@ parseAbsDirNP' = parseAbsDirNP
 --------------------
 
 __parseAbsDirNP__ ∷ String → NonRootAbsDir
-__parseAbsDirNP__ s = case parseAbsDir' s of
+__parseAbsDirNP__ s = case parse' s of
                        Left e → __ERROR'__ e
                        Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
                        Right (AbsNonRootDir nr) → nr
@@ -684,7 +676,7 @@ parseAbsDirNPTests =
 
 {- | quasi-quoter for AbsDir -}
 absdir ∷ QuasiQuoter
-absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parseAbsDir'__ s ⟧)
+absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parse'__ @AbsDir s ⟧)
 
 {- | quasi-quoter for NonRootAbsDir -}
 
@@ -692,7 +684,7 @@ absdirN ∷ QuasiQuoter
 absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parseAbsDirN__ s ⟧)
 
 ----------------------------------------
-  
+
 instance HasDirname AbsDir where
   dirname ∷ Lens' AbsDir AbsDir
   dirname = lens (\ case AbsRootDir → AbsRootDir; AbsNonRootDir d → d ⊣ dirname)
@@ -741,7 +733,7 @@ dirnameTests = testGroup "dirname" [ absDirDirnameTests
                                    , nonRootAbsDirDirnameTests ]
 
 ----------------------------------------
-  
+
 instance Basename AbsDir where
   basename ∷ AbsDir → RelDir
   basename AbsRootDir = fromList []
@@ -845,7 +837,7 @@ constructionTests = testGroup "construction" [ parseAbsDirTests
 tests ∷ TestTree
 tests = testGroup "FPath.AbsDir" [ constructionTests, dirnameTests
                                  , basenameTests ]
-                
+
 --------------------
 
 _test ∷ IO ExitCode

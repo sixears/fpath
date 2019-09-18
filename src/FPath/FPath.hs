@@ -71,7 +71,7 @@ import FPath.Abs               ( AsAbs(_Abs ), Abs( AbsD, AbsF ) )
 import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
                                , ToAbsDir( toAbsDir )
-                               , absdir, parseAbsDir
+                               , absdir
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile )
@@ -153,7 +153,7 @@ parseFPath (toText → t) =
   case null t of
     True → __FPathEmptyE__ fpathT
     False → case (head t, last t) of
-              ('/','/') → FAbsD ⊳ parseAbsDir  t
+              ('/','/') → FAbsD ⊳ parse        t
               ('/',_  ) → FAbsF ⊳ parse        t
               (_  ,'/') → FRelD ⊳ parseRelDir  t
               (_  ,_  ) → FRelF ⊳ parse        t

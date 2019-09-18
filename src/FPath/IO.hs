@@ -99,7 +99,7 @@ import System.Posix.Directory  ( changeWorkingDirectory, getWorkingDirectory )
 ------------------------------------------------------------
 
 import FPath.Abs               ( Abs( AbsD, AbsF ), absT )
-import FPath.AbsDir            ( AbsDir,  parseAbsDir, __parseAbsDirP__ )
+import FPath.AbsDir            ( AbsDir, __parseAbsDirP__ )
 import FPath.AbsFile           ( AbsFile, absfileT )
 import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
@@ -119,7 +119,7 @@ getCwd ∷ (AsIOError ε, AsFPathError ε, MonadError ε μ, MonadIO μ) ⇒ μ 
 getCwd = let addSlash "" = ""
              addSlash t@(last → '/') = t
              addSlash t = t ⊕ "/"
-          in asIOError getWorkingDirectory ≫ parseAbsDir ∘ addSlash ∘ toText
+          in asIOError getWorkingDirectory ≫ parse ∘ addSlash ∘ toText
 
 getCwd' ∷ (MonadIO μ, MonadError FPathIOError μ) ⇒ μ AbsDir
 getCwd' = getCwd
