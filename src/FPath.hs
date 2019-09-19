@@ -63,11 +63,8 @@ module FPath
   , nonRootAbsDir
 
   , parse        , parse'        , __parse__        , __parse'__
-  , parseAbs     , parseAbs'     , __parseAbs__     , __parseAbs'__
   , parseDir     , parseDir'     , __parseDir__     , __parseDir'__
   , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
-  , parseFPath   , parseFPath'   , __parseFPath__   , __parseFPath'__
-  , parseRel     , parseRel'     , __parseRel__     , __parseRel'__
   , seq, seqNE
 
   , root
@@ -191,9 +188,7 @@ import Fluffy.Text           ( last )
 ------------------------------------------------------------
 
 
-import FPath.Abs               ( Abs, parseAbs, parseAbs'
-                               , __parseAbs__, __parseAbs'__
-                               )
+import FPath.Abs               ( Abs )
 import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
                                , ToAbsDir( toAbsDir )
@@ -213,14 +208,10 @@ import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
                                          , splitExt, updateExt ) )
-import FPath.FPath             ( parseFPath, parseFPath'
-                               , __parseFPath__, __parseFPath'__ )
 import FPath.IO                ( getCwd, getCwd' )
 import FPath.Parseable         ( parse, parse', __parse__, __parse'__ )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
-import FPath.Rel               ( Rel, parseRel, parseRel'
-                               , __parseRel__, __parseRel'__
-                               )
+import FPath.Rel               ( Rel )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir, reldirT )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , relfile, relfileT

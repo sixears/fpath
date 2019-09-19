@@ -4,19 +4,20 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.FPath
-  ( FPath, parseFPath, parseFPath', __parseFPath__ , __parseFPath'__, tests )
+  ( FPath, tests )
 where
 
 -- base --------------------------------
 
 import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Right ), either )
+import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
-import Data.Function  ( ($), id )
+import Data.Function  ( ($) )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
@@ -76,11 +77,10 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
-import FPath.Parseable         ( parse )
+import FPath.Parseable         ( Parseable( parse ) )
 import FPath.Rel               ( AsRel(_Rel ), Rel( RelD, RelF ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile, relfile )
-import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
 
@@ -146,28 +146,21 @@ instance AsRel FPath where
 fpathT ∷ TypeRep
 fpathT = typeRep (Proxy ∷ Proxy FPath)
 
-parseFPath ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η FPath
-parseFPath (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ fpathT
-    False → case (head t, last t) of
-              ('/','/') → FAbsD ⊳ parse t
-              ('/',_  ) → FAbsF ⊳ parse t
-              (_  ,'/') → FRelD ⊳ parse t
-              (_  ,_  ) → FRelF ⊳ parse t
-
-parseFPath' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η FPath
-parseFPath' = parseFPath
-
-__parseFPath__ ∷ Printable τ ⇒ τ → FPath
-__parseFPath__ = either __ERROR'__ id ∘ parseFPath'
-
-__parseFPath'__ ∷ String → FPath
-__parseFPath'__ = __parseFPath__
+instance Parseable FPath where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η FPath
+  parse (toText → t) =
+    case null t of
+      True → __FPathEmptyE__ fpathT
+      False → case (head t, last t) of
+                ('/','/') → FAbsD ⊳ parse t
+                ('/',_  ) → FAbsF ⊳ parse t
+                (_  ,'/') → FRelD ⊳ parse t
+                (_  ,_  ) → FRelF ⊳ parse t
 
 parseFPathTests ∷ TestTree
 parseFPathTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseFPath' t
+  let success d f t =
+        testCase t $ Right (d ## f) ≟ parse @FPath @FPathError t
    in testGroup "parseFPath"
                 [ success [absdir|/|]      _AbsDir  "/"
                 , success [absdir|/etc/|]  _AbsDir  "/etc/"
@@ -175,7 +168,6 @@ parseFPathTests =
                 , success [reldir|foo/|]   _RelDir  "foo/"
                 , success [relfile|bar|]   _RelFile "bar"
                 ]
-
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

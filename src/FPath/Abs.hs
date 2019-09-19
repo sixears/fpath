@@ -3,14 +3,14 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.Abs
-  ( Abs(..), AsAbs( _Abs )
-  , absT, parseAbs, parseAbs', __parseAbs__, __parseAbs'__
+  ( Abs(..), AsAbs( _Abs ), absT
 
   , tests
   )
@@ -19,11 +19,10 @@ where
 -- base --------------------------------
 
 import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Right ), either )
+import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
-import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 import Text.Show      ( Show )
 
@@ -72,8 +71,7 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
-import FPath.Parseable         ( parse )
-import FPath.Util              ( __ERROR'__ )
+import FPath.Parseable         ( Parseable( parse ) )
 
 --------------------------------------------------------------------------------
 
@@ -106,31 +104,23 @@ instance AsAbsFile Abs where
 absT ∷ TypeRep
 absT = typeRep (Proxy ∷ Proxy Abs)
 
-parseAbs ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Abs
-parseAbs (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ absT
-    False → case last t of
-              '/' → AbsD ⊳ parse t
-              _   → AbsF ⊳ parse t
+instance Parseable Abs where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Abs
+  parse (toText → t) =
+    case null t of
+      True → __FPathEmptyE__ absT
+      False → case last t of
+                '/' → AbsD ⊳ parse t
+                _   → AbsF ⊳ parse t
 
 parseAbsTests ∷ TestTree
 parseAbsTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseAbs' t
+  let success d f t = testCase t $ Right (d ## f) ≟ parse @Abs @FPathError t
    in testGroup "parseAbs"
                 [ success [absdir|/|]           _AbsDir "/"
                 , success [absdir|/etc/|]       _AbsDir "/etc/"
                 , success [absfile|/etc/group|] _AbsFile "/etc/group"
                 ]
-
-parseAbs' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Abs
-parseAbs' = parseAbs
-
-__parseAbs__ ∷ Printable τ ⇒ τ → Abs
-__parseAbs__ = either __ERROR'__ id ∘ parseAbs'
-
-__parseAbs'__ ∷ String → Abs
-__parseAbs'__ = __parseAbs__
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

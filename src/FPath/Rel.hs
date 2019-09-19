@@ -4,12 +4,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.Rel
   ( AsRel( _Rel ), Rel(..)
-  , parseRel, parseRel', __parseRel__, __parseRel'__
 
   , tests
   )
@@ -18,17 +18,12 @@ where
 -- base --------------------------------
 
 import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Right ), either )
+import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
-import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 import Text.Show      ( Show )
-
--- base-unicode-symbols ----------------
-
-import Data.Function.Unicode  ( (∘) )
 
 -- data-textual ------------------------
 
@@ -66,10 +61,9 @@ import Data.Text  ( last, null )
 
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
-import FPath.Parseable         ( parse )
+import FPath.Parseable         ( Parseable( parse ) )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , relfile )
-import FPath.Util              ( __ERROR'__ )
 
 --------------------------------------------------------------------------------
 
@@ -97,22 +91,14 @@ instance AsRelFile Rel where
 relpathT ∷ TypeRep
 relpathT = typeRep (Proxy ∷ Proxy Rel)
 
-parseRel ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Rel
-parseRel (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ relpathT
-    False → case last t of
-              '/' → RelD ⊳ parse  t
-              _   → RelF ⊳ parse t
-
-parseRel' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Rel
-parseRel' = parseRel
-
-__parseRel__ ∷ Printable τ ⇒ τ → Rel
-__parseRel__ = either __ERROR'__ id ∘ parseRel'
-
-__parseRel'__ ∷ String → Rel
-__parseRel'__ = __parseRel__
+instance Parseable Rel where
+  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Rel
+  parse (toText → t) =
+    case null t of
+      True → __FPathEmptyE__ relpathT
+      False → case last t of
+                '/' → RelD ⊳ parse  t
+                _   → RelF ⊳ parse t
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
@@ -120,7 +106,7 @@ __parseRel'__ = __parseRel__
 
 parseRelTests ∷ TestTree
 parseRelTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseRel' t
+  let success d f t = testCase t $ Right (d ## f) ≟ parse @Rel @FPathError t
    in testGroup "parseRel"
                 [ success [reldir|./|]         _RelDir "./"
                 , success [reldir|etc/|]       _RelDir "etc/"
