@@ -12,6 +12,8 @@
 
 -- separate out tasty handlers
 
+-- Parseable
+-- split Dir,File
 -- OptParse helpers; ReadM instances
 -- import-export whole modules?
 -- separate out temp handlers
@@ -63,7 +65,6 @@ module FPath
   , nonRootAbsDir
 
   , parse        , parse'        , __parse__        , __parse'__
-  , parseDir     , parseDir'     , __parseDir__     , __parseDir'__
   , parseFile    , parseFile'    , __parseFile__    , __parseFile'__
   , seq, seqNE
 
@@ -124,7 +125,7 @@ import Control.Lens.Prism   ( Prism', prism' )
 -- more-unicode-symbols ----------------
 
 import Data.MoreUnicode.Functor    ( (⊳) )
-import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (⩼), (##) )
+import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (##) )
 import Data.MoreUnicode.Natural    ( ℕ )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 import Data.MoreUnicode.Tasty      ( (≟) )
@@ -159,48 +160,22 @@ import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 
 import Data.Text  ( head, null )
 
-{-
-
--- unix --------------------------------
-
-import System.Posix.Directory  ( getWorkingDirectory )
-
--}
-
-------------------------------------------------------------
---                     local imports                      --
-------------------------------------------------------------
-
-{-
-
-import Fluffy.IO.Error       ( AsIOError )
-import Fluffy.MonadError     ( fromRight, mapMError, splitMError )
-import Fluffy.MonadError.IO  ( asIOError )
-import Fluffy.MonadIO        ( MonadIO, eitherIOThrowT, liftIO )
-import Fluffy.Path.Error     ( AsPathError, IOPathError, PathError
-                             , pathError, pathError' )
-import Fluffy.Text           ( last )
-
--}
-
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
 
 import FPath.Abs               ( Abs )
-import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
-                               , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
-                               , ToAbsDir( toAbsDir )
+import FPath.AbsDir            ( AbsDir, NonRootAbsDir
 
-                               , absdir, absdirN, absdirT, nonRootAbsDir
-                               , root
+                               , absdir, absdirN, absdirT, nonRootAbsDir, root
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile, absfileT
                                )
 import FPath.AppendableFPath   ( AppendableFPath( (⫻) ), (</>) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.Dir               ( Dir( DirA, DirR ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, AsFPathNotAPrefixError
                                , FPathError, FPathNotAPrefixError
@@ -212,7 +187,7 @@ import FPath.IO                ( getCwd, getCwd' )
 import FPath.Parseable         ( parse, parse', __parse__, __parse'__ )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.Rel               ( Rel )
-import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir, reldirT )
+import FPath.RelDir            ( RelDir, reldir, reldirT )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , relfile, relfileT
                                )
@@ -221,24 +196,6 @@ import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 import FPath.Util              ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
-
-data Dir = DirA AbsDir | DirR RelDir
-  deriving (Eq, Show)
-
-instance AsAbsDir Dir where
-  _AbsDir ∷ Prism' Dir AbsDir
-  _AbsDir = prism' DirA (\ case (DirA d) → Just d; _ → Nothing)
-
-instance AsNonRootAbsDir Dir where
-  _NonRootAbsDir ∷ Prism' Dir NonRootAbsDir
-  _NonRootAbsDir = prism' (DirA ∘ toAbsDir)
-                          (\ case (DirA d) → d ⩼ _NonRootAbsDir; _ → Nothing)
-
-instance AsRelDir Dir where
-  _RelDir ∷ Prism' Dir RelDir
-  _RelDir = prism' DirR (\ case (DirR d) → Just d; _ → Nothing)
-
-------------------------------------------------------------
 
 data File = FileA AbsFile | FileR RelFile
   deriving (Eq, Show)
@@ -374,38 +331,6 @@ fileLikeTests =
 
 ------------------------------------------------------------
 
-dirT ∷ TypeRep
-dirT = typeRep (Proxy ∷ Proxy Dir)
-
-parseDir ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Dir
-parseDir (toText → t) =
-  case null t of
-    True → __FPathEmptyE__ dirT
-    False → case head t of
-              '/' → DirA ⊳ parse t
-              _   → DirR ⊳ parse t
-
-parseDir' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η Dir
-parseDir' = parseDir
-
-__parseDir__ ∷ Printable τ ⇒ τ → Dir
-__parseDir__ = either __ERROR'__ id ∘ parseDir'
-
-__parseDir'__ ∷ String → Dir
-__parseDir'__ = __parseDir__
-
-parseDirTests ∷ TestTree
-parseDirTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parseDir' t
-   in testGroup "parseDir"
-                [ success [absdir|/|]     _AbsDir "/"
-                , success [absdir|/etc/|] _AbsDir "/etc/"
-                , success [reldir|./|]    _RelDir "./"
-                , success [reldir|etc/|]  _RelDir "etc/"
-                ]
-
-------------------------------------------------------------
-
 fileT ∷ TypeRep
 fileT = typeRep (Proxy ∷ Proxy File)
 
@@ -511,9 +436,7 @@ instance Strippable RelDir where
 --------------------------------------------------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath" [ parseDirTests, parseFileTests
-                          , fileLikeTests
-                          ]
+tests = testGroup "FPath" [ parseFileTests, fileLikeTests ]
 
 --------------------
 

@@ -54,6 +54,7 @@ library
                  , FPath.AsFilePath
                  , FPath.Basename
                  , FPath.Dirname
+                 , FPath.Dir
                  , FPath.DirType
                  , FPath.FPath
                  , FPath.IO

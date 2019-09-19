@@ -39,6 +39,7 @@ import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 
 import qualified  FPath
 import qualified  FPath.Abs
+import qualified  FPath.Dir
 import qualified  FPath.FPath
 import qualified  FPath.IO
 import qualified  FPath.Rel
@@ -199,6 +200,7 @@ fpathTests = testGroup "FPath" [ catenationTests
                                , stripDirTests
                                , FPath.tests
                                , FPath.Abs.tests
+                               , FPath.Dir.tests
                                , FPath.FPath.tests
                                , FPath.Rel.tests
                                ]
