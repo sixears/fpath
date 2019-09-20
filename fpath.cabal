@@ -99,8 +99,9 @@ library
   build-depends: base, base-unicode-symbols, containers, data-textual, directory
                , exceptions, genvalidity, genvalidity-bytestring
                , genvalidity-property, genvalidity-text, lens, mono-traversable
-               , mtl, parsers, QuickCheck, template-haskell, tasty, tasty-hunit
-               , tasty-quickcheck, temporary, text, text-printer, unix, validity
+               , mtl, optparse-applicative, parsers, QuickCheck
+               , template-haskell, tasty, tasty-hunit, tasty-quickcheck
+               , temporary, text, text-printer, unix, validity
 
                , exited, monaderror-io, more-unicode, tasty-plus, tfmt
   -- Directories containing source files.

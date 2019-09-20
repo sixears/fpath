@@ -11,9 +11,10 @@ import Prelude  ( error )
 
 -- base --------------------------------
 
-import Data.Either    ( Either, either )
-import Data.Function  ( id )
-import Data.String    ( String )
+import Data.Bifunctor  ( first )
+import Data.Either     ( Either, either )
+import Data.Function   ( id )
+import Data.String     ( String )
 
 -- base-unicode-symbols ----------------
 
@@ -26,6 +27,10 @@ import Data.Textual  ( Printable, toString )
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- optparse-applicative ----------------
+
+import Options.Applicative  ( ReadM, eitherReader )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -59,5 +64,11 @@ class Parseable χ where
   {- | *PARTIAL*: Like `__parse__`, specialized to `String` -}
   __parse'__ ∷ String → χ
   __parse'__ = __parse__
+
+  --------------------
+
+  {- | `ReadM` producer, for use with `Options.Applicative`. -}
+  readM ∷ ReadM χ
+  readM = eitherReader (first toString ∘ parse')
 
 -- that's all, folks! ----------------------------------------------------------

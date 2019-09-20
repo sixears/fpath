@@ -10,11 +10,6 @@
 
 -- TODO
 
--- separate out tasty handlers
-
--- Parseable
--- split Dir,File
--- OptParse helpers; ReadM instances
 -- import-export whole modules?
 -- separate out temp handlers
 
