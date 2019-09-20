@@ -56,6 +56,7 @@ library
                  , FPath.Dirname
                  , FPath.Dir
                  , FPath.DirType
+                 , FPath.File
                  , FPath.FPath
                  , FPath.IO
                  , FPath.Parent
