@@ -10,8 +10,7 @@
 
 -- TODO
 
--- separate out NonEmptyContainers
--- separate out temp handlers
+-- separate out temp handlers -- using on fpath!
 -- add (bash)completion for files+dirs
 -- move tests into .Internals, so they're not publicly exposed; see
 --   https://stackoverflow.com/questions/9190638/how-why-and-when-to-use-the-internal-modules-pattern
@@ -21,15 +20,6 @@
 
 -- parseAsAbsDir - parse a path as an AbsDir; if it's not relative, parse it relative to here; if it lacks a trailing '/', add one.
 -- fns for Optparse
-
--- 'parse' for each type (i.e., a class, that uses per-type methods?) / instance of Parsecable ?
-{-
-  class Parse α where
-    parse ∷ (AsFilePathError ε, MonadError ε η, Printable τ) ⇒ τ → η α
-
-  instance Parse AbsFile where
-    parse = parseAbsFile
--}
 
 -- the only tests that each module should export are 'tests' (with a no-doc flag on them)
 -- add toEither for {Abs,Rel}(Path?) {Dir,File}
