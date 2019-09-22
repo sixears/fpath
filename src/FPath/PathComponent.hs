@@ -229,16 +229,9 @@ toLower = pcmap PathCTypes.to_lower
 
 ----------------------------------------
 
-{- | Types that have an "extension", that is, trailing sequence of one or more
-     valid PathComponent-non-'.' characters.  For types that represent a whole
-     path, e.g., a directory or file, the extension is only considered on the
-     final (trailing) part of the path - e.g., on `udev.d/go.sh`, the extension
-     is `sh`.
+{- | Add an "extension", that is, join two `PathComponent`s with a '.'
+     character
  -}
-
-  {- | Add an "extension", that is, join two `PathComponent`s with a '.'
-       character
-   -}
 addExt ∷ PathComponent → PathComponent → PathComponent
 addExt (PathComponent pfx) (PathComponent sfx) = PathComponent $ pfx ⊕ "." ⊕ sfx
 
