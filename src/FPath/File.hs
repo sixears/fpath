@@ -1,5 +1,6 @@
 {-# LANGUAGE InstanceSigs     #-}
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE QuasiQuotes      #-}
 {-# LANGUAGE TypeFamilies     #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UnicodeSyntax    #-}

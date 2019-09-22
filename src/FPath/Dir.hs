@@ -1,8 +1,10 @@
 {-# LANGUAGE InstanceSigs     #-}
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE QuasiQuotes      #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UnicodeSyntax    #-}
 {-# LANGUAGE ViewPatterns     #-}
+
 module FPath.Dir
   ( Dir(..)
 
