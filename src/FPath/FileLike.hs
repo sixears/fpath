@@ -77,7 +77,6 @@ class DirTypeC α ⇒ FileLike α where
   {- | Split an "extension" - the maximal non-empty sequence of characters,
        excluding '.' - from the end of a `PathComponent`; if there is one.
   -}
---XX MAKE THIS → (α, Maybe PathComponent)
   splitExt ∷ α → (α, Maybe PathComponent)
   splitExt a = let (d,f) = a ⊣ dirfile
                 in case splitExt f of

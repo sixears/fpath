@@ -57,6 +57,7 @@ library
                  , FPath.Dir
                  , FPath.DirType
                  , FPath.File
+                 , FPath.FileLike
                  , FPath.FPath
                  , FPath.IO
                  , FPath.Parent
@@ -75,19 +76,10 @@ library
                  , FPath.T.FPath.PathComponent
                  , FPath.T.FPath.TestData
 
-                 , NonEmptyContainers.T.SeqConversions
-                 , NonEmptyContainers.T.SeqNE
-
   -- modules included in this library but not exported.
-  other-modules:   NonEmptyContainers.IsNonEmpty
-                 , NonEmptyContainers.SeqConversions
-                 , NonEmptyContainers.SeqNEConversions
-                 , NonEmptyContainers.SeqNE
-
-                 , FPath.FileLike
+  other-modules: FPath.PathCTypes.String
 --                 , FPath.PathCTypes.ByteString
 --                 , FPath.PathCTypes.ByteStringUtf8
-                 , FPath.PathCTypes.String
 --                 , FPath.PathCTypes.Text
                  , FPath.Util
 
@@ -103,7 +95,9 @@ library
                , template-haskell, tasty, tasty-hunit, tasty-quickcheck
                , temporary, text, text-printer, unix, validity
 
-               , exited, monaderror-io, more-unicode, tasty-plus, tfmt
+               , exited == 1.0.2.0, monaderror-io == 1.0.0.0
+               , more-unicode == 0.0.8.0, non-empty-containers == 1.0.0.0
+               , tasty-plus == 1.0.1.0, tfmt == 0.2.1.0
   -- Directories containing source files.
   hs-source-dirs:      src
 
@@ -117,16 +111,6 @@ test-suite fpath-test
   type:             exitcode-stdio-1.0
   hs-source-dirs:   t
   main-is:          fpath-test.hs
-  build-depends:    base, fpath, tasty
-  default-language: Haskell2010
-
---------------------
-
-test-suite nonemptycontainers-test
-  ghc-options:      -O2 -W -Wall -fhelpful-errors
-  type:             exitcode-stdio-1.0
-  hs-source-dirs:   t
-  main-is:          non-empty-containers-test.hs
   build-depends:    base, fpath, tasty
   default-language: Haskell2010
 

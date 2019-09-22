@@ -10,10 +10,12 @@
 
 -- TODO
 
--- import-export whole modules?
+-- separate out NonEmptyContainers
 -- separate out temp handlers
-
--- separate out parsecable, add parsec for {Rel,Abs}{File,Dir}
+-- add (bash)completion for files+dirs
+-- move tests into .Internals, so they're not publicly exposed; see
+--   https://stackoverflow.com/questions/9190638/how-why-and-when-to-use-the-internal-modules-pattern
+--   https://stackoverflow.com/questions/16887023/is-it-possible-to-hide-specific-functions-from-appearing-in-the-documentation-us
 
 ------------------------------------------------------------
 
@@ -46,10 +48,14 @@
 -- implement Paths
 
 module FPath
-  ( AbsDir, AbsFile, Abs, Dir, File, NonRootAbsDir, RelDir, RelFile, Rel
+  ( AbsDir, AbsFile, NonRootAbsDir, RelDir, RelFile
+  , Abs, Rel, Dir, File
+  , FPath
+  
   , AsFilePath( filepath )
 
-  , module FPath.AppendableFPath
+  , AppendableFPath( (⫻) ), (</>)
+  , Parseable( parse, parse', __parse__, __parse'__ )
 
   -- file functions
   , (⊙), addExt, dir, dirfile, file, ext, splitExt
@@ -59,19 +65,10 @@ module FPath
 
   , nonRootAbsDir
 
-  , parse, parse', __parse__, __parse'__
-  , seq, seqNE
-
   , root
   , stripDir, stripDir'
 
-  , getCwd        , getCwd'
-    {-
-parseDirAbs -- parse a text, if it's relative, make it abs to given cwd
-
-  , resolveDirCwd , resolveDirCwd' , resolveDirCwd_
-  , resolveFileCwd, resolveFileCwd', resolveFileCwd_
--}
+  , getCwd, getCwd'
 
   , tests
   )
@@ -127,7 +124,6 @@ import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 --                     local imports                      --
 ------------------------------------------------------------
 
-
 import FPath.Abs               ( Abs )
 import FPath.AbsDir            ( AbsDir, NonRootAbsDir
 
@@ -145,8 +141,10 @@ import FPath.Error.FPathError  ( AsFPathNotAPrefixError, FPathNotAPrefixError
 import FPath.File              ( File )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
                                          , splitExt ) )
+import FPath.FPath             ( FPath )
 import FPath.IO                ( getCwd, getCwd' )
-import FPath.Parseable         ( parse, parse', __parse__, __parse'__ )
+import FPath.Parseable         ( Parseable( parse, parse'
+                                          , __parse__, __parse'__ ) )
 import FPath.Rel               ( Rel )
 import FPath.RelDir            ( RelDir, reldir, reldirT )
 import FPath.RelFile           ( RelFile, relfile, relfileT )
