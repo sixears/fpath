@@ -29,7 +29,8 @@ import Text.Show       ( Show )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable, toText )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , fromString, toString, toText )
 
 -- lens --------------------------------
 
@@ -43,6 +44,11 @@ import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (##) )
 import Data.MoreUnicode.Natural    ( ℕ )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 import Data.MoreUnicode.Tasty      ( (≟) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Lens         ( (⩼) )
 
 -- mtl ---------------------------------
 
@@ -70,6 +76,7 @@ import Data.Text  ( head, null )
 
 import FPath.AbsDir            ( absdir )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
+import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Dir               ( Dir( DirA, DirR ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
@@ -97,8 +104,65 @@ instance AsRelFile File where
 instance DirTypeC File where
   type DirType File = Dir
 
-instance FileLike File where
+----------------------------------------
 
+instance Printable File where
+  print (FileA f) = print f
+  print (FileR f) = print f
+
+instance Textual File where
+  textual = FileA ⊳ textual ∤ FileR ⊳ textual
+
+----------------------------------------
+
+instance AsFilePath File where
+  filepath = prism' toString fromString
+
+--------------------
+
+filepathTests ∷ TestTree
+filepathTests =
+  let nothin' = Nothing ∷ Maybe File
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+   in testGroup "filepath"
+            [ testCase "af1" $ "/r.e"       ≟ FileA af1 ## filepath
+            , testCase "af2" $ "/r/p.x"     ≟ FileA af2 ## filepath
+            , testCase "af3" $ "/p/q/r.mp3" ≟ FileA af3 ## filepath
+            , testCase "af4" $ "/.x"        ≟ FileA af4 ## filepath
+
+            , testCase "af1" $ Just (FileA af1) ≟ "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just (FileA af2) ≟ "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just (FileA af3) ≟ "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just (FileA af4) ≟ "/.x"        ⩼ filepath
+
+            , testCase "rf1" $ "r.e"       ≟ FileR rf1 ## filepath
+            , testCase "rf2" $ "r/p.x"     ≟ FileR rf2 ## filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ FileR rf3 ## filepath
+            , testCase "rf4" $ ".x"        ≟ FileR rf4 ## filepath
+
+            , testCase "rf1" $ Just (FileR rf1) ≟ "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just (FileR rf2) ≟ "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just (FileR rf3) ≟ "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just (FileR rf4) ≟ ".x"        ⩼ filepath
+
+            , fail "/etc/"
+            , fail "etc/"
+            , fail "etc/pam.d/"
+            , fail "/etc/pam.d/"
+            , fail "etc//pam.d/"
+            , fail "/\0etc"
+            , fail "/etc\0"
+            , fail "/e\0c"
+            , fail "etc/pam.d/"
+            , fail "/etc//pam.d/"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
+            ]
+
+----------------------------------------
+
+instance FileLike File where
   dirfile ∷ Iso' File (Dir, PathComponent)
   dirfile = iso (\ case FileA a → first DirA (a ⊣ dirfile)
                         FileR r → first DirR (r ⊣ dirfile))
@@ -242,7 +306,7 @@ parseFileTests =
 --------------------------------------------------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.File" [ parseFileTests, fileLikeTests ]
+tests = testGroup "FPath.File" [ parseFileTests, fileLikeTests, filepathTests ]
 
 --------------------
 

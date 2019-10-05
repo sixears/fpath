@@ -31,7 +31,8 @@ import Data.Function.Unicode  ( (∘) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable, toText )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , fromString, toString, toText )
 
 -- lens --------------------------------
 
@@ -39,14 +40,19 @@ import Control.Lens.Prism  ( Prism', prism' )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor  ( (⊳) )
-import Data.MoreUnicode.Lens     ( (⩼), (##) )
-import Data.MoreUnicode.Natural  ( ℕ )
-import Data.MoreUnicode.Tasty    ( (≟) )
+import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Functor      ( (⊳) )
+import Data.MoreUnicode.Lens         ( (⩼), (⫥) )
+import Data.MoreUnicode.Natural      ( ℕ )
+import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- parsers -----------------------------
+
+import Text.Parser.Combinators  ( try )
 
 -- tasty -------------------------------
 
@@ -76,11 +82,14 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile )
+import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
 import FPath.Rel               ( AsRel(_Rel ), Rel( RelD, RelF ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile, relfile )
+import FPath.T.FPath.TestData  ( af1, af2, af3, af4, etc, pamd
+                               , r0, r1, r2, r3, rf1, rf2, rf3, rf4, root, wgm )
 
 --------------------------------------------------------------------------------
 
@@ -141,6 +150,70 @@ instance AsRel FPath where
                                  _       → Nothing
                 )
 
+----------------------------------------
+
+instance Printable FPath where
+  print (FAbsD f) = print f
+  print (FAbsF f) = print f
+  print (FRelD f) = print f
+  print (FRelF f) = print f
+
+instance Textual FPath where
+  textual = try (FAbsD ⊳ textual) ∤ try (FAbsF ⊳ textual)
+          ∤ try (FRelD ⊳ textual) ∤ FRelF ⊳ textual
+
+----------------------------------------
+
+instance AsFilePath FPath where
+  filepath = prism' toString fromString
+
+filepathTests ∷ TestTree
+filepathTests =
+  let nothin' = Nothing ∷ Maybe FPath
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+   in testGroup "filepath"
+            [ testCase "r0" $ "./"     ≟ FRelD r0 ⫥ filepath
+            , testCase "r1" $ "r/"     ≟ FRelD r1 ⫥ filepath
+            , testCase "r2" $ "r/p/"   ≟ FRelD r2 ⫥ filepath
+            , testCase "r3" $ "p/q/r/" ≟ FRelD r3 ⫥ filepath
+
+            , testCase "r0" $ Just (FRelD r0) ≟ "./"     ⩼ filepath
+            , testCase "r1" $ Just (FRelD r1) ≟ "r/"     ⩼ filepath
+            , testCase "r2" $ Just (FRelD r2) ≟ "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just (FRelD r3) ≟ "p/q/r/" ⩼ filepath
+
+            , testCase "rf1" $ "r.e"       ≟ FRelF rf1 ⫥ filepath
+            , testCase "rf2" $ "r/p.x"     ≟ FRelF rf2 ⫥ filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ FRelF rf3 ⫥ filepath
+            , testCase "rf4" $ ".x"        ≟ FRelF rf4 ⫥ filepath
+
+            , testCase "rf1" $ Just (FRelF rf1) ≟ "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just (FRelF rf2) ≟ "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just (FRelF rf3) ≟ "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just (FRelF rf4) ≟ ".x"        ⩼ filepath
+
+            , testCase "root"  $ "/"             ≟ FAbsD root    ⫥ filepath
+            , testCase "etc"   $ "/etc/"         ≟ FAbsD etc     ⫥ filepath
+            , testCase "pam.d" $ "/etc/pam.d/"   ≟ FAbsD pamd    ⫥ filepath
+            , testCase "wgm"   $ "/w/g/M/"       ≟ FAbsD wgm     ⫥ filepath
+            , testCase "/etc/" $ Just (FAbsD etc) ≟ "/etc/" ⩼ filepath
+
+            , testCase "af1" $ "/r.e"       ≟ FAbsF af1 ⫥ filepath
+            , testCase "af2" $ "/r/p.x"     ≟ FAbsF af2 ⫥ filepath
+            , testCase "af3" $ "/p/q/r.mp3" ≟ FAbsF af3 ⫥ filepath
+            , testCase "af4" $ "/.x"        ≟ FAbsF af4 ⫥ filepath
+
+            , testCase "af1" $ Just (FAbsF af1) ≟ "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just (FAbsF af2) ≟ "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just (FAbsF af3) ≟ "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just (FAbsF af4) ≟ "/.x"        ⩼ filepath
+
+            , fail "/etc//pam.d/"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
+            ]
+
 ------------------------------------------------------------
 
 fpathT ∷ TypeRep
@@ -160,7 +233,7 @@ instance Parseable FPath where
 parseFPathTests ∷ TestTree
 parseFPathTests =
   let success d f t =
-        testCase t $ Right (d ## f) ≟ parse @FPath @FPathError t
+        testCase t $ Right (d ⫥ f) ≟ parse @FPath @FPathError t
    in testGroup "parseFPath"
                 [ success [absdir|/|]      _AbsDir  "/"
                 , success [absdir|/etc/|]  _AbsDir  "/etc/"
@@ -174,7 +247,7 @@ parseFPathTests =
 --------------------------------------------------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath" [ parseFPathTests ]
+tests = testGroup "FPath" [ filepathTests, parseFPathTests ]
 
 --------------------
 

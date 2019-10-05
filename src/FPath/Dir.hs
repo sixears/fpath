@@ -31,7 +31,8 @@ import Data.Function.Unicode  ( (∘) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable, toText )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , fromString, toString, toText )
 
 -- lens --------------------------------
 
@@ -39,10 +40,11 @@ import Control.Lens.Prism   ( Prism', prism' )
 
 -- more-unicode-symbols ----------------
 
-import Data.MoreUnicode.Functor    ( (⊳) )
-import Data.MoreUnicode.Lens       ( (⩼), (##) )
-import Data.MoreUnicode.Natural    ( ℕ )
-import Data.MoreUnicode.Tasty      ( (≟) )
+import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Functor      ( (⊳) )
+import Data.MoreUnicode.Lens         ( (⩼), (##) )
+import Data.MoreUnicode.Natural      ( ℕ )
+import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -74,9 +76,11 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
 
                                , absdir
                                )
+import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
+import FPath.T.FPath.TestData  ( etc, pamd, r0, r1, r2, r3, root, wgm )
 
 -------------------------------------------------------------------------------
 
@@ -95,6 +99,56 @@ instance AsNonRootAbsDir Dir where
 instance AsRelDir Dir where
   _RelDir ∷ Prism' Dir RelDir
   _RelDir = prism' DirR (\ case (DirR d) → Just d; _ → Nothing)
+
+----------------------------------------
+
+instance Printable Dir where
+  print (DirA f) = print f
+  print (DirR f) = print f
+
+instance Textual Dir where
+  textual = DirA ⊳ textual ∤ DirR ⊳ textual
+
+----------------------------------------
+
+instance AsFilePath Dir where
+  filepath = prism' toString fromString
+
+--------------------
+
+filepathTests ∷ TestTree
+filepathTests =
+  let nothin' = Nothing ∷ Maybe Dir
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+   in testGroup "filepath"
+            [ testCase "root"  $ "/"           ≟ DirA root    ## filepath
+            , testCase "etc"   $ "/etc/"       ≟ DirA etc     ## filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ DirA pamd    ## filepath
+            , testCase "wgm"   $ "/w/g/M/"     ≟ DirA wgm     ## filepath
+
+            , testCase "/etc/" $ Just etc      ≟ "/etc/" ⩼ filepath
+
+            , testCase "r0" $ "./"     ≟ DirR r0 ## filepath
+            , testCase "r1" $ "r/"     ≟ DirR r1 ## filepath
+            , testCase "r2" $ "r/p/"   ≟ DirR r2 ## filepath
+            , testCase "r3" $ "p/q/r/" ≟ DirR r3 ## filepath
+
+            , testCase "r0" $ Just (DirR r0) ≟ "./"     ⩼ filepath
+            , testCase "r1" $ Just (DirR r1) ≟ "r/"     ⩼ filepath
+            , testCase "r2" $ Just (DirR r2) ≟ "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just (DirR r3) ≟ "p/q/r/" ⩼ filepath
+
+            , fail "/etc"
+            , fail "foo/etc"
+            , fail "etc"
+            , fail "/etc/pam.d"
+            , fail "etc/pam.d"
+            , fail "/etc//pam.d/"
+            , fail "e/c"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
+            ]
 
 ----------------------------------------
 
@@ -125,7 +179,7 @@ parseDirTests =
 --------------------------------------------------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.Dir" [ parseDirTests ]
+tests = testGroup "FPath.Dir" [ filepathTests, parseDirTests ]
 
 --------------------
 

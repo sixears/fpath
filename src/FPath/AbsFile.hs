@@ -80,7 +80,6 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-
 import NonEmptyContainers.IsNonEmpty        ( FromNonEmpty( fromNonEmpty )
                                             , IsNonEmpty( nonEmpty )
                                             , ToNonEmpty( toNonEmpty ) )
