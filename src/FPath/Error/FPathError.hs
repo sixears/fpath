@@ -8,7 +8,7 @@
 module FPath.Error.FPathError
   ( AsFPathError( _FPathError ), FPathError(..)
   , AsFPathNotAPrefixError( _FPathNotAPrefixError ), FPathNotAPrefixError(..)
-  , FPathIOError
+  , FPathIOError, _FPIO_IO_ERROR, _FPIO_PATH_ERROR
 
   , _FPathAbsE, _FPathComponentE, _FPathEmptyE, _FPathNonAbsE, _FPathNotADirE
   , _FPathNotAFileE, _FPathRootDirE

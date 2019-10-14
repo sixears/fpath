@@ -1,3 +1,7 @@
+1.0.2.0 2019-10-14
+==================
+- export _FPIO_IO_ERROR, _FPIO_PATH_ERROR from FPathError
+
 1.0.1.0 2019-10-05
 ==================
 - add Printable,Textual,AsFilePath instances for File,Dir,Abs,Rel,FPath
