@@ -14,6 +14,7 @@
  -}
 module FPath.PathComponent
   ( PathComponent
+  , (⊙)
   , addExt, ext, parsePathC, pathComponent, pc, splitExt, stub, toLower, toUpper
   , updateExt
 

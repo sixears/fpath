@@ -1,3 +1,7 @@
+1.0.3.0 2019-11-04
+==================
+- add ⊙ to PathComponent export
+
 1.0.2.0 2019-10-14
 ==================
 - export _FPIO_IO_ERROR, _FPIO_PATH_ERROR from FPathError
