@@ -80,9 +80,9 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.IsNonEmpty        ( FromNonEmpty( fromNonEmpty )
-                                            , IsNonEmpty( nonEmpty )
-                                            , ToNonEmpty( toNonEmpty ) )
+import NonEmptyContainers.IsNonEmpty        ( FromMonoNonEmpty( fromNonEmpty )
+                                            , IsMonoNonEmpty( nonEmpty )
+                                            , ToMonoNonEmpty( toNonEmpty ) )
 import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , ToMonoSeq( toSeq )
                                             )
@@ -226,17 +226,17 @@ instance IsMonoSeqNonEmpty AbsFile where
 
 ----------------------------------------
 
-instance FromNonEmpty AbsFile where
+instance FromMonoNonEmpty AbsFile where
   fromNonEmpty (x :| xs) = case NonEmpty.nonEmpty xs of
                              Nothing  → AbsFile (fromList ф) x
                              Just xs' → let pcs = x : NonEmpty.init xs'
                                             f   = NonEmpty.last xs'
                                          in AbsFile (fromList pcs) f
 
-instance ToNonEmpty AbsFile where
+instance ToMonoNonEmpty AbsFile where
   toNonEmpty (AbsFile ps f) = NonEmpty.fromList $ toList ps ⊕ [f]
 
-instance IsNonEmpty AbsFile where
+instance IsMonoNonEmpty AbsFile where
   nonEmpty = iso toNonEmpty fromNonEmpty
 
 ----------------------------------------

@@ -1,3 +1,7 @@
+1.0.3.1 2019-12-14
+==================
+- use non-empty-containers-1.2.0.0
+
 1.0.3.0 2019-11-04
 ==================
 - add ⊙ to PathComponent export

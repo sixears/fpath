@@ -92,8 +92,7 @@ import qualified  NonEmptyContainers.SeqNE  as  SeqNE
 
 import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
                                             , IsMonoSeq( seq )
-                                            , ToMonoSeq( toSeq )
-                                            )
+                                            , ToMonoSeq( toSeq ) )
 import NonEmptyContainers.SeqNE             ( pattern(:⪭), (⪫), (⋖) )
 import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE ) )
 

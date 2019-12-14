@@ -103,9 +103,9 @@ import Control.Monad.Except  ( MonadError )
 import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
 import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 
-import NonEmptyContainers.IsNonEmpty  ( FromNonEmpty( fromNonEmpty )
-                                      , IsNonEmpty( nonEmpty )
-                                      , ToNonEmpty( toNonEmpty )
+import NonEmptyContainers.IsNonEmpty  ( FromMonoNonEmpty( fromNonEmpty )
+                                      , IsMonoNonEmpty( nonEmpty )
+                                      , ToMonoNonEmpty( toNonEmpty )
                                       , defaultNonEmpty
                                       )
 import NonEmptyContainers.SeqConversions
@@ -356,17 +356,17 @@ instance IsList AbsDir where
 
 ----------------------------------------
 
-instance FromNonEmpty NonRootAbsDir where
+instance FromMonoNonEmpty NonRootAbsDir where
   fromNonEmpty = fromSeqNE ∘ fromNonEmpty
 
 ----------------------------------------
 
-instance ToNonEmpty NonRootAbsDir where
+instance ToMonoNonEmpty NonRootAbsDir where
   toNonEmpty   = toNonEmpty ∘ toSeqNE
 
 ----------------------------------------
 
-instance IsNonEmpty NonRootAbsDir where
+instance IsMonoNonEmpty NonRootAbsDir where
   nonEmpty = defaultNonEmpty
 
 ----------------------------------------
