@@ -746,12 +746,10 @@ absDirBasenameTests =
 instance Basename NonRootAbsDir where
   basename ∷ NonRootAbsDir → RelDir
   basename (NonRootAbsDir (_ :⫸ p)) = fromList [p]
-  basename _ = error "FPath.AbsDir.basename irrefutable pattern"
 
   updateBasename ∷ (PathComponent → PathComponent) → NonRootAbsDir
                  → NonRootAbsDir
   updateBasename f (NonRootAbsDir (ps :⫸ p)) = NonRootAbsDir (ps :⫸ f p)
-  updateBasename _ _ = error "FPath.AbsDir.updateBasename irrefutable pattern"
 
 nonRootAbsDirBasenameTests ∷ TestTree
 nonRootAbsDirBasenameTests =

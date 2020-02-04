@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -9,7 +10,8 @@
 {-# LANGUAGE ViewPatterns        #-}
 
 module FPath.IO
-  ( PResolvable( pResolveDir, pResolveDir', pResolve, pResolve' )
+  ( PResolvable( pResolveDir, pResolveDirLenient, pResolveDir', pResolve
+               , pResolveLenient, pResolve' )
   , getCwd, getCwd', inDir, inDirT
 
   , tests
@@ -24,10 +26,14 @@ import Data.Either             ( Either( Left, Right ) )
 import Data.Functor            ( fmap )
 import Data.Function           ( ($), const )
 import Data.List               ( reverse )
+import Data.Maybe              ( Maybe( Just ), fromMaybe )
 import Data.String             ( String )
 import GHC.Exts                ( toList )
 import System.Exit             ( ExitCode )
 import System.IO               ( IO )
+import System.IO.Error         ( ioeGetErrorType, ioeGetFileName, ioeGetHandle
+                               , ioeGetLocation, mkIOError )
+import Text.Show               ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -51,11 +57,21 @@ import System.Directory  ( withCurrentDirectory )
 
 import Control.Monad.Catch  ( MonadMask, bracket )
 
+-- filepath ----------------------------
+
+import System.FilePath  ( (</>) )
+
+-- lens --------------------------------
+
+import Control.Lens.Review   ( (#) )
+import System.FilePath.Lens  ( directory )
+
 -- monaderror-io -----------------------
 
 import MonadError           ( ѥ )
 import MonadError.IO        ( asIOError )
-import MonadError.IO.Error  ( AsIOError )
+import MonadError.IO.Error  ( AsIOError( _IOErr ), IOError( IOErr )
+                            , isNoSuchThingError )
 
 -- more-unicode ------------------------
 
@@ -67,7 +83,7 @@ import Data.MoreUnicode.Tasty    ( (≟) )
 
 -- mtl ---------------------------------
 
-import Control.Monad.Except  ( ExceptT, MonadError )
+import Control.Monad.Except  ( ExceptT, MonadError, throwError )
 
 -- tasty -------------------------------
 
@@ -75,11 +91,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( Assertion, assertBool, testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( assertLeft, runTestsP, runTestsReplay, runTestTree )
 
 -- temporary ---------------------------
 
@@ -110,6 +126,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathIOError
                                , __FPathEmptyE__, __FPathNotAFileE__
                                )
 import FPath.Parseable         ( parse )
+import FPath.RelDir            ( RelDir, parseRelDirP, reldir )
 import FPath.RelFile           ( relfile )
 
 --------------------------------------------------------------------------------
@@ -134,9 +151,21 @@ getCwdTests =
 
 ----------------------------------------
 
-_inDir ∷ (MonadIO μ, AsIOError ε, MonadError ε μ, Printable τ) ⇒ τ → IO α → μ α
-_inDir (toString → d) = asIOError ∘ withCurrentDirectory d
+{- | Take an IOError, add a filepath if it doesn't already have one. -}
+ioEWithPath d (IOErr e) =
+  let e' = mkIOError (ioeGetErrorType e) (ioeGetLocation e) (ioeGetHandle e)
+                     (Just $ fromMaybe d (ioeGetFileName e))
+   in _IOErr # e'
 
+{- | Perform IO within a directory, with declared errors. -}
+_inDir ∷ (MonadIO μ, AsIOError ε, MonadError ε μ, Printable τ) ⇒ τ → IO α → μ α
+_inDir (toString → d) io =
+  -- ensure that the path is attached to the error
+  (ѥ ∘ asIOError $ withCurrentDirectory d io) ≫ \ case
+    Left e' → join $ throwError (ioEWithPath d e')
+    Right r → return r
+
+{- | like `inDirT`, but takes IO that already throws some error(s). -}
 _inDirT ∷ (MonadIO μ, AsIOError ε, MonadError ε μ, Printable τ) ⇒
           τ → ExceptT ε IO α → μ α
 _inDirT d io = join $ _inDir d (ѥ io)
@@ -158,6 +187,16 @@ inDirT d io = join $ inDir d (ѥ io)
 class PResolvable α where
   {- | Given a path, which might well be relative and include '..' and/or '.',
        physically resolve that to an α by starting at a given `AbsDir`.
+       This involves trying to @chdir@ to the *parent* of the target directory
+       (if it has one; else the target directory itself); so will only work for
+       directories whose parent  you have permission to @chdir@ into.
+   -}
+  pResolveDirLenient ∷ (Printable τ,
+                        AsIOError ε, AsFPathError ε, MonadError ε μ, MonadIO μ)⇒
+                       AbsDir → τ → μ α
+
+  {- | Given a path, which might well be relative and include '..' and/or '.',
+       physically resolve that to an α by starting at a given `AbsDir`.
        This involves trying to @chdir@ to the target directory; so will only
        work for directories that you have permission to @chdir@ into (for files,
        you need to be able to @chdir@ into the parent directory).
@@ -169,6 +208,14 @@ class PResolvable α where
   pResolveDir' ∷ (Printable τ, MonadError FPathIOError μ, MonadIO μ) ⇒
                 AbsDir → τ → μ α
   pResolveDir' = pResolveDir
+
+  {- | `pResolveDirLenient`, taking the current working directory as the
+       starting point.
+   -}
+  pResolveLenient ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
+                     MonadIO μ) ⇒
+                    τ → μ α
+  pResolveLenient f = getCwd ≫ \ d → pResolveDirLenient d f
 
   {- | `pResolveDir`, taking the current working directory as the starting point
    -}
@@ -187,6 +234,14 @@ class PResolvable α where
      directory.
  -}
 instance PResolvable AbsDir where
+  pResolveDirLenient ∷ (Printable τ,
+                        AsIOError ε, AsFPathError ε, MonadError ε μ, MonadIO μ)⇒
+                       AbsDir → τ → μ AbsDir
+  pResolveDirLenient d (toString → f) = do
+    p ← _inDirT ((toString d </> f) ⊣ directory) getCwd
+    f' ∷ RelDir ← parseRelDirP f
+    return $ p ⫻ (basename f')
+
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ AbsDir
@@ -202,11 +257,22 @@ pResolveAbsDirTests =
       pResolve_ ∷ Text → IO (Either FPathIOError AbsDir)
       pResolve_ = ѥ ∘ pResolve
 
+      pResolveLenient_ ∷ Text → IO (Either FPathIOError AbsDir)
+      pResolveLenient_ = ѥ ∘ pResolveLenient
+
       pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsDir)
       pResolveDir_ d = ѥ ∘ pResolveDir d
 
       getTmpdir ∷ IO AbsDir
       getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
+
+      assertNoSuchDir ∷ AsIOError ε ⇒ ε → Assertion
+      assertNoSuchDir e =
+        assertBool "no such dir: nonsuch" (isNoSuchThingError e)
+
+      assertNoSuchDirL ∷ (AsIOError ε, Show χ) ⇒ Either ε χ → Assertion
+      assertNoSuchDirL = assertLeft assertNoSuchDir 
+
    in testGroup "AbsDir"
         [ testCase "inTmp ./" $ inTmp $ \ d → pResolve_ "./" ≫ (Right d ≟)
         , testCase "inTmp . (forgiveness of pResolve wrt trailing /)" $
@@ -214,6 +280,16 @@ pResolveAbsDirTests =
         , testCase "inTmp .." $
             inTmp ∘ const $
                     getTmpdir ≫ \ tmpdir → pResolve_ ".."  ≫ (Right tmpdir ≟)
+
+        , testCase "inTmp ./" $
+            -- lenient should allow a leaf non-existent directory
+            inTmp $ \ d → pResolveLenient_ "nonsuch" ≫
+                          (Right (d ⫻ [reldir|nonsuch/|]) ≟)
+        , testCase "inTmp ./" $
+            inTmp $ \ _ → pResolve_ "nonsuch" ≫ assertNoSuchDirL
+        , testCase "inTmp ./" $ inTmp $ \ _ → do
+            d' <- pResolve_ "nonsuch/nonsuch"
+            assertNoSuchDirL d'
 
         , testCase "inTmp ../ (dirname)" $
             inTmp $ \ d → pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
@@ -237,6 +313,8 @@ pResolveAbsDirTests =
      trailing '/' as a dir, and this fails.
  -}
 instance PResolvable AbsFile where
+  pResolveDirLenient = pResolveDir
+
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ AbsFile
@@ -300,6 +378,20 @@ pResolveAbsFileTests =
      input strings cause a failure.
  -}
 instance PResolvable Abs where
+  pResolveDirLenient ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
+                 MonadIO μ)⇒
+                AbsDir → τ → μ Abs
+  pResolveDirLenient _ (toString → [])     = __FPathEmptyE__ absT
+  pResolveDirLenient d t@(toString → ".")  = AbsD ⊳ pResolveDirLenient d t
+  pResolveDirLenient d t@(toString → "..") = AbsD ⊳ pResolveDirLenient d t
+  pResolveDirLenient d t@(reverse ∘ toString → '/' : _) =
+    AbsD ⊳ pResolveDirLenient d t
+  pResolveDirLenient d t@(reverse ∘ toString → '.' : '/' : _) =
+    AbsD ⊳ pResolveDirLenient d t
+  pResolveDirLenient d t@(reverse ∘ toString → '.':'.':'/':_) =
+    AbsD ⊳ pResolveDirLenient d t
+  pResolveDirLenient d t                   = AbsF ⊳ pResolveDir d t
+
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ Abs
@@ -310,7 +402,6 @@ instance PResolvable Abs where
   pResolveDir d t@(reverse ∘ toString → '.' : '/' : _)= AbsD ⊳ pResolveDir d t
   pResolveDir d t@(reverse ∘ toString → '.':'.':'/':_)= AbsD ⊳ pResolveDir d t
   pResolveDir d t                                     = AbsF ⊳ pResolveDir d t
-
 
 pResolveAbsTests ∷ TestTree
 pResolveAbsTests =

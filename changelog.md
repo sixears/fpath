@@ -1,3 +1,9 @@
+1.0.4.0 2020-02-03
+==================
+- remove redundant patterns (thanks to COMPLETE markers in SeqNE) on AbsDir
+- _inDir (in FPath.IO) now forcibly attaches the path in use
+- add pResolve{,Dir}Lenient
+
 1.0.3.1 2019-12-14
 ==================
 - use non-empty-containers-1.2.0.0

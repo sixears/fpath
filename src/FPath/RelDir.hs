@@ -15,6 +15,7 @@ module FPath.RelDir
   ( AsRelDir( _RelDir ), RelDir
 
   , reldir, reldirT
+  , parseRelDirP
 
   , tests
   )
