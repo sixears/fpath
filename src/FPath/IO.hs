@@ -26,13 +26,10 @@ import Data.Either             ( Either( Left, Right ) )
 import Data.Functor            ( fmap )
 import Data.Function           ( ($), const )
 import Data.List               ( reverse )
-import Data.Maybe              ( Maybe( Just ), fromMaybe )
 import Data.String             ( String )
 import GHC.Exts                ( toList )
 import System.Exit             ( ExitCode )
 import System.IO               ( IO )
-import System.IO.Error         ( ioeGetErrorType, ioeGetFileName, ioeGetHandle
-                               , ioeGetLocation, mkIOError )
 import Text.Show               ( Show )
 
 -- base-unicode-symbols ----------------
@@ -63,15 +60,13 @@ import System.FilePath  ( (</>) )
 
 -- lens --------------------------------
 
-import Control.Lens.Review   ( (#) )
 import System.FilePath.Lens  ( directory )
 
 -- monaderror-io -----------------------
 
 import MonadError           ( ѥ )
 import MonadError.IO        ( asIOError )
-import MonadError.IO.Error  ( AsIOError( _IOErr ), IOError( IOErr )
-                            , isNoSuchThingError )
+import MonadError.IO.Error  ( AsIOError, (~~), isNoSuchThingError )
 
 -- more-unicode ------------------------
 
@@ -151,18 +146,12 @@ getCwdTests =
 
 ----------------------------------------
 
-{- | Take an IOError, add a filepath if it doesn't already have one. -}
-ioEWithPath d (IOErr e) =
-  let e' = mkIOError (ioeGetErrorType e) (ioeGetLocation e) (ioeGetHandle e)
-                     (Just $ fromMaybe d (ioeGetFileName e))
-   in _IOErr # e'
-
 {- | Perform IO within a directory, with declared errors. -}
 _inDir ∷ (MonadIO μ, AsIOError ε, MonadError ε μ, Printable τ) ⇒ τ → IO α → μ α
 _inDir (toString → d) io =
   -- ensure that the path is attached to the error
   (ѥ ∘ asIOError $ withCurrentDirectory d io) ≫ \ case
-    Left e' → join $ throwError (ioEWithPath d e')
+    Left e' → join $ throwError (e' ~~ d)-- (ioEWithPath d e')
     Right r → return r
 
 {- | like `inDirT`, but takes IO that already throws some error(s). -}

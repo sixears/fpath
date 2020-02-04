@@ -1,3 +1,8 @@
+1.0.4.1 2020-02-04
+==================
+- use (~~) from MonadError.IO.Error; clean up unimplemented pResolveDirLenient
+  instances
+
 1.0.4.0 2020-02-03
 ==================
 - remove redundant patterns (thanks to COMPLETE markers in SeqNE) on AbsDir
