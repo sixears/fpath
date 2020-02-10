@@ -6,12 +6,12 @@
 {-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE UnicodeSyntax       #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 module FPath.IO
-  ( PResolvable( pResolveDir, pResolveDirLenient, pResolveDir', pResolve
-               , pResolveLenient, pResolve' )
+  ( PResolvable( pResolveDir, pResolveDir', pResolve, pResolve' )
   , getCwd, getCwd', inDir, inDirT
 
   , tests
@@ -20,17 +20,18 @@ where
 
 -- base --------------------------------
 
-import Control.Monad           ( join, return )
+import Control.Monad           ( filterM, join, return )
 import Control.Monad.IO.Class  ( MonadIO )
+import Data.Bool               ( Bool )
 import Data.Either             ( Either( Left, Right ) )
 import Data.Functor            ( fmap )
 import Data.Function           ( ($), const )
-import Data.List               ( reverse )
+import Data.List               ( dropWhileEnd, head, reverse, scanl, scanr,zip )
 import Data.String             ( String )
+import Data.Tuple              ( fst )
 import GHC.Exts                ( toList )
 import System.Exit             ( ExitCode )
 import System.IO               ( IO )
-import Text.Show               ( Show )
 
 -- base-unicode-symbols ----------------
 
@@ -56,21 +57,21 @@ import Control.Monad.Catch  ( MonadMask, bracket )
 
 -- filepath ----------------------------
 
-import System.FilePath  ( (</>) )
+import System.FilePath  ( FilePath, (</>), splitPath )
 
 -- lens --------------------------------
 
-import System.FilePath.Lens  ( directory )
+import Control.Lens.Review   ( (#) )
 
 -- monaderror-io -----------------------
 
 import MonadError           ( ѥ )
 import MonadError.IO        ( asIOError )
-import MonadError.IO.Error  ( AsIOError, (~~), isNoSuchThingError )
+import MonadError.IO.Error  ( AsIOError, (~~) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens     ( (⊣), (##) )
 import Data.MoreUnicode.Monad    ( (≫), (⪼) )
 import Data.MoreUnicode.Natural  ( ℕ )
@@ -86,16 +87,15 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( Assertion, assertBool, testCase )
+import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( assertLeft, runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 
 -- temporary ---------------------------
 
-import System.IO.Temp  ( getCanonicalTemporaryDirectory, withSystemTempDirectory
-                       )
+import System.IO.Temp ( getCanonicalTemporaryDirectory,withSystemTempDirectory )
 
 -- text --------------------------------
 
@@ -104,24 +104,23 @@ import Data.Text  ( Text, last )
 -- unix --------------------------------
 
 import System.Posix.Directory  ( changeWorkingDirectory, getWorkingDirectory )
+import System.Posix.Files      ( fileExist )
 
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
 import FPath.Abs               ( Abs( AbsD, AbsF ), absT )
-import FPath.AbsDir            ( AbsDir, __parseAbsDirP__ )
+import FPath.AbsDir            ( AbsDir, absdir, __parseAbsDirP__ )
 import FPath.AbsFile           ( AbsFile, absfileT )
 import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( basename )
 import FPath.Dirname           ( dirname )
-import FPath.Error.FPathError  ( AsFPathError, FPathIOError
-                               , _FPathEmptyE
-                               , __FPathEmptyE__, __FPathNotAFileE__
-                               )
+import FPath.Error.FPathError  ( AsFPathError, FPathIOError, _FPathEmptyE
+                               , __FPathEmptyE__, __FPathNotAFileE__ )
 import FPath.Parseable         ( parse )
-import FPath.RelDir            ( RelDir, parseRelDirP, reldir )
+import FPath.RelDir            ( RelDir, reldir )
 import FPath.RelFile           ( relfile )
 
 --------------------------------------------------------------------------------
@@ -170,20 +169,47 @@ inDir d = _inDir (d ## filepath)
 inDirT ∷ (MonadIO μ,AsIOError ε,MonadError ε μ) ⇒ AbsDir → ExceptT ε IO α → μ α
 inDirT d io = join $ inDir d (ѥ io)
 
+scan ∷ (α → α → α) → α → [α] → [(α,α)]
+scan f b xs = zip (scanl f b xs) (scanr f b xs)
+
+{- | List of splits of a file path in two, at each directory along the path;
+     e.g.,
+
+     @
+       λ> splitPoints "foo/bar/"
+       [("","foo/bar"),("foo/","bar"),("foo/bar","")]
+     @
+
+     Note that any trailing '/' is dropped.
+ -}
+splitPoints ∷ FilePath → [(FilePath,FilePath)]
+splitPoints f =
+  let noSlash "/" = "/"
+      noSlash t = dropWhileEnd (≡ '/') t
+   in scan (</>) "" (splitPath $ noSlash f)
+
+{- | Given an absdir and a subsequent filepath (which might be absolute),
+     return a pair of the initial filepath that exists, *resolved* (symlinks,
+     ., .., all resolved); and a part that does not exist.  Note that the
+     extant part must have read-and-execute permission for the user; else an
+     `AsIOError` will be raised.
+ -}
+resolve ∷ (AsIOError ε, MonadError ε μ, MonadIO μ) ⇒
+          AbsDir → FilePath → μ (FilePath, FilePath)
+resolve d =
+  let -- prepend `d`, note this is a no-op for input abs functions
+      prepend ∷ FilePath → FilePath
+      prepend = (filepath # d </>)
+      fexist ∷ (MonadIO μ, AsIOError ε, MonadError ε μ) ⇒ FilePath → μ Bool
+      fexist  = asIOError ∘ fileExist
+      -- Given an AbsDir, `resolve` must resolve to *something* valid, since the
+      -- top of an AbsDir is the root dir, and that always exists.
+   in head ⩺ filterM (fexist ∘ fst) ∘ reverse ∘ splitPoints ∘ prepend
+
 ------------------------------------------------------------
 
 {- | Things which are physically resolvable -}
 class PResolvable α where
-  {- | Given a path, which might well be relative and include '..' and/or '.',
-       physically resolve that to an α by starting at a given `AbsDir`.
-       This involves trying to @chdir@ to the *parent* of the target directory
-       (if it has one; else the target directory itself); so will only work for
-       directories whose parent  you have permission to @chdir@ into.
-   -}
-  pResolveDirLenient ∷ (Printable τ,
-                        AsIOError ε, AsFPathError ε, MonadError ε μ, MonadIO μ)⇒
-                       AbsDir → τ → μ α
-
   {- | Given a path, which might well be relative and include '..' and/or '.',
        physically resolve that to an α by starting at a given `AbsDir`.
        This involves trying to @chdir@ to the target directory; so will only
@@ -197,14 +223,6 @@ class PResolvable α where
   pResolveDir' ∷ (Printable τ, MonadError FPathIOError μ, MonadIO μ) ⇒
                 AbsDir → τ → μ α
   pResolveDir' = pResolveDir
-
-  {- | `pResolveDirLenient`, taking the current working directory as the
-       starting point.
-   -}
-  pResolveLenient ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
-                     MonadIO μ) ⇒
-                    τ → μ α
-  pResolveLenient f = getCwd ≫ \ d → pResolveDirLenient d f
 
   {- | `pResolveDir`, taking the current working directory as the starting point
    -}
@@ -223,18 +241,18 @@ class PResolvable α where
      directory.
  -}
 instance PResolvable AbsDir where
-  pResolveDirLenient ∷ (Printable τ,
-                        AsIOError ε, AsFPathError ε, MonadError ε μ, MonadIO μ)⇒
-                       AbsDir → τ → μ AbsDir
-  pResolveDirLenient d (toString → f) = do
-    p ← _inDirT ((toString d </> f) ⊣ directory) getCwd
-    f' ∷ RelDir ← parseRelDirP f
-    return $ p ⫻ (basename f')
 
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ AbsDir
-  pResolveDir d (toText → f) = inDirT d $ _inDirT f getCwd
+  pResolveDir d (toString → p) = do
+    (extant,non_extant) ← resolve d p
+    d' ← _inDirT extant getCwd
+    let -- add a trailing / so reldir parses it
+        toDir "" = "./"
+        toDir t  = t ⊕ "/"
+    p' ← parse @RelDir (toDir non_extant)
+    return $ d' ⫻ p'
 
 pResolveAbsDirTests ∷ TestTree
 pResolveAbsDirTests =
@@ -246,21 +264,11 @@ pResolveAbsDirTests =
       pResolve_ ∷ Text → IO (Either FPathIOError AbsDir)
       pResolve_ = ѥ ∘ pResolve
 
-      pResolveLenient_ ∷ Text → IO (Either FPathIOError AbsDir)
-      pResolveLenient_ = ѥ ∘ pResolveLenient
-
       pResolveDir_ ∷ AbsDir → Text → IO (Either FPathIOError AbsDir)
       pResolveDir_ d = ѥ ∘ pResolveDir d
 
       getTmpdir ∷ IO AbsDir
       getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
-
-      assertNoSuchDir ∷ AsIOError ε ⇒ ε → Assertion
-      assertNoSuchDir e =
-        assertBool "no such dir: nonsuch" (isNoSuchThingError e)
-
-      assertNoSuchDirL ∷ (AsIOError ε, Show χ) ⇒ Either ε χ → Assertion
-      assertNoSuchDirL = assertLeft assertNoSuchDir 
 
    in testGroup "AbsDir"
         [ testCase "inTmp ./" $ inTmp $ \ d → pResolve_ "./" ≫ (Right d ≟)
@@ -270,15 +278,26 @@ pResolveAbsDirTests =
             inTmp ∘ const $
                     getTmpdir ≫ \ tmpdir → pResolve_ ".."  ≫ (Right tmpdir ≟)
 
-        , testCase "inTmp ./" $
-            -- lenient should allow a leaf non-existent directory
-            inTmp $ \ d → pResolveLenient_ "nonsuch" ≫
+        , testCase "inTmp cwd" $
+            -- value is an abs dir, e.g., /tmp/<user>/d7b66efeebbcf249/
+            inTmp $ \ d → pResolve_ (toText d) ≫ (Right d ≟)
+        , testCase "root" $
+            inTmp $ \ _ → pResolve_ "/" ≫ (Right [absdir|/|] ≟)
+        , testCase "/nonsuch/" $
+            inTmp $ \ _ → pResolve_ "/nonsuch/" ≫ (Right [absdir|/nonsuch/|] ≟)
+        , testCase "inTmp nonsuch" $
+            inTmp $ \ d → pResolve_ "nonsuch" ≫
                           (Right (d ⫻ [reldir|nonsuch/|]) ≟)
-        , testCase "inTmp ./" $
-            inTmp $ \ _ → pResolve_ "nonsuch" ≫ assertNoSuchDirL
-        , testCase "inTmp ./" $ inTmp $ \ _ → do
+        , testCase "inTmp nonesuch" $
+            inTmp $ \ _ → pResolve_ "/nonsuch" ≫
+                          (Right [absdir|/nonsuch/|] ≟)
+        , testCase "inTmp nonsuch/" $
+            inTmp $ \ d → pResolve_ "nonsuch/" ≫
+                          (Right (d ⫻ [reldir|nonsuch/|]) ≟)
+
+        , testCase "inTmp ./" $ inTmp $ \ d → do
             d' <- pResolve_ "nonsuch/nonsuch"
-            assertNoSuchDirL d'
+            Right (d ⫻ [reldir|nonsuch/nonsuch/|]) ≟ d'
 
         , testCase "inTmp ../ (dirname)" $
             inTmp $ \ d → pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
@@ -302,8 +321,6 @@ pResolveAbsDirTests =
      trailing '/' as a dir, and this fails.
  -}
 instance PResolvable AbsFile where
-  pResolveDirLenient = pResolveDir
-
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ AbsFile
@@ -367,20 +384,6 @@ pResolveAbsFileTests =
      input strings cause a failure.
  -}
 instance PResolvable Abs where
-  pResolveDirLenient ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
-                 MonadIO μ)⇒
-                AbsDir → τ → μ Abs
-  pResolveDirLenient _ (toString → [])     = __FPathEmptyE__ absT
-  pResolveDirLenient d t@(toString → ".")  = AbsD ⊳ pResolveDirLenient d t
-  pResolveDirLenient d t@(toString → "..") = AbsD ⊳ pResolveDirLenient d t
-  pResolveDirLenient d t@(reverse ∘ toString → '/' : _) =
-    AbsD ⊳ pResolveDirLenient d t
-  pResolveDirLenient d t@(reverse ∘ toString → '.' : '/' : _) =
-    AbsD ⊳ pResolveDirLenient d t
-  pResolveDirLenient d t@(reverse ∘ toString → '.':'.':'/':_) =
-    AbsD ⊳ pResolveDirLenient d t
-  pResolveDirLenient d t                   = AbsF ⊳ pResolveDir d t
-
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
                  MonadIO μ)⇒
                 AbsDir → τ → μ Abs

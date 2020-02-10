@@ -1,7 +1,14 @@
-1.0.4.1 2020-02-04
+1.0.5.0 2020-02-10
 ==================
 - use (~~) from MonadError.IO.Error; clean up unimplemented pResolveDirLenient
   instances
+- use quasiquoting library; improve quasiquoters to error at compile-time
+- migrate most tests from FPath.T.FPath.AbsDir to FPath.AbsDir
+- add `parents`
+- add instance AsFilePath FilePath
+- export FPath constructors (for pattern matching)
+- pResolve{,Dir} now handles dirs with a resolvable, extant prefix (can cd
+  into), and a parseable suffix.
 
 1.0.4.0 2020-02-03
 ==================

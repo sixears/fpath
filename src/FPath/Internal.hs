@@ -125,8 +125,7 @@ import FPath.Error.FPathError           ( AsFPathError, FPathError
                                         )
 import FPath.PathComponent              ( PathComponent, parsePathC )
 import FPath.RelDir                     ( RelDir, parseRelDir )
-import FPath.Util                       ( QuasiQuoter
-                                        , __ERROR'__, mkQuasiQuoterExp )
+import FPath.Util                       ( QuasiQuoter, __ERROR'__ )
 
 -------------------------------------------------------------------------------
 
@@ -296,7 +295,11 @@ __parseRelFile'__ ∷ String → RelFile
 __parseRelFile'__ = __parseRelFile__
 
 {- | quasi-quotation -}
+
+relfileQQ ∷ String → Maybe ExpQ
+relfileQQ = (\ f → ⟦f⟧) ⩺ (ѭ ∘ parse @RelFile @FPathError)
+
 relfile ∷ QuasiQuoter
-relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parseRelFile'__ s ⟧)
+relfile = mkQQ "RelFile" $ def & exp ⊩ relfileQQ
 
 -- that's all, folks! ----------------------------------------------------------

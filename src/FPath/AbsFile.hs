@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift        #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -30,7 +31,7 @@ import Control.Monad        ( return )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
 import Data.Foldable        ( foldMap, foldl1, foldl', foldr, foldr1 )
-import Data.Function        ( ($), const, id )
+import Data.Function        ( ($), (&), const, id )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Monoid          ( Monoid )
@@ -46,6 +47,10 @@ import Text.Show            ( Show )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
+-- data-default ------------------------
+
+import Data.Default  ( def )
+
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ), Textual( textual )
@@ -57,6 +62,10 @@ import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( iso )
 import Control.Lens.Lens   ( lens )
 import Control.Lens.Prism  ( Prism', prism' )
+
+-- monaderror-io -----------------------
+
+import MonadError  ( ѭ )
 
 -- mono-traversable --------------------
 
@@ -70,7 +79,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Monoid       ( ф )
+import Data.MoreUnicode.Lens         ( (⊩) )
+import Data.MoreUnicode.Monoid       ( ф, ю )
 import Data.MoreUnicode.Natural      ( ℕ )
 import Data.MoreUnicode.Tasty        ( (≟) )
 
@@ -98,6 +108,10 @@ import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
 import Text.Parser.Char         ( char )
 import Text.Parser.Combinators  ( sepByNonEmpty )
 
+-- quasiquoting ------------------------
+
+import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
+
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
@@ -112,7 +126,12 @@ import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( assertListEq, runTestsP, runTestsReplay, runTestTree )
+
+-- template-haskell --------------------
+
+import Language.Haskell.TH         ( ExpQ )
+import Language.Haskell.TH.Syntax  ( Lift )
 
 -- text --------------------------------
 
@@ -126,7 +145,7 @@ import qualified  Text.Printer  as  P
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AbsDir            ( AbsDir, root )
+import FPath.AbsDir            ( AbsDir, absdir, root )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
@@ -138,18 +157,18 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , mapTypeRepE, mapTextE
                                )
 import FPath.FileLike          ( FileLike( dirfile ) )
-import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
-import FPath.Parseable         ( Parseable( parse, __parse'__ ) )
+import FPath.Parent            ( HasParent( parent )
+                               , HasParentMay( parentMay, parents ) )
+import FPath.Parseable         ( Parseable( parse ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
 import FPath.RelFile           ( RelFile, relfile )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.Util              ( QuasiQuoter, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
 {- | an absolute file -}
 data AbsFile = AbsFile AbsDir PathComponent
-  deriving (Eq, Show)
+  deriving (Eq, Lift, Show)
 
 type instance Element AbsFile = PathComponent
 
@@ -274,6 +293,17 @@ instance HasParentMay AbsFile where
                                            Nothing → AbsFile root f
                    )
 
+----------
+
+parentsTests ∷ TestTree
+parentsTests =
+  let check t d ps = assertListEq t ps (parents d)
+   in testGroup "parents" $
+        ю [ check "/r.e"       af1 [root]
+          , check "/r/p.x"     af2 [root,fromSeq (pure [pc|r|])]
+          , check "/p/q/r.mp3" af3 [root,[absdir|/p/|], [absdir|/p/q/|]]
+          , check "/.x"        af4 [root]
+          ]
 
 ----------------------------------------
   
@@ -335,8 +365,11 @@ instance Parseable AbsFile where
           Just (_, _)      → __FPathNonAbsE__ absfileT t
 
 {- | quasi-quotation -}
+absfileQQ ∷ String → Maybe ExpQ
+absfileQQ = (\ d → ⟦d⟧) ⩺ (ѭ ∘ parse @AbsFile @FPathError)
+
 absfile ∷ QuasiQuoter
-absfile = mkQuasiQuoterExp "absfile" (\ s → ⟦ __parse'__ @AbsFile s ⟧)
+absfile = mkQQ "AbsFile" $ def & exp ⊩ absfileQQ
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
@@ -360,7 +393,7 @@ af4 = fromSeqNE $ pure [pc|.x|]
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.AbsFile" [ absFileBasenameTests ]
+tests = testGroup "FPath.AbsFile" [ absFileBasenameTests, parentsTests ]
                 
 --------------------
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift          #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -22,7 +23,7 @@ module FPath.AbsDir
   , nonRootAbsDir
   , root
 
-  , parseAbsDirP , parseAbsDirP'  , __parseAbsDirP__ -- , __parseAbsDirP'__
+  , parseAbsDirP , parseAbsDirP'  , __parseAbsDirP__
 
   , tests
   )
@@ -36,6 +37,7 @@ import qualified  Data.List.NonEmpty  as  NonEmpty
 
 import Control.Applicative  ( pure )
 import Control.Monad        ( mapM, return )
+import Data.Bool            ( Bool( False, True) )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
 import Data.Foldable        ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
@@ -44,12 +46,13 @@ import Data.Functor         ( fmap )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ), maybe )
 import Data.Monoid          ( Monoid )
+import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
 import System.Exit          ( ExitCode )
 import System.IO            ( IO )
-import Text.Show            ( Show )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
@@ -61,10 +64,14 @@ import Data.Monoid.Unicode    ( (∅), (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
+-- data-default ------------------------
+
+import Data.Default  ( def )
+
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
+import Data.Textual  ( Printable( print ), Parsed( Parsed ), Textual( textual )
+                     , fromString, parseString, toString, toText )
 
 -- lens --------------------------------
 
@@ -74,25 +81,36 @@ import Control.Lens.Iso     ( iso )
 import Control.Lens.Lens    ( Lens', lens )
 import Control.Lens.Prism   ( Prism', prism' )
 
+-- monaderror-io -----------------------
+
+import MonadError  ( ѭ )
+
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
-                                                    , ofoldMap, ofoldr
-                                                    , ofoldr1Ex, otoList )
+import Data.MonoTraversable  ( Element
+                             , MonoFoldable( oall, oany, ocompareLength, oelem
+                                           , ofoldl', ofoldl1Ex', ofoldlM
+                                           , ofoldMap, ofoldMap1Ex, ofoldr
+                                           , ofoldr1Ex, olength, olength64
+                                           , onotElem, onull, otoList
+                                           )
                              , MonoFunctor( omap )
+                             , maximumByEx, minimumByEx, unsafeHead, unsafeLast
                              )
 import Data.NonNull          ( fromNullable )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⋫) )
-import Data.MoreUnicode.Function     ( (⅋) )
-import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens         ( (⊣), (⊢) )
-import Data.MoreUnicode.Monad        ( (≫) )
-import Data.MoreUnicode.Monoid       ( ф )
-import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Tasty        ( (≟) )
+import Data.MoreUnicode.Applicative      ( (⋫) )
+import Data.MoreUnicode.Function         ( (⅋) )
+import Data.MoreUnicode.Functor          ( (⊳), (⩺) )
+import Data.MoreUnicode.Lens             ( (⊣), (⊢), (⊩), (⩼), (⫥), (⫣) )
+import Data.MoreUnicode.Monad            ( (≫) )
+import Data.MoreUnicode.Monoid           ( ф, ю )
+import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
+import Data.MoreUnicode.Natural          ( ℕ )
+import Data.MoreUnicode.Semigroup        ( (◇) )
+import Data.MoreUnicode.Tasty            ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -122,6 +140,10 @@ import NonEmptyContainers.SeqNEConversions
 import Text.Parser.Char         ( char )
 import Text.Parser.Combinators  ( endBy, endByNonEmpty )
 
+-- quasiquoting ------------------------
+
+import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
+
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
@@ -136,11 +158,21 @@ import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≣), assertListEq, propInvertibleString, propInvertibleText
+                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
+
+-- tasty-quickcheck --------------------
+
+import Test.Tasty.QuickCheck  ( testProperty )
+
+-- template-haskell --------------------
+
+import Language.Haskell.TH         ( ExpQ )
+import Language.Haskell.TH.Syntax  ( Lift )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, last, empty, splitOn )
+import Data.Text  ( Text, any, last, length, empty, splitOn )
 
 -- text-printer ------------------------
 
@@ -171,13 +203,13 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathNotADirE
                                , __FPathRootDirE__
                                , mapTypeRepE
                                )
-import FPath.Parent            ( HasParent( parent ), HasParentMay( parentMay ) )
-import FPath.Parseable         ( Parseable( parse, parse', __parse'__ ) )
-import FPath.PathComponent     ( PathComponent, parsePathC, pc, stub )
+import FPath.Parent            ( HasParent( parent )
+                               , HasParentMay( parentMay, parents ) )
+import FPath.Parseable         ( Parseable( parse, parse' ) )
+import FPath.PathComponent     ( PathComponent, parsePathC, pc, stub, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.Util              ( QuasiQuoter
-                               , __ERROR'__, mkQuasiQuoterExp )
+import FPath.Util              ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
 
@@ -185,9 +217,26 @@ import FPath.Util              ( QuasiQuoter
 -- a non-root dir is a path component appended to a (possibly-root) absolute
 -- directory
 newtype NonRootAbsDir = NonRootAbsDir (SeqNE PathComponent)
-  deriving (Eq, Show)
+  deriving (Eq,Lift,Show)
 
 type instance Element NonRootAbsDir = PathComponent
+
+showTests ∷ TestTree
+showTests =
+  let fromNonEmptyT = "NonEmptyContainers.IsNonEmpty.fromNonEmpty"
+      pcT t         = "PathComponent \"" ⊕ t ⊕ "\""
+      etcT          = pcT "etc"
+      pamdT         = pcT "pam.d"
+      nonRT         = "AbsNonRootDir (NonRootAbsDir "
+      rootShow = "AbsRootDir"
+      etcShow  = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ pcT "etc" ⊕ " :| []))"
+      pamdShow = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ etcT ⊕ " :| [" ⊕ pamdT ⊕ "]))"
+
+   in testGroup "show"
+                [ testCase "root"  $ rootShow ≟ show root
+                , testCase "etc"   $ etcShow  ≟ show etc
+                , testCase "pam.d" $ pamdShow ≟ show pamd
+                ]
 
 --------------------
 
@@ -209,7 +258,7 @@ instance RelTypeC NonRootAbsDir where
 {- | An absolute directory is either the root directory, or a non-root absolute
      directory -}
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
-  deriving (Eq, Show)
+  deriving (Eq,Lift,Show)
 
 absNonRootDir ∷ SeqNE PathComponent → AbsDir
 absNonRootDir = AbsNonRootDir ∘ NonRootAbsDir
@@ -264,6 +313,23 @@ instance MonoFunctor AbsDir where
   omap _ AbsRootDir = AbsRootDir
   omap f (AbsNonRootDir d) = AbsNonRootDir (omap f d)
 
+----------
+
+monoFunctorTests ∷ TestTree
+monoFunctorTests =
+  testGroup "MonoFunctor"
+            [ testCase "usr" $
+                    etc ≟ omap (const [pc|etc|]) etc
+            , testCase "wgm.d" $
+                  fromSeqNE @AbsDir([pc|w.d|] ⪪ [pc|g.d|] ⪪ pure [pc|M.d|])
+                ≟ (◇ [pc|.d|]) ⪧ wgm
+            , testCase "WGM" $
+                  fromSeqNE @AbsDir([pc|W|] ⪪ [pc|G|] ⪪ pure [pc|M|])
+                ≟ wgm ⪦ toUpper
+            ]
+
+----------------------------------------
+
 nonRootAbsDir ∷ Prism' AbsDir NonRootAbsDir
 nonRootAbsDir = prism' AbsNonRootDir go
                 where go AbsRootDir        = Nothing
@@ -288,7 +354,7 @@ instance MonoFoldable AbsDir where
              → PathComponent
   ofoldl1Ex' f r = foldl1 f (toList r)
 
-----------------------------------------
+--------------------
 
 instance MonoFoldable NonRootAbsDir where
   otoList ∷ NonRootAbsDir → [PathComponent]
@@ -306,6 +372,57 @@ instance MonoFoldable NonRootAbsDir where
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → NonRootAbsDir
              → PathComponent
   ofoldl1Ex' f r = foldl1 f (toNonEmpty r)
+
+monoFoldableTests ∷ TestTree
+monoFoldableTests =
+  testGroup "MonoFoldable"
+            [ testCase "ofoldMap" $
+                "w-g-M-" ≟ ofoldMap ((⊕ "-") ∘ toText) wgm
+            , testCase "ofoldr" $
+                "w-g-M-ф" ≟ ofoldr (\ a b → toText a ⊕ "-" ⊕ b) "ф" wgm
+            , testCase "ofoldl'" $
+                "ф-w-g-M" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" wgm
+            , testCase "otoList" $
+                [ [pc|w|], [pc|g|], [pc|M|] ] ≟ otoList wgm
+            , testCase "oall (F)" $
+                False ≟ oall (any (≡ 'r' ) ∘ toText) wgm
+            , testCase "oall (T)" $
+                True ≟ oall ((< 6) ∘ length ∘ toText) wgm
+            , testCase "oany (F)" $
+                False ≟ oany (any (≡ 'x' ) ∘ toText) wgm
+            , testProperty "onull" (\ x → (x ≡ root) ≣ onull x)
+            , testCase "olength" $
+                3 ≟ olength wgm
+            , testCase "olength64" $
+                0 ≟ olength64 root
+            , testCase "ocompareLength" $
+               GT ≟ ocompareLength wgm (2 ∷ ℕ)
+            , testCase "ofoldlM" $
+                  Just [[pc|M|],[pc|g|],[pc|w|]]
+                ≟ ofoldlM (\ a e → Just $ e : a) [] wgm
+            , testCase "ofoldMap1Ex" $
+                [[pc|w|],[pc|g|],[pc|M|]] ≟ ofoldMap1Ex pure wgm
+            , testCase "ofoldr1Ex" $
+                [pc|wgM|] ≟ ofoldr1Ex (◇) wgm
+            , testCase "ofoldl1Ex'" $
+                [pc|wgM|] ≟ ofoldl1Ex' (◇) wgm
+            , testCase "unsafeHead" $
+                [pc|w|] ≟ unsafeHead wgm
+            , testCase "unsafeLast" $
+                [pc|M|] ≟ unsafeLast wgm
+            , testCase "maximumByEx" $
+                [pc|w|] ≟ maximumByEx (comparing toText) wgm
+            , testCase "minimumByEx" $
+                [pc|M|] ≟ minimumByEx (comparing toText) wgm
+            , testCase "oelem (T)" $
+                True ≟ oelem [pc|g|] wgm
+            , testCase "oelem (F)" $
+                False ≟ oelem [pc|x|] wgm
+            , testCase "onotElem (T)" $
+                True ≟ onotElem [pc|x|] wgm
+            , testCase "onotElem (F)" $
+                False ≟ onotElem [pc|g|] wgm
+            ]
 
 ----------------------------------------
 
@@ -347,12 +464,54 @@ instance ToMonoSeq NonRootAbsDir where
 instance IsMonoSeq AbsDir where
   seq = iso toSeq fromSeq
 
+isMonoSeqGetterTests ∷ TestTree
+isMonoSeqGetterTests =
+  testGroup "getter"
+            [ testCase "root"  $ Seq.Empty               ≟ root ⊣ seq
+            , testCase "etc"   $ pure [pc|etc|]          ≟ etc  ⊣ seq
+            , testCase "pam.d" $ [[pc|etc|],[pc|pam.d|]] ≟ toList (pamd ⊣ seq)
+            , testCase "wgm" $ [[pc|w|],[pc|g|],[pc|M|]] ≟ toList (wgm  ⊣ seq)
+            ]
+
+isMonoSeqSetterTests ∷ TestTree
+isMonoSeqSetterTests =
+  let x ~~ y = x & seq ⊢ Seq.fromList y
+   in testGroup "setter"
+                [ testCase "etc"   $ etc   ≟ root ~~ [ [pc|etc|] ]
+                , testCase "root"  $ root  ≟ etc ~~ []
+                , testCase "d.pam" $
+                      dpam ≟ dpam ~~ [ [pc|pam.d|], [pc|etc|] ]
+                , testCase "wgm"   $
+                      wgm   ≟ (⫣ seq) (Seq.fromList [[pc|w|],[pc|g|],[pc|M|]])
+                ]
+
+isMonoSeqTests ∷ TestTree
+isMonoSeqTests =
+  testGroup "IsMonoSeq" [ isMonoSeqGetterTests, isMonoSeqSetterTests ]
+
 ----------------------------------------
 
 instance IsList AbsDir where
   type instance Item AbsDir = PathComponent
   fromList = fromSeq ∘ Seq.fromList
   toList   = toList ∘ toSeq
+
+isListTests ∷ TestTree
+isListTests =
+  testGroup "IsList"
+    [ testGroup "fromList"
+                [ testCase "root"  $ root ≟ fromList []
+                , testCase "etc"   $ etc  ≟ fromList [ [pc|etc|] ]
+                , testCase "pam.d" $ pamd ≟ fromList [ [pc|etc|], [pc|pam.d|] ]
+                , testCase "wgm"   $ wgm  ≟ fromList [ [pc|w|],[pc|g|],[pc|M|] ]
+                ]
+    , testGroup "toList"
+                [ testCase "root"  $ []                            ≟ toList root
+                , testCase "etc"   $ [ [pc|etc|] ]                 ≟ toList etc
+                , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ]    ≟ toList pamd
+                , testCase "wgm"   $ [ [pc|w|], [pc|g|], [pc|M|] ] ≟ toList wgm
+                ]
+    ]
 
 ----------------------------------------
 
@@ -384,6 +543,15 @@ instance Printable AbsDir where
 instance Printable NonRootAbsDir where
   print = pDir ("/" ⊕)
 
+printableTests ∷ TestTree
+printableTests =
+  testGroup "printable"
+            [ testCase "root"  $ "/"           ≟ toText root
+            , testCase "etc"   $ "/etc/"       ≟ toText etc
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ toText pamd
+            , testCase "wgm"   $ "/w/g/M/"     ≟ toText wgm
+            ]
+
 ----------------------------------------
 
 instance AsFilePath AbsDir where
@@ -392,6 +560,27 @@ instance AsFilePath AbsDir where
 instance AsFilePath NonRootAbsDir where
   filepath = prism' toString fromString
 
+
+filepathTests ∷ TestTree
+filepathTests =
+  let nothin' = Nothing ∷ Maybe AbsDir
+      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+   in testGroup "filepath"
+            [ testCase "root"  $ "/"           ≟ root    ⫥ filepath
+            , testCase "etc"   $ "/etc/"       ≟ etc     ⫥ filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ pamd    ⫥ filepath
+            , testCase "wgm"   $ "/w/g/M/"     ≟ wgm     ⫥ filepath
+            , testCase "/etc/" $ Just etc      ≟ "/etc/" ⩼ filepath
+            , fail "/etc"
+            , fail "/etc/pam.d"
+            , fail "etc/"
+            , fail "etc/pam.d"
+            , fail "/etc//pam.d/"
+            , fail "e/c"
+            , fail "\0etc"
+            , fail "etc\0"
+            , fail "e\0c"
+            ]
 ----------------------------------------
 
 instance Textual AbsDir where
@@ -400,6 +589,31 @@ instance Textual AbsDir where
 instance Textual NonRootAbsDir where
   textual =
     fromSeqNE ∘ fromNonEmpty ⊳ (char '/' ⋫ endByNonEmpty textual (char '/'))
+
+textualTests ∷ TestTree
+textualTests =
+  let nothin'     ∷ Maybe AbsDir
+      nothin'     = Nothing
+      success e s = testCase s $ Parsed e  ≟ parseString s
+      fail s      = testCase s $ nothin'   ≟ fromString s
+   in testGroup "Textual"
+                [ success root "/"
+                , success etc  "/etc/"
+                , success pamd "/etc/pam.d/"
+                , fail "/etc"
+                , fail "/etc/pam.d"
+                , fail "etc/"
+                , fail "etc/pam.d"
+                , fail "/etc//pam.d/"
+                , fail "e/c"
+                , fail "\0etc"
+                , fail "etc\0"
+                , fail "e\0c"
+                , testProperty "parseString - toString"
+                               (propInvertibleString @AbsDir)
+                , testProperty "parseText - toText" (propInvertibleText @AbsDir)
+                , testProperty "parseUtf8 - toUtf8" (propInvertibleUtf8 @AbsDir)
+                ]
 
 ----------------------------------------
 
@@ -420,6 +634,17 @@ instance HasParent NonRootAbsDir where
                  setParent ∷ NonRootAbsDir → AbsDir → NonRootAbsDir
                  setParent (SeqNE.unsnoc ∘ toSeqNE → (_, p)) d =
                    fromSeqNE (toSeq d ⫸ p)
+
+----------
+
+parentTests ∷ TestTree
+parentTests =
+  let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
+   in testGroup "parent"
+                [ testCase "root"        $ Nothing   ≟ par root
+                , testCase "etc"         $ Just root ≟ par etc
+                , testCase "pamd"        $ Just etc  ≟ par pamd
+                ]
 
 ----------------------------------------
 
@@ -443,14 +668,61 @@ instance HasParentMay AbsDir where
                     setParentMay (AbsNonRootDir n) d =
                       AbsNonRootDir $ nonAbsRootSetParentMay n d
 
-----------------------------------------
+--------------------
 
 instance HasParentMay NonRootAbsDir where
   parentMay = lens nonAbsRootGetParentMay nonAbsRootSetParentMay
 
-------------------------------------------------------------
---                     Quasi-Quoting                      --
-------------------------------------------------------------
+--------------------
+
+parentMayTests ∷ TestTree
+parentMayTests =
+  let -- (~~) ∷ α → α → α
+      d ~~ d' = d & parentMay ⊩ d'
+   in testGroup "parentMay"
+                [ testCase "root"   $ Nothing   ≟ root  ⊣ parentMay
+                , testCase "etc"    $ Just root ≟ etc   ⊣ parentMay
+                , testCase "pamd"  $ Just etc  ≟ pamd ⊣ parentMay
+
+                , testCase "etc → root" $ etc ≟ etc ~~ root
+                , testCase "root → etc" $ etc ≟ root ~~ etc
+
+                , testCase "pamd → root" $
+                    fromSeq @AbsDir (pure [pc|pam.d|]) ≟ pamd ~~ root
+                , testCase "root → pamd" $ pamd ≟ root ~~ pamd
+
+                , testCase "etc → wgm" $
+                      fromSeqNE @AbsDir([pc|w|]⪪[pc|g|]⪪[pc|M|]⪪pure[pc|etc|])
+                    ≟ etc ~~ wgm
+                , testCase "wgm → etc" $
+                    fromSeqNE @AbsDir ([pc|etc|]⪪pure [pc|M|]) ≟ wgm ~~ etc
+
+                , testCase "root → wgm" $ wgm ≟ root ~~ wgm
+                , testCase "wgm → root" $
+                    fromSeq @AbsDir (pure [pc|M|]) ≟ wgm ~~ root
+
+                , testCase "pamd → etc" $ pamd ≟ pamd ~~ etc
+                , testCase "etc → pamd" $
+                      fromSeqNE @AbsDir ([pc|etc|]⪪[pc|pam.d|]⪪pure [pc|etc|])
+                    ≟ etc ~~ pamd
+
+                , testCase "pamd → Nothing" $
+                    fromSeq (pure [pc|pam.d|]) ≟ (pamd & parentMay ⊢ Nothing)
+                ]
+
+parentsTests ∷ TestTree
+parentsTests =
+  let check t d ps = assertListEq t ps (parents d)
+   in testGroup "parents" $ ю [ check "/"          root []
+                              , check "/etc/"      etc  [root]
+                              , check "/etc/pam.d" pamd [root,etc]
+                              , check "/w/g/m/"    wgm  [root,w,wg]
+                              , check "/etc/"      etcN  [root]
+                              , check "/etc/pam.d" pamdN [root,etc]
+                              , check "/w/g/m/"    wgmN  [root,w,wg]
+                              ]
+
+----------------------------------------
 
 absdirT ∷ TypeRep
 absdirT = typeRep (Proxy ∷ Proxy AbsDir)
@@ -653,16 +925,24 @@ parseAbsDirNPTests =
                       Left emptyCompCE ≟ parseAbsDirNP_ "/etc//pam/"
                 ]
 
-----------------------------------------
+------------------------------------------------------------
+--                     Quasi-Quoting                      --
+------------------------------------------------------------
+
+absdirQQ ∷ String → Maybe ExpQ
+absdirQQ = (\ d → ⟦d⟧) ⩺ (ѭ ∘ parse @AbsDir @FPathError)
+
+absdirNQQ ∷ String → Maybe ExpQ
+absdirNQQ = (\ d → ⟦d⟧) ⩺ (ѭ ∘ parse @NonRootAbsDir @FPathError)
 
 {- | quasi-quoter for AbsDir -}
 absdir ∷ QuasiQuoter
-absdir = mkQuasiQuoterExp "absdir" (\ s → ⟦ __parse'__ @AbsDir s ⟧)
+absdir = mkQQ "AbsDir" $ def & exp ⊩ absdirQQ
 
 {- | quasi-quoter for NonRootAbsDir -}
 
 absdirN ∷ QuasiQuoter
-absdirN = mkQuasiQuoterExp "absdirN" (\ s → ⟦ __parse'__ @NonRootAbsDir s ⟧)
+absdirN = mkQQ "NonRootAbsDir" $ def & exp ⊩ absdirNQQ
 
 ----------------------------------------
 
@@ -751,8 +1031,8 @@ instance Basename NonRootAbsDir where
                  → NonRootAbsDir
   updateBasename f (NonRootAbsDir (ps :⫸ p)) = NonRootAbsDir (ps :⫸ f p)
 
-nonRootAbsDirBasenameTests ∷ TestTree
-nonRootAbsDirBasenameTests =
+nonRootBasenameTests ∷ TestTree
+nonRootBasenameTests =
   let pam = fromNonEmpty $ [pc|etc|] :| [[pc|pam|]]
    in testGroup "NonRootAbsDir"
                 [ testCase "etcN"  $ [reldir|etc/|] ≟ basename etcN
@@ -770,8 +1050,8 @@ nonRootAbsDirBasenameTests =
 --------------------
 
 basenameTests ∷ TestTree
-basenameTests = testGroup "basename" [ absDirBasenameTests
-                                     , nonRootAbsDirBasenameTests ]
+basenameTests =
+  testGroup "basename" [ absDirBasenameTests, nonRootBasenameTests ]
 
 ----------------------------------------
 --             constants              --
@@ -792,8 +1072,17 @@ etc = fromSeq $ pure [pc|etc|]
 pamd ∷ AbsDir
 pamd = fromSeq $ [pc|etc|] ⪪ pure [pc|pam.d|]
 
+dpam ∷ AbsDir
+dpam = fromSeq $ [pc|pam.d|] ⪪ pure [pc|etc|]
+
 wgm ∷ AbsDir
 wgm = fromSeq $ [pc|w|] ⪪ [pc|g|] ⪪ pure [pc|M|]
+
+wg ∷ AbsDir
+wg = fromSeq $ [pc|w|] ⪪ pure [pc|g|]
+
+w ∷ AbsDir
+w = fromSeq $ pure [pc|w|]
 
 etcN ∷ NonRootAbsDir
 etcN = fromSeqNE $ pure [pc|etc|]
@@ -814,8 +1103,14 @@ constructionTests = testGroup "construction" [ parseAbsDirTests
                                              ]
 
 tests ∷ TestTree
-tests = testGroup "FPath.AbsDir" [ constructionTests, dirnameTests
-                                 , basenameTests ]
+tests = testGroup "FPath.AbsDir" [ constructionTests, showTests
+                                 , isListTests, filepathTests
+                                 , dirnameTests, basenameTests
+                                 , printableTests, textualTests
+                                 , monoFoldableTests, isMonoSeqTests
+                                 , monoFunctorTests
+                                 , parentTests, parentMayTests, parentsTests
+                                 ]
 
 --------------------
 

@@ -1,4 +1,6 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs               #-}
@@ -27,9 +29,10 @@ where
 import Control.Applicative  ( many, some )
 import Control.Monad        ( return )
 import Data.Bool            ( otherwise )
+import Data.Data            ( Data )
 import Data.Either          ( either )
 import Data.Eq              ( Eq )
-import Data.Function        ( ($), id )
+import Data.Function        ( ($), (&), id )
 import Data.Functor         ( (<$>), fmap )
 import Data.List            ( any, elem, break, filter, find, init, nub, reverse
                             , subsequences )
@@ -50,6 +53,10 @@ import Data.Eq.Unicode        ( (≡), (≢) )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
+-- data-default ------------------------
+
+import Data.Default  ( def )
+
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ), Textual( textual ), toString )
@@ -66,10 +73,15 @@ import Data.GenValidity.ByteString  ( )
 
 import Data.GenValidity.Text  ( )
 
+-- monaderror-io -----------------------
+
+import MonadError  ( ѭ )
+
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
-import Data.MoreUnicode.Functor      ( (⊳) )
+import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
+import Data.MoreUnicode.Lens         ( (⊩) )
 import Data.MoreUnicode.Natural      ( ℕ )
 import Data.MoreUnicode.Tasty        ( (≟) )
 
@@ -80,6 +92,10 @@ import Control.Monad.Except  ( MonadError )
 -- parsers -----------------------------
 
 import Text.Parser.Char         ( char, noneOf, string )
+
+-- quasiquoting ------------------------
+
+import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
 
 -- QuickCheck --------------------------
 
@@ -96,6 +112,11 @@ import Test.Tasty.HUnit  ( testCase )
 -- tasty-plus --------------------------
 
 import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+
+-- template-haskell --------------------
+
+import Language.Haskell.TH         ( ExpQ )
+import Language.Haskell.TH.Syntax  ( Lift )
 
 -- validity ----------------------------
 
@@ -115,8 +136,7 @@ import FPath.Error.FPathComponentError
                                 )
 import FPath.PathCTypes.String  ( PathCChar, PathCInner, pathCChar
                                 , to_inner, to_print, to_string )
-import FPath.Util               ( QuasiQuoter
-                                , __ERROR'__, mkQuasiQuoterExp, mkVisS )
+import FPath.Util               ( __ERROR'__, mkVisS )
 
 --------------------------------------------------------------------------------
 
@@ -128,7 +148,7 @@ badChars = pathCChar ⊳ [0,47] -- '\0', '/'
      notably no slashes are allowed (or nul chars); must not be empty
  -}
 newtype PathComponent = PathComponent PathCInner
-  deriving (Eq, Generic, GenUnchecked, Semigroup, Show)
+  deriving (Eq, Data, Generic, GenUnchecked, Lift, Semigroup, Show)
 
 instance Printable PathComponent where
   print (PathComponent t) = to_print t
@@ -197,8 +217,11 @@ __parsePathC'__ ∷ String → PathComponent
 __parsePathC'__ = __parsePathC__
 
 {- | quasi-quoter for PathComponent -}
+pathComponentQQ ∷ String → Maybe ExpQ
+pathComponentQQ = (\ p → ⟦p⟧) ⩺ (ѭ ∘ parsePathC')
+
 pathComponent ∷ QuasiQuoter
-pathComponent = mkQuasiQuoterExp "pathComponent" $ \ s → ⟦ __parsePathC'__ s ⟧
+pathComponent = mkQQ "PathComponent" $ def & exp ⊩ pathComponentQQ
 
 {- | abbreviation for `pathComponent` -}
 pc ∷ QuasiQuoter

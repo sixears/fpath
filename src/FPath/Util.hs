@@ -3,7 +3,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.Util
-  ( QuasiQuoter, __ERROR__, __ERROR'__, mkQuasiQuoterExp, mkVisS, mkVisT )
+  ( __ERROR__, __ERROR'__, mkVisS, mkVisT )
 where
 
 import Prelude  ( error, mod )
@@ -12,7 +12,6 @@ import Prelude  ( error, mod )
 
 import Data.Char      ( Char, ord )
 import Data.Foldable  ( length )
-import Data.Function  ( ($) )
 import Data.Functor   ( fmap )
 import Data.List      ( (!!), elem )
 import Data.String    ( String )
@@ -20,18 +19,10 @@ import Data.String    ( String )
 -- base-unicode-symbols ----------------
 
 import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable, toString, toText )
-
--- template-haskell --------------------
-
-import Language.Haskell.TH        ( ExpQ )
-import Language.Haskell.TH.Quote  ( QuasiQuoter( QuasiQuoter, quoteDec
-                                               , quoteExp, quotePat, quoteType )
-                                  )
+import Data.Textual  ( Printable, toString )
 
 -- text --------------------------------
 
@@ -44,16 +35,6 @@ __ERROR__ = error ∘ toString
 
 __ERROR'__ ∷ Printable ρ ⇒ ρ → α
 __ERROR'__ = error ∘ toString
-
-----------------------------------------
-
-mkQuasiQuoterExp ∷ Text → (String → ExpQ) → QuasiQuoter
-mkQuasiQuoterExp (toText → n) f = let notImpl u = __ERROR__ $ n ⊕ " " ⊕ u ⊕ " not implemented"
-                        in QuasiQuoter { quoteDec  = notImpl "quoteDec"
-                                       , quoteType = notImpl "quoteType"
-                                       , quotePat  = notImpl "quotePat"
-                                       , quoteExp = f
-                                       }
 
 ----------------------------------------
 

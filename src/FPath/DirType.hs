@@ -18,7 +18,6 @@ where
 class DirTypeC α where
   {- | the directory "version" of a type; e.g., `DirType RelFile = RelDir` -}
   type DirType α
--- type family DirType α
 
 {- | Just a marker class for types that represent a directory -}
 -- class (Element α ~ PathComponent, IsMonoSeq α) ⇒ IsDir α

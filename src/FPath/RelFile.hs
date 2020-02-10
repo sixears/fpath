@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift        #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -30,7 +31,7 @@ import Control.Monad        ( return )
 import Data.Either          ( Either, either )
 import Data.Eq              ( Eq )
 import Data.Foldable        ( foldMap, foldl1, foldl', foldr, foldr1 )
-import Data.Function        ( ($), const, id )
+import Data.Function        ( ($), (&), const, id )
 import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
 import Data.Maybe           ( Maybe( Just, Nothing ) )
 import Data.Monoid          ( Monoid )
@@ -46,6 +47,10 @@ import Text.Show            ( Show )
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
 
+-- data-default ------------------------
+
+import Data.Default  ( def )
+
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ), Textual( textual )
@@ -58,6 +63,10 @@ import Control.Lens.Iso     ( iso )
 import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism' )
 
+-- monaderror-io -----------------------
+
+import MonadError  ( ѭ )
+
 -- mono-traversable --------------------
 
 import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
@@ -69,7 +78,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
-import Data.MoreUnicode.Monoid   ( ф )
+import Data.MoreUnicode.Lens     ( (⊩) )
+import Data.MoreUnicode.Monoid   ( ф, ю )
 import Data.MoreUnicode.Natural  ( ℕ )
 import Data.MoreUnicode.Tasty    ( (≟) )
 
@@ -98,6 +108,10 @@ import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
 import Text.Parser.Char         ( char )
 import Text.Parser.Combinators  ( sepByNonEmpty )
 
+-- quasiquoting ------------------------
+
+import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
+
 -- QuickCheck --------------------------
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
@@ -112,7 +126,12 @@ import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( assertListEq, runTestsP, runTestsReplay, runTestTree )
+
+-- template-haskell --------------------
+
+import Language.Haskell.TH         ( ExpQ )
+import Language.Haskell.TH.Syntax  ( Lift )
 
 -- text --------------------------------
 
@@ -137,18 +156,18 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , mapTypeRepE, mapTextE
                                )
 import FPath.FileLike          ( FileLike( dirfile ) )
-import FPath.Parent            ( HasParent( parent ),HasParentMay( parentMay ) )
-import FPath.Parseable         ( Parseable( parse, __parse'__ ) )
+import FPath.Parent            ( HasParent( parent )
+                               , HasParentMay( parentMay, parents ) )
+import FPath.Parseable         ( Parseable( parse ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
-import FPath.RelDir            ( RelDir )
+import FPath.RelDir            ( RelDir, reldir )
 import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.Util              ( QuasiQuoter, mkQuasiQuoterExp )
 
 -------------------------------------------------------------------------------
 
 {- | a relative file -}
 data RelFile = RelFile RelDir PathComponent
-  deriving (Eq, Show)
+  deriving (Eq, Lift, Show)
 
 type instance Element RelFile = PathComponent
 
@@ -273,6 +292,18 @@ instance HasParentMay RelFile where
                                            Nothing → RelFile ф f
                    )
 
+----------
+
+parentsTests ∷ TestTree
+parentsTests =
+  let check t d ps = assertListEq t ps (parents d)
+   in testGroup "parents" $
+        ю [ check "r.e"       rf1 [fromSeq ф]
+          , check "r/p.x"     rf2 [fromSeq ф, fromSeq (pure [pc|r|])]
+          , check "p/q/r.mp3" rf3 [fromSeq ф, [reldir|p/|], [reldir|p/q/|]]
+          , check ".x"        rf4 [fromSeq ф]
+          ]
+
 ----------------------------------------
   
 instance Basename RelFile where
@@ -330,10 +361,12 @@ instance Parseable RelFile where
                                          parse (dropEnd (length f) t)
                                  return $ RelFile ps' f'
 
-
 {- | quasi-quotation -}
+relfileQQ ∷ String → Maybe ExpQ
+relfileQQ = (\ f → ⟦f⟧) ⩺ (ѭ ∘ parse @RelFile @FPathError)
+
 relfile ∷ QuasiQuoter
-relfile = mkQuasiQuoterExp "relfile" (\ s → ⟦ __parse'__ @RelFile s ⟧)
+relfile = mkQQ "RelFile" $ def & exp ⊩ relfileQQ
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
@@ -356,10 +389,9 @@ rf4 = fromSeqNE $ pure [pc|.x|]
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.RelFile" [ relFileBasenameTests ]
+tests = testGroup "FPath.RelFile" [ relFileBasenameTests, parentsTests ]
                 
 --------------------
-
 
 _test ∷ IO ExitCode
 _test = runTestTree tests

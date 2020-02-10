@@ -9,7 +9,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.FPath
-  ( FPath, tests )
+  ( FPath(..), tests )
 where
 
 -- base --------------------------------

@@ -23,8 +23,7 @@ import FPath.DirType  ( DirTypeC( DirType ) )
 
 class DirTypeC α ⇒ HasDirname α where
   {- | Well-typed version of `dirname` utility; note that `dirname` of "/" is
-       "/", and `dirname` of "./" is "./".
-   -}
+       "/", and `dirname` of "./" is "./". -}
   dirname ∷ Lens' α (DirType α)
 
 -- that's all, folks! ----------------------------------------------------------
