@@ -373,6 +373,12 @@ instance MonoFoldable NonRootAbsDir where
              → PathComponent
   ofoldl1Ex' f r = foldl1 f (toNonEmpty r)
 
+newtype B = B Bool
+ deriving Eq
+
+instance Printable B where
+  print (B b) = P.string (show b)
+
 monoFoldableTests ∷ TestTree
 monoFoldableTests =
   testGroup "MonoFoldable"
@@ -390,7 +396,7 @@ monoFoldableTests =
                 True ≟ oall ((< 6) ∘ length ∘ toText) wgm
             , testCase "oany (F)" $
                 False ≟ oany (any (≡ 'x' ) ∘ toText) wgm
-            , testProperty "onull" (\ x → (x ≡ root) ≣ onull x)
+            , testProperty "onull" (\ x → B (x ≡ root) ≣ B (onull x))
             , testCase "olength" $
                 3 ≟ olength wgm
             , testCase "olength64" $

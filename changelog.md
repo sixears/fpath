@@ -1,3 +1,7 @@
+1.0.5.1 2020-02-15
+==================
+- use tasty-plus 1.3.0.0
+
 1.0.5.0 2020-02-10
 ==================
 - use (~~) from MonadError.IO.Error; clean up unimplemented pResolveDirLenient
