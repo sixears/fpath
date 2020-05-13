@@ -50,7 +50,7 @@ import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼), (##
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural         ( ℕ )
 import Data.MoreUnicode.Semigroup       ( (◇) )
-import Data.MoreUnicode.Tasty           ( (≟), (≣) )
+import Data.MoreUnicode.Tasty           ( (≣) )
 
 -- non-empty-containers ----------------
 
@@ -64,12 +64,12 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( Assertion, testCase )
+import Test.Tasty.HUnit  ( Assertion, (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( propInvertibleString, propInvertibleText, propInvertibleUtf8
-                  , runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), propInvertibleString, propInvertibleText
+                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
 
 
 -- tasty-quickcheck --------------------
@@ -120,7 +120,7 @@ absDirNIsMonoSeqNEGetterTests ∷ TestTree
 absDirNIsMonoSeqNEGetterTests =
   let infix 4 ??
       (??) ∷ SeqNE PathComponent → NonRootAbsDir → Assertion
-      e ?? g = e ≟ g ⊣ seqNE
+      e ?? g = e @=? g ⊣ seqNE
    in testGroup "seqNE" [ testCase "etc"   $ pure [pc|etc|] ?? etcN
                         , testCase "pam.d" $ [pc|etc|] ⋖ [[pc|pam.d|]] ?? pamdN
                         , testCase "wgM" $ [pc|w|] ⋖ [[pc|g|],[pc|M|]] ?? wgmN
@@ -159,25 +159,25 @@ absDirNMonoFoldableTests =
             , testCase "ofoldl'" $
                 "ф-w-g-M" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" wgmN
             , testCase "otoList" $
-                [ [pc|w|], [pc|g|], [pc|M|] ] ≟ otoList wgmN
+                [ [pc|w|], [pc|g|], [pc|M|] ] @=? otoList wgmN
             , testCase "oall (F)" $
-                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) wgmN
+                False @=? oall (Text.any (≡ 'r' ) ∘ toText) wgmN
             , testCase "oall (T)" $
-                True ≟ oall ((< 6) ∘ Text.length ∘ toText) wgmN
+                True @=? oall ((< 6) ∘ Text.length ∘ toText) wgmN
             , testCase "oany (F)" $
-                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) wgmN
+                False @=? oany (Text.any (≡ 'x' ) ∘ toText) wgmN
             , testProperty "onull" (\ (x ∷ NonRootAbsDir) → False ≣ onull x)
             , testCase "olength" $
                 3 ≟ olength wgmN
             , testCase "olength64" $
                 1 ≟ olength64 etcN
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength wgmN (2 ∷ ℕ)
+               GT @=? ocompareLength wgmN (2 ∷ ℕ)
             , testCase "ofoldlM" $
-                  Just [[pc|M|],[pc|g|],[pc|w|]]
-                ≟ ofoldlM (\ a e → Just $ e : a) [] wgmN
+                    Just [[pc|M|],[pc|g|],[pc|w|]]
+                @=? ofoldlM (\ a e → Just $ e : a) [] wgmN
             , testCase "ofoldMap1Ex" $
-                [[pc|w|],[pc|g|],[pc|M|]] ≟ ofoldMap1Ex pure wgmN
+                [[pc|w|],[pc|g|],[pc|M|]] @=? ofoldMap1Ex pure wgmN
             , testCase "ofoldr1Ex" $
                 [pc|wgM|] ≟ ofoldr1Ex (◇) wgmN
             , testCase "ofoldl1Ex'" $
@@ -191,13 +191,13 @@ absDirNMonoFoldableTests =
             , testCase "minimumByEx" $
                 [pc|M|] ≟ minimumByEx (comparing toText) wgmN
             , testCase "oelem (T)" $
-                True ≟ oelem [pc|g|] wgmN
+                True @=? oelem [pc|g|] wgmN
             , testCase "oelem (F)" $
-                False ≟ oelem [pc|x|] wgmN
+                False @=? oelem [pc|x|] wgmN
             , testCase "onotElem (T)" $
-                True ≟ onotElem [pc|x|] wgmN
+                True @=? onotElem [pc|x|] wgmN
             , testCase "onotElem (F)" $
-                False ≟ onotElem [pc|g|] wgmN
+                False @=? onotElem [pc|g|] wgmN
             ]
 
 absDirNIsMonoSeqNETests ∷ TestTree
@@ -217,8 +217,8 @@ absDirNTextualTests ∷ TestTree
 absDirNTextualTests =
   let nothin'     ∷ Maybe AbsDir
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  ≟ parseString s
-      fail s      = testCase s $ nothin'   ≟ fromString s
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
    in testGroup "Textual" [ success [absdirN|/etc/|]       "/etc/"
                           , success [absdirN|/etc/pam.d/|] "/etc/pam.d/"
                           , fail "/etc"
@@ -256,15 +256,15 @@ absDirNIsNonEmptyTests =
                 ]
     , testGroup "toNonEmpty"
                 [ testCase "etc"   $
-                    pure [pc|etc|]                  ≟ toNonEmpty etcN
+                    pure [pc|etc|]                  @=? toNonEmpty etcN
                 , testCase "pam.d" $
-                    [pc|etc|] :| [ [pc|pam.d|] ]    ≟ toNonEmpty pamdN
+                    [pc|etc|] :| [ [pc|pam.d|] ]    @=? toNonEmpty pamdN
                 , testCase "wgm"   $
-                    [pc|w|] :| [ [pc|g|], [pc|M|] ] ≟ toNonEmpty wgmN
+                    [pc|w|] :| [ [pc|g|], [pc|M|] ] @=? toNonEmpty wgmN
                 ]
     , testGroup "nonEmpty"
                 [ testCase "wgm"   $
-                    [pc|w|] :| [ [pc|g|], [pc|M|] ] ≟ wgmN ⊣ nonEmpty
+                    [pc|w|] :| [ [pc|g|], [pc|M|] ] @=? wgmN ⊣ nonEmpty
                 , testCase "wgm"   $
                     wgmN ≟ etcN ⅋ nonEmpty ⊢ [pc|w|] :| [[pc|g|],[pc|M|]]
                 ]
@@ -276,8 +276,8 @@ absDirNParentMayTests =
   let -- set parent of d to d'
       d ~~ d' = d & parentMay ⊩ d'
    in testGroup "parentMay"
-                [ testCase "etc → root"  $ Just root ≟ etcN  ⊣ parentMay
-                , testCase "pamd → etc"  $ Just etc  ≟ pamdN ⊣ parentMay
+                [ testCase "etc → root"  $ Just root @=? etcN  ⊣ parentMay
+                , testCase "pamd → etc"  $ Just etc  @=? pamdN ⊣ parentMay
 
                 , testCase "etc → root"  $ etcN ≟ etcN ~~ root
 
@@ -318,12 +318,12 @@ absDirNParentTests =
 absDirNFilepathTests ∷ TestTree
 absDirNFilepathTests =
   let nothin' = Nothing ∷ Maybe NonRootAbsDir
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "etc"   $ "/etc/"       ≟ etcN     ## filepath
             , testCase "pam.d" $ "/etc/pam.d/" ≟ pamdN    ## filepath
             , testCase "wgm"   $ "/w/g/M/"     ≟ wgmN     ## filepath
-            , testCase "/etc/" $ Just etcN     ≟ "/etc/" ⩼ filepath
+            , testCase "/etc/" $ Just etcN     @=? "/etc/" ⩼ filepath
             , fail "/etc"
             , fail "/etc/pam.d"
             , fail "etc/"

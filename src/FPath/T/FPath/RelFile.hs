@@ -59,7 +59,7 @@ import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (#
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟), (≣) )
+import Data.MoreUnicode.Tasty            ( (≣) )
 
 -- mtl ---------------------------------
 
@@ -77,12 +77,12 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( propInvertibleString, propInvertibleText, propInvertibleUtf8
-                  , runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), propInvertibleString, propInvertibleText
+                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
 
 -- tasty-quickcheck --------------------
 
@@ -131,26 +131,26 @@ parseRelFileTests =
                         fpipce e = FPathComponentIllegalE e
                         fpipce' e f = FPathComponentE (fpipce e) relfileT f
                      in testCase ("illegal path component '" ⊕ s ⊕ "'") $
-                          Left (fpipce' s t) ≟ parseRelFile_ t
+                          Left (fpipce' s t) @=? parseRelFile_ t
       badChar s p = testCase ("bad component " ⊕ toString s) $
-                        Left (illegalCE s p) ≟ parseRelFile_ s
+                        Left (illegalCE s p) @=? parseRelFile_ s
       absfile t  = testCase ("absolute file '" ⊕ toString t ⊕ "'") $
-                      Left (FPathAbsE relfileT t) ≟ parseRelFile_ t
+                      Left (FPathAbsE relfileT t) @=? parseRelFile_ t
 
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
-                      Left (FPathNotAFileE relfileT t) ≟ parseRelFile_ t
+                      Left (FPathNotAFileE relfileT t) @=? parseRelFile_ t
       parseRelFile_ ∷ MonadError FPathError η ⇒ Text → η RelFile
       parseRelFile_ = parse'
    in testGroup "parseRelFile"
-                [ testCase "rf1" $ Right rf1 ≟ parseRelFile_ "r.e"
-                , testCase "rf1" $ Right rf1 ≟ parseRelFile_ "./r.e"
-                , testCase "rf4" $ Right rf4 ≟ parseRelFile_ ".x"
-                , testCase "rf2" $ Right rf2 ≟ parseRelFile_ "r/p.x"
-                , testCase "rf3" $ Right rf3 ≟ parseRelFile_ "p/q/r.mp3"
+                [ testCase "rf1" $ Right rf1 @=? parseRelFile_ "r.e"
+                , testCase "rf1" $ Right rf1 @=? parseRelFile_ "./r.e"
+                , testCase "rf4" $ Right rf4 @=? parseRelFile_ ".x"
+                , testCase "rf2" $ Right rf2 @=? parseRelFile_ "r/p.x"
+                , testCase "rf3" $ Right rf3 @=? parseRelFile_ "p/q/r.mp3"
                 , absfile "/p.e"
                 , absfile "/r/p.e"
                 , testCase "empty" $
-                      Left (FPathEmptyE relfileT) ≟ parseRelFile_ ""
+                      Left (FPathEmptyE relfileT) @=? parseRelFile_ ""
                 , notAFile "./p/"
                 , notAFile "/r/"
                 , notAFile "./"
@@ -160,7 +160,7 @@ parseRelFileTests =
                 , badChar "r/p\0" "p\0"
                 , badChar "\0r/p" "\0r"
                 , testCase "empty component" $
-                      Left (emptyCompCE "r//p") ≟ parseRelFile_ "r//p"
+                      Left (emptyCompCE "r//p") @=? parseRelFile_ "r//p"
                 ]
 
 relfileQQTests ∷ TestTree
@@ -182,22 +182,23 @@ relFileIsNonEmptyTests =
                 , testCase "rf4" $ rf4 ≟ fromNonEmpty (pure [pc|.x|])
                 ]
     , testGroup "toNonEmpty"
-                [ testCase "rf1" $ pure [pc|r.e|]           ≟ toNonEmpty rf1
-                , testCase "rf2" $ [pc|r|] :| [ [pc|p.x|] ] ≟ toNonEmpty rf2
+                [ testCase "rf1" $ pure [pc|r.e|]           @=? toNonEmpty rf1
+                , testCase "rf2" $ [pc|r|] :| [ [pc|p.x|] ] @=? toNonEmpty rf2
                 , testCase "rf3" $
-                    [pc|p|] :| [ [pc|q|], [pc|r.mp3|] ]     ≟ toNonEmpty rf3
-                , testCase "rf4" $ pure [pc|.x|]            ≟ toNonEmpty rf4
+                    [pc|p|] :| [ [pc|q|], [pc|r.mp3|] ]     @=? toNonEmpty rf3
+                , testCase "rf4" $ pure [pc|.x|]            @=? toNonEmpty rf4
                 ]
     ]
 
 relFileIsMonoSeqNEGetterTests ∷ TestTree
 relFileIsMonoSeqNEGetterTests =
   testGroup "getter"
-            [ testCase "rf1" $ (pure [pc|r.e|])                     ≟ rf1 ⊣ seqNE
-            , testCase "rf2" $ fromNonEmpty ([pc|r|]:|[[pc|p.x|]]) ≟ rf2 ⊣ seqNE
+            [ testCase "rf1" $ (pure [pc|r.e|])                 @=? rf1 ⊣ seqNE
+            , testCase "rf2" $
+                fromNonEmpty ([pc|r|]:|[[pc|p.x|]]) @=? rf2 ⊣ seqNE
             , testCase "rf3" $
-                fromNonEmpty ([pc|p|] :| [[pc|q|],[pc|r.mp3|]])    ≟ rf3 ⊣ seqNE
-            , testCase "rf4" $ fromNonEmpty (pure [pc|.x|])        ≟ rf4 ⊣ seqNE
+                fromNonEmpty ([pc|p|] :| [[pc|q|],[pc|r.mp3|]]) @=? rf3 ⊣ seqNE
+            , testCase "rf4" $ fromNonEmpty (pure [pc|.x|])     @=? rf4 ⊣ seqNE
             ]
 
 relFileIsMonoSeqNESetterTests ∷ TestTree
@@ -242,8 +243,8 @@ relFileTextualTests ∷ TestTree
 relFileTextualTests =
   let nothin'     ∷ Maybe RelFile
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  ≟ parseString s
-      fail s      = testCase s $ nothin'   ≟ fromString s
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
    in testGroup "Textual" [ success rf1 "r.e"
                           , success rf2 "r/p.x"
                           , success rf3 "p/q/r.mp3"
@@ -285,10 +286,10 @@ relFileIsMonoSeqNETests =
 
 relFileParentMayGetterTests ∷ TestTree
 relFileParentMayGetterTests =
-   testGroup "getter" [ testCase "rf1" $ Just r0             ≟ rf1 ⊣ parentMay
-                      , testCase "rf2" $ Just r1             ≟ rf2 ⊣ parentMay
-                      , testCase "rf3" $ Just [reldir|p/q/|] ≟ rf3 ⊣ parentMay
-                      , testCase "rf4" $ Just r0             ≟ rf4 ⊣ parentMay
+   testGroup "getter" [ testCase "rf1" $ Just r0             @=? rf1 ⊣ parentMay
+                      , testCase "rf2" $ Just r1             @=? rf2 ⊣ parentMay
+                      , testCase "rf3" $ Just [reldir|p/q/|] @=? rf3 ⊣ parentMay
+                      , testCase "rf4" $ Just r0             @=? rf4 ⊣ parentMay
                       ]
 
 relFileParentMaySetterTests ∷ TestTree
@@ -347,17 +348,17 @@ relFileParentTests =
 relFileFilepathTests ∷ TestTree
 relFileFilepathTests =
   let nothin' = Nothing ∷ Maybe RelFile
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "rf1" $ "r.e"       ≟ rf1 ## filepath
             , testCase "rf2" $ "r/p.x"     ≟ rf2 ## filepath
             , testCase "rf3" $ "p/q/r.mp3" ≟ rf3 ## filepath
             , testCase "rf4" $ ".x"        ≟ rf4 ## filepath
 
-            , testCase "rf1" $ Just rf1 ≟ "r.e"       ⩼ filepath
-            , testCase "rf2" $ Just rf2 ≟ "r/p.x"     ⩼ filepath
-            , testCase "rf3" $ Just rf3 ≟ "p/q/r.mp3" ⩼ filepath
-            , testCase "rf4" $ Just rf4 ≟ ".x"        ⩼ filepath
+            , testCase "rf1" $ Just rf1 @=? "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just rf2 @=? "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just rf3 @=? "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just rf4 @=? ".x"        ⩼ filepath
 
             , fail "/etc"
             , fail "etc/"
@@ -383,25 +384,25 @@ relFileMonoFoldableTests =
             , testCase "ofoldl'" $
                 "ф-p-q-r.mp3" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" rf3
             , testCase "otoList" $
-                [ [pc|p|], [pc|q|], [pc|r.mp3|] ] ≟ otoList rf3
+                [ [pc|p|], [pc|q|], [pc|r.mp3|] ] @=? otoList rf3
             , testCase "oall (F)" $
-                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) rf3
+                False @=? oall (Text.any (≡ 'r' ) ∘ toText) rf3
             , testCase "oall (T)" $
-                True ≟ oall ((< 6) ∘ Text.length ∘ toText) rf3
+                True @=? oall ((< 6) ∘ Text.length ∘ toText) rf3
             , testCase "oany (F)" $
-                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) rf3
+                False @=? oany (Text.any (≡ 'x' ) ∘ toText) rf3
             , testProperty "onull" (\ (x ∷ RelFile) → False ≣ onull x)
             , testCase "olength" $
                 3 ≟ olength rf3
             , testCase "olength64" $
                 1 ≟ olength64 rf4
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength rf3 (2 ∷ ℕ)
+               GT @=? ocompareLength rf3 (2 ∷ ℕ)
             , testCase "ofoldlM" $
-                  Just [[pc|r.mp3|],[pc|q|],[pc|p|]]
-                ≟ ofoldlM (\ a e → Just $ e : a) [] rf3
+                    Just [[pc|r.mp3|],[pc|q|],[pc|p|]]
+                @=? ofoldlM (\ a e → Just $ e : a) [] rf3
             , testCase "ofoldMap1Ex" $
-                [[pc|p|],[pc|q|],[pc|r.mp3|]] ≟ ofoldMap1Ex pure rf3
+                [[pc|p|],[pc|q|],[pc|r.mp3|]] @=? ofoldMap1Ex pure rf3
             , testCase "ofoldr1Ex" $
                 [pc|pqr.mp3|] ≟ ofoldr1Ex (◇) rf3
             , testCase "ofoldl1Ex'" $
@@ -415,13 +416,13 @@ relFileMonoFoldableTests =
             , testCase "minimumByEx" $
                 [pc|p|] ≟ minimumByEx (comparing toText) rf3
             , testCase "oelem (T)" $
-                True ≟ oelem [pc|q|] rf3
+                True @=? oelem [pc|q|] rf3
             , testCase "oelem (F)" $
-                False ≟ oelem [pc|x|] rf3
+                False @=? oelem [pc|x|] rf3
             , testCase "onotElem (T)" $
-                True ≟ onotElem [pc|x|] rf3
+                True @=? onotElem [pc|x|] rf3
             , testCase "onotElem (F)" $
-                False ≟ onotElem [pc|q|] rf3
+                False @=? onotElem [pc|q|] rf3
             ]
 
 relFileFileTests ∷ TestTree
@@ -476,23 +477,23 @@ relFileSplitExtTests ∷ TestTree
 relFileSplitExtTests =
   testGroup "splitExt"
     [ testCase "foo/bar" $
-        ([relfile|foo/bar|], Nothing) ≟ splitExt [relfile|foo/bar|]
+        ([relfile|foo/bar|], Nothing) @=? splitExt [relfile|foo/bar|]
     , testCase "r/p.x"   $
-        ([relfile|r/p|], Just [pc|x|]) ≟ splitExt rf2
+        ([relfile|r/p|], Just [pc|x|]) @=? splitExt rf2
     , testCase "f.x/g.y" $
-        ([relfile|f.x/g|], Just [pc|y|]) ≟ splitExt [relfile|f.x/g.y|]
+        ([relfile|f.x/g|], Just [pc|y|]) @=? splitExt [relfile|f.x/g.y|]
     , testCase "f.x/g"   $
-        ([relfile|f.x/g|], Nothing) ≟ splitExt  [relfile|f.x/g|]
+        ([relfile|f.x/g|], Nothing) @=? splitExt  [relfile|f.x/g|]
     ]
 
 relFileExtGetterTests ∷ TestTree
 relFileExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] ≟ ext [relfile|foo.z/bar.x|]
+                         Just [pc|x|] @=? ext [relfile|foo.z/bar.x|]
                      , testCase "foo/bar" $
-                         Nothing ≟ ext [relfile|foo/bar|]
+                         Nothing @=? ext [relfile|foo/bar|]
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] ≟ ext [relfile|g/f.b.x.baz|]
+                         Just [pc|baz|] @=? ext [relfile|g/f.b.x.baz|]
                      ]
 
 relFileExtSetterTests ∷ TestTree

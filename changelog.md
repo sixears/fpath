@@ -1,3 +1,8 @@
+1.0.5.2 2020-05-13
+==================
+- use ≟ from tasty-plus rather than more-unicode
+- use Text for paths rather than strings, for avoidance of UTF8 issues
+
 1.0.5.1 2020-02-15
 ==================
 - use tasty-plus 1.3.0.0

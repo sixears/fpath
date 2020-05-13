@@ -110,7 +110,6 @@ import Data.MoreUnicode.Monoid           ( ф, ю )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -154,12 +153,14 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≣), assertListEq, propInvertibleString, propInvertibleText
-                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≣), (≟)
+                  , assertListEq, propInvertibleString, propInvertibleText
+                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree
+                  )
 
 -- tasty-quickcheck --------------------
 
@@ -389,25 +390,25 @@ monoFoldableTests =
             , testCase "ofoldl'" $
                 "ф-w-g-M" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" wgm
             , testCase "otoList" $
-                [ [pc|w|], [pc|g|], [pc|M|] ] ≟ otoList wgm
+                [ [pc|w|], [pc|g|], [pc|M|] ] @=? otoList wgm
             , testCase "oall (F)" $
-                False ≟ oall (any (≡ 'r' ) ∘ toText) wgm
+                False @=? oall (any (≡ 'r' ) ∘ toText) wgm
             , testCase "oall (T)" $
-                True ≟ oall ((< 6) ∘ length ∘ toText) wgm
+                True @=? oall ((< 6) ∘ length ∘ toText) wgm
             , testCase "oany (F)" $
-                False ≟ oany (any (≡ 'x' ) ∘ toText) wgm
+                False @=? oany (any (≡ 'x' ) ∘ toText) wgm
             , testProperty "onull" (\ x → B (x ≡ root) ≣ B (onull x))
             , testCase "olength" $
                 3 ≟ olength wgm
             , testCase "olength64" $
                 0 ≟ olength64 root
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength wgm (2 ∷ ℕ)
+               GT @=? ocompareLength wgm (2 ∷ ℕ)
             , testCase "ofoldlM" $
-                  Just [[pc|M|],[pc|g|],[pc|w|]]
-                ≟ ofoldlM (\ a e → Just $ e : a) [] wgm
+                    Just [[pc|M|],[pc|g|],[pc|w|]]
+                @=? ofoldlM (\ a e → Just $ e : a) [] wgm
             , testCase "ofoldMap1Ex" $
-                [[pc|w|],[pc|g|],[pc|M|]] ≟ ofoldMap1Ex pure wgm
+                [[pc|w|],[pc|g|],[pc|M|]] @=? ofoldMap1Ex pure wgm
             , testCase "ofoldr1Ex" $
                 [pc|wgM|] ≟ ofoldr1Ex (◇) wgm
             , testCase "ofoldl1Ex'" $
@@ -421,13 +422,13 @@ monoFoldableTests =
             , testCase "minimumByEx" $
                 [pc|M|] ≟ minimumByEx (comparing toText) wgm
             , testCase "oelem (T)" $
-                True ≟ oelem [pc|g|] wgm
+                True @=? oelem [pc|g|] wgm
             , testCase "oelem (F)" $
-                False ≟ oelem [pc|x|] wgm
+                False @=? oelem [pc|x|] wgm
             , testCase "onotElem (T)" $
-                True ≟ onotElem [pc|x|] wgm
+                True @=? onotElem [pc|x|] wgm
             , testCase "onotElem (F)" $
-                False ≟ onotElem [pc|g|] wgm
+                False @=? onotElem [pc|g|] wgm
             ]
 
 ----------------------------------------
@@ -473,10 +474,10 @@ instance IsMonoSeq AbsDir where
 isMonoSeqGetterTests ∷ TestTree
 isMonoSeqGetterTests =
   testGroup "getter"
-            [ testCase "root"  $ Seq.Empty               ≟ root ⊣ seq
-            , testCase "etc"   $ pure [pc|etc|]          ≟ etc  ⊣ seq
-            , testCase "pam.d" $ [[pc|etc|],[pc|pam.d|]] ≟ toList (pamd ⊣ seq)
-            , testCase "wgm" $ [[pc|w|],[pc|g|],[pc|M|]] ≟ toList (wgm  ⊣ seq)
+            [ testCase "root"  $ Seq.Empty               @=? root ⊣ seq
+            , testCase "etc"   $ pure [pc|etc|]          @=? etc  ⊣ seq
+            , testCase "pam.d" $ [[pc|etc|],[pc|pam.d|]] @=? toList (pamd ⊣ seq)
+            , testCase "wgm" $ [[pc|w|],[pc|g|],[pc|M|]] @=? toList (wgm  ⊣ seq)
             ]
 
 isMonoSeqSetterTests ∷ TestTree
@@ -512,10 +513,14 @@ isListTests =
                 , testCase "wgm"   $ wgm  ≟ fromList [ [pc|w|],[pc|g|],[pc|M|] ]
                 ]
     , testGroup "toList"
-                [ testCase "root"  $ []                            ≟ toList root
-                , testCase "etc"   $ [ [pc|etc|] ]                 ≟ toList etc
-                , testCase "pam.d" $ [ [pc|etc|], [pc|pam.d|] ]    ≟ toList pamd
-                , testCase "wgm"   $ [ [pc|w|], [pc|g|], [pc|M|] ] ≟ toList wgm
+                [ testCase "root"  $
+                      []                            @=? toList root
+                , testCase "etc"   $
+                      [ [pc|etc|] ]                 @=? toList etc
+                , testCase "pam.d" $
+                      [ [pc|etc|], [pc|pam.d|] ]    @=? toList pamd
+                , testCase "wgm"   $
+                      [ [pc|w|], [pc|g|], [pc|M|] ] @=? toList wgm
                 ]
     ]
 
@@ -570,13 +575,13 @@ instance AsFilePath NonRootAbsDir where
 filepathTests ∷ TestTree
 filepathTests =
   let nothin' = Nothing ∷ Maybe AbsDir
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "root"  $ "/"           ≟ root    ⫥ filepath
             , testCase "etc"   $ "/etc/"       ≟ etc     ⫥ filepath
             , testCase "pam.d" $ "/etc/pam.d/" ≟ pamd    ⫥ filepath
             , testCase "wgm"   $ "/w/g/M/"     ≟ wgm     ⫥ filepath
-            , testCase "/etc/" $ Just etc      ≟ "/etc/" ⩼ filepath
+            , testCase "/etc/" $ Just etc      @=? "/etc/" ⩼ filepath
             , fail "/etc"
             , fail "/etc/pam.d"
             , fail "etc/"
@@ -600,8 +605,8 @@ textualTests ∷ TestTree
 textualTests =
   let nothin'     ∷ Maybe AbsDir
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  ≟ parseString s
-      fail s      = testCase s $ nothin'   ≟ fromString s
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
    in testGroup "Textual"
                 [ success root "/"
                 , success etc  "/etc/"
@@ -647,9 +652,9 @@ parentTests ∷ TestTree
 parentTests =
   let par d = (view parent) ⊳ (d ⩼ nonRootAbsDir)
    in testGroup "parent"
-                [ testCase "root"        $ Nothing   ≟ par root
-                , testCase "etc"         $ Just root ≟ par etc
-                , testCase "pamd"        $ Just etc  ≟ par pamd
+                [ testCase "root"        $ Nothing   @=? par root
+                , testCase "etc"         $ Just root @=? par etc
+                , testCase "pamd"        $ Just etc  @=? par pamd
                 ]
 
 ----------------------------------------
@@ -686,34 +691,34 @@ parentMayTests =
   let -- (~~) ∷ α → α → α
       d ~~ d' = d & parentMay ⊩ d'
    in testGroup "parentMay"
-                [ testCase "root"   $ Nothing   ≟ root  ⊣ parentMay
-                , testCase "etc"    $ Just root ≟ etc   ⊣ parentMay
-                , testCase "pamd"  $ Just etc  ≟ pamd ⊣ parentMay
+                [ testCase "root"   $ Nothing   @=? root  ⊣ parentMay
+                , testCase "etc"    $ Just root @=? etc   ⊣ parentMay
+                , testCase "pamd"  $ Just etc  @=? pamd ⊣ parentMay
 
-                , testCase "etc → root" $ etc ≟ etc ~~ root
-                , testCase "root → etc" $ etc ≟ root ~~ etc
+                , testCase "etc → root" $ etc @=? etc ~~ root
+                , testCase "root → etc" $ etc @=? root ~~ etc
 
                 , testCase "pamd → root" $
-                    fromSeq @AbsDir (pure [pc|pam.d|]) ≟ pamd ~~ root
-                , testCase "root → pamd" $ pamd ≟ root ~~ pamd
+                    fromSeq @AbsDir (pure [pc|pam.d|]) @=? pamd ~~ root
+                , testCase "root → pamd" $ pamd @=? root ~~ pamd
 
                 , testCase "etc → wgm" $
                       fromSeqNE @AbsDir([pc|w|]⪪[pc|g|]⪪[pc|M|]⪪pure[pc|etc|])
-                    ≟ etc ~~ wgm
+                    @=? etc ~~ wgm
                 , testCase "wgm → etc" $
-                    fromSeqNE @AbsDir ([pc|etc|]⪪pure [pc|M|]) ≟ wgm ~~ etc
+                    fromSeqNE @AbsDir ([pc|etc|]⪪pure [pc|M|]) @=? wgm ~~ etc
 
-                , testCase "root → wgm" $ wgm ≟ root ~~ wgm
+                , testCase "root → wgm" $ wgm @=? root ~~ wgm
                 , testCase "wgm → root" $
-                    fromSeq @AbsDir (pure [pc|M|]) ≟ wgm ~~ root
+                    fromSeq @AbsDir (pure [pc|M|]) @=? wgm ~~ root
 
-                , testCase "pamd → etc" $ pamd ≟ pamd ~~ etc
+                , testCase "pamd → etc" $ pamd @=? pamd ~~ etc
                 , testCase "etc → pamd" $
                       fromSeqNE @AbsDir ([pc|etc|]⪪[pc|pam.d|]⪪pure [pc|etc|])
-                    ≟ etc ~~ pamd
+                    @=? etc ~~ pamd
 
                 , testCase "pamd → Nothing" $
-                    fromSeq (pure [pc|pam.d|]) ≟ (pamd & parentMay ⊢ Nothing)
+                    fromSeq (pure [pc|pam.d|]) @=? (pamd & parentMay ⊢ Nothing)
                 ]
 
 parentsTests ∷ TestTree
@@ -769,20 +774,20 @@ parseAbsDirTests =
       _parseAbsDir ∷ MonadError FPathError η ⇒ Text → η AbsDir
       _parseAbsDir = parse'
    in testGroup "parseAbsDir"
-                [ testCase "root"  $ Right root   ≟ _parseAbsDir "/"
-                , testCase "etc"   $ Right etc    ≟ _parseAbsDir "/etc/"
-                , testCase "pam.d" $ Right pamd   ≟ _parseAbsDir "/etc/pam.d/"
-                , testCase "wgm"   $ Right wgm    ≟ _parseAbsDir "/w/g/M/"
+                [ testCase "root"  $ Right root   @=? _parseAbsDir "/"
+                , testCase "etc"   $ Right etc    @=? _parseAbsDir "/etc/"
+                , testCase "pam.d" $ Right pamd   @=? _parseAbsDir "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgm    @=? _parseAbsDir "/w/g/M/"
                 , testCase "no trailing /" $
-                      Left (FPathNotADirE absdirT pamF) ≟ _parseAbsDir pamF
+                      Left (FPathNotADirE absdirT pamF) @=? _parseAbsDir pamF
                 , testCase "empty" $
-                      Left (FPathEmptyE absdirT)  ≟ _parseAbsDir ""
+                      Left (FPathEmptyE absdirT)  @=? _parseAbsDir ""
                 , testCase "no leading /" $
-                      Left (FPathNonAbsE absdirT "etc/") ≟ _parseAbsDir "etc/"
+                      Left (FPathNonAbsE absdirT "etc/") @=? _parseAbsDir "etc/"
                 , testCase "bad component" $
-                      Left illegalCE ≟ _parseAbsDir pamNUL
+                      Left illegalCE @=? _parseAbsDir pamNUL
                 , testCase "empty component" $
-                      Left emptyCompCE ≟ _parseAbsDir "/etc//pam.d/"
+                      Left emptyCompCE @=? _parseAbsDir "/etc//pam.d/"
                 ]
 
 ----------------------------------------
@@ -819,21 +824,23 @@ parseAbsDirPTests =
       _parseAbsDirP ∷ MonadError FPathError η ⇒ Text → η AbsDir
       _parseAbsDirP = parseAbsDirP'
    in testGroup "parseAbsDirP"
-                [ testCase "root"  $ Right root   ≟ _parseAbsDirP "/"
-                , testCase "etc"   $ Right etc    ≟ _parseAbsDirP "/etc/"
-                , testCase "etc"   $ Right etc    ≟ _parseAbsDirP "/etc"
-                , testCase "pam.d" $ Right pamd   ≟ _parseAbsDirP "/etc/pam.d"
-                , testCase "pam.d" $ Right pamd   ≟ _parseAbsDirP "/etc/pam.d/"
-                , testCase "wgm"   $ Right wgm    ≟ _parseAbsDirP "/w/g/M/"
-                , testCase "wgm"   $ Right wgm    ≟ _parseAbsDirP "/w/g/M"
+                [ testCase "root"  $ Right root   @=? _parseAbsDirP "/"
+                , testCase "etc"   $ Right etc    @=? _parseAbsDirP "/etc/"
+                , testCase "etc"   $ Right etc    @=? _parseAbsDirP "/etc"
+                , testCase "pam.d" $ Right pamd   @=? _parseAbsDirP "/etc/pam.d"
+                , testCase "pam.d" $
+                      Right pamd   @=? _parseAbsDirP "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgm    @=? _parseAbsDirP "/w/g/M/"
+                , testCase "wgm"   $ Right wgm    @=? _parseAbsDirP "/w/g/M"
                 , testCase "empty" $
-                      Left (FPathEmptyE absdirT)  ≟ _parseAbsDirP ""
+                      Left (FPathEmptyE absdirT)  @=? _parseAbsDirP ""
                 , testCase "no leading /" $
-                      Left (FPathNonAbsE absdirT "etc/") ≟ _parseAbsDirP "etc/"
+                          Left (FPathNonAbsE absdirT "etc/")
+                      @=? _parseAbsDirP "etc/"
                 , testCase "bad component" $
-                      Left illegalCE ≟ _parseAbsDirP pamNUL
+                      Left illegalCE @=? _parseAbsDirP pamNUL
                 , testCase "empty component" $
-                      Left emptyCompCE ≟ _parseAbsDirP "/etc//pam.d/"
+                      Left emptyCompCE @=? _parseAbsDirP "/etc//pam.d/"
                 ]
 
 ----------------------------------------
@@ -856,21 +863,26 @@ parseAbsDirNTests =
       parseAbsDirN_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
       parseAbsDirN_ = parse'
    in testGroup "parseAbsDirN"
-                [ testCase "etc"   $ Right etcN    ≟ parseAbsDirN_ "/etc/"
-                , testCase "pam.d" $ Right pamdN   ≟ parseAbsDirN_ "/etc/pam.d/"
-                , testCase "wgm"   $ Right wgmN    ≟ parseAbsDirN_ "/w/g/M/"
+                [ testCase "etc"   $ Right etcN    @=? parseAbsDirN_ "/etc/"
+                , testCase "pam.d" $
+                      Right pamdN   @=? parseAbsDirN_ "/etc/pam.d/"
+                , testCase "wgm"   $ Right wgmN    @=? parseAbsDirN_ "/w/g/M/"
                 , testCase "root"  $
-                      Left (FPathRootDirE nrabsdirT) ≟ parseAbsDirN_ "/"
+                          Left (FPathRootDirE nrabsdirT)
+                      @=? parseAbsDirN_ "/"
                 , testCase "no trailing /" $
-                      Left (FPathNotADirE nrabsdirT pamF) ≟ parseAbsDirN_ pamF
+                          Left (FPathNotADirE nrabsdirT pamF)
+                      @=? parseAbsDirN_ pamF
                 , testCase "empty" $
-                      Left (FPathEmptyE nrabsdirT)  ≟ parseAbsDirN_ ""
+                          Left (FPathEmptyE nrabsdirT)
+                      @=? parseAbsDirN_ ""
                 , testCase "no leading /" $
-                      Left (FPathNonAbsE nrabsdirT "etc/") ≟ parseAbsDirN_ "etc/"
+                         Left (FPathNonAbsE nrabsdirT "etc/")
+                      @=? parseAbsDirN_ "etc/"
                 , testCase "bad component" $
-                      Left illegalCE ≟ parseAbsDirN_ pamNUL
+                      Left illegalCE @=? parseAbsDirN_ pamNUL
                 , testCase "empty component" $
-                      Left emptyCompCE ≟ parseAbsDirN_ "/etc//pam/"
+                      Left emptyCompCE @=? parseAbsDirN_ "/etc//pam/"
                 ]
 
 ----------------------------------------
@@ -915,20 +927,20 @@ parseAbsDirNPTests =
       parseAbsDirNP_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
       parseAbsDirNP_ = parseAbsDirNP'
    in testGroup "parseAbsDirNP"
-                [ testCase "etc"   $ Right etcN  ≟ parseAbsDirNP_ "/etc"
-                , testCase "pam.d" $ Right pamdN ≟ parseAbsDirNP_ "/etc/pam.d"
-                , testCase "wgm"   $ Right wgmN  ≟ parseAbsDirNP_ "/w/g/M"
+                [ testCase "etc"   $ Right etcN  @=? parseAbsDirNP_ "/etc"
+                , testCase "pam.d" $ Right pamdN @=? parseAbsDirNP_ "/etc/pam.d"
+                , testCase "wgm"   $ Right wgmN  @=? parseAbsDirNP_ "/w/g/M"
                 , testCase "root"  $
-                      Left (FPathRootDirE nrabsdirT) ≟ parseAbsDirNP_ "/"
+                      Left (FPathRootDirE nrabsdirT) @=? parseAbsDirNP_ "/"
                 , testCase "empty" $
-                      Left (FPathEmptyE nrabsdirT)  ≟ parseAbsDirNP_ ""
+                      Left (FPathEmptyE nrabsdirT)  @=? parseAbsDirNP_ ""
                 , testCase "no leading /" $
                         Left (FPathNonAbsE nrabsdirT "etc/")
-                      ≟ parseAbsDirNP_ "etc/"
+                      @=? parseAbsDirNP_ "etc/"
                 , testCase "bad component" $
-                      Left illegalCE ≟ parseAbsDirNP_ pamNUL
+                      Left illegalCE @=? parseAbsDirNP_ pamNUL
                 , testCase "empty component" $
-                      Left emptyCompCE ≟ parseAbsDirNP_ "/etc//pam/"
+                      Left emptyCompCE @=? parseAbsDirNP_ "/etc//pam/"
                 ]
 
 ------------------------------------------------------------

@@ -43,7 +43,6 @@ import Data.MoreUnicode.Applicative  ( (∤) )
 import Data.MoreUnicode.Functor      ( (⊳) )
 import Data.MoreUnicode.Lens         ( (⫥), (⩼) )
 import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -59,11 +58,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 
 -- text --------------------------------
 
@@ -119,27 +118,27 @@ instance AsFilePath Rel where
 filepathTests ∷ TestTree
 filepathTests =
   let nothin' = Nothing ∷ Maybe Rel
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "r0" $ "./"     ≟ RelD r0 ⫥ filepath
             , testCase "r1" $ "r/"     ≟ RelD r1 ⫥ filepath
             , testCase "r2" $ "r/p/"   ≟ RelD r2 ⫥ filepath
             , testCase "r3" $ "p/q/r/" ≟ RelD r3 ⫥ filepath
 
-            , testCase "r0" $ Just (RelD r0) ≟ "./"     ⩼ filepath
-            , testCase "r1" $ Just (RelD r1) ≟ "r/"     ⩼ filepath
-            , testCase "r2" $ Just (RelD r2) ≟ "r/p/"   ⩼ filepath
-            , testCase "r3" $ Just (RelD r3) ≟ "p/q/r/" ⩼ filepath
+            , testCase "r0" $ Just (RelD r0) @=? "./"     ⩼ filepath
+            , testCase "r1" $ Just (RelD r1) @=? "r/"     ⩼ filepath
+            , testCase "r2" $ Just (RelD r2) @=? "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just (RelD r3) @=? "p/q/r/" ⩼ filepath
 
             , testCase "rf1" $ "r.e"       ≟ RelF rf1 ⫥ filepath
             , testCase "rf2" $ "r/p.x"     ≟ RelF rf2 ⫥ filepath
             , testCase "rf3" $ "p/q/r.mp3" ≟ RelF rf3 ⫥ filepath
             , testCase "rf4" $ ".x"        ≟ RelF rf4 ⫥ filepath
 
-            , testCase "rf1" $ Just (RelF rf1) ≟ "r.e"       ⩼ filepath
-            , testCase "rf2" $ Just (RelF rf2) ≟ "r/p.x"     ⩼ filepath
-            , testCase "rf3" $ Just (RelF rf3) ≟ "p/q/r.mp3" ⩼ filepath
-            , testCase "rf4" $ Just (RelF rf4) ≟ ".x"        ⩼ filepath
+            , testCase "rf1" $ Just (RelF rf1) @=? "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just (RelF rf2) @=? "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just (RelF rf3) @=? "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just (RelF rf4) @=? ".x"        ⩼ filepath
 
             , fail "/etc"
             , fail "/etc/pam.d/"
@@ -167,7 +166,7 @@ instance Parseable Rel where
 
 parseRelTests ∷ TestTree
 parseRelTests =
-  let success d f t = testCase t $ Right (d ⫥ f) ≟ parse @Rel @FPathError t
+  let success d f t = testCase t $ Right (d ⫥ f) @=? parse @Rel @FPathError t
    in testGroup "parseRel"
                 [ success [reldir|./|]         _RelDir "./"
                 , success [reldir|etc/|]       _RelDir "etc/"

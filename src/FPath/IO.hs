@@ -75,7 +75,6 @@ import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens     ( (⊣), (##) )
 import Data.MoreUnicode.Monad    ( (≫), (⪼) )
 import Data.MoreUnicode.Natural  ( ℕ )
-import Data.MoreUnicode.Tasty    ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -87,7 +86,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
@@ -141,7 +140,7 @@ getCwdTests =
       getCwd_ = ѥ getCwd
 
       inTmp = inSystemTempDirectory "FPath.IO.getCwdTests"
-   in testCase "getCwd" $ inTmp $ \ d → getCwd_ ≫ \ cwd → Right d ≟ cwd
+   in testCase "getCwd" $ inTmp $ \ d → getCwd_ ≫ \ cwd → Right d @=? cwd
 
 ----------------------------------------
 
@@ -271,46 +270,48 @@ pResolveAbsDirTests =
       getTmpdir = __parseAbsDirP__ ⊳ getCanonicalTemporaryDirectory
 
    in testGroup "AbsDir"
-        [ testCase "inTmp ./" $ inTmp $ \ d → pResolve_ "./" ≫ (Right d ≟)
+        [ testCase "inTmp ./" $ inTmp $ \ d → pResolve_ "./" ≫ (Right d @=?)
         , testCase "inTmp . (forgiveness of pResolve wrt trailing /)" $
-            inTmp $ \ d → pResolve_ "."  ≫ (Right d ≟)
+            inTmp $ \ d → pResolve_ "."  ≫ (Right d @=?)
         , testCase "inTmp .." $
             inTmp ∘ const $
-                    getTmpdir ≫ \ tmpdir → pResolve_ ".."  ≫ (Right tmpdir ≟)
+                    getTmpdir ≫ \ tmpdir → pResolve_ ".."  ≫ (Right tmpdir @=?)
 
         , testCase "inTmp cwd" $
             -- value is an abs dir, e.g., /tmp/<user>/d7b66efeebbcf249/
-            inTmp $ \ d → pResolve_ (toText d) ≫ (Right d ≟)
+            inTmp $ \ d → pResolve_ (toText d) ≫ (Right d @=?)
         , testCase "root" $
-            inTmp $ \ _ → pResolve_ "/" ≫ (Right [absdir|/|] ≟)
+            inTmp $ \ _ → pResolve_ "/" ≫ (Right [absdir|/|] @=?)
         , testCase "/nonsuch/" $
-            inTmp $ \ _ → pResolve_ "/nonsuch/" ≫ (Right [absdir|/nonsuch/|] ≟)
+            inTmp $ \ _ → pResolve_ "/nonsuch/" ≫
+                            (Right [absdir|/nonsuch/|] @=?)
         , testCase "inTmp nonsuch" $
             inTmp $ \ d → pResolve_ "nonsuch" ≫
-                          (Right (d ⫻ [reldir|nonsuch/|]) ≟)
+                          (Right (d ⫻ [reldir|nonsuch/|]) @=?)
         , testCase "inTmp nonesuch" $
             inTmp $ \ _ → pResolve_ "/nonsuch" ≫
-                          (Right [absdir|/nonsuch/|] ≟)
+                          (Right [absdir|/nonsuch/|] @=?)
         , testCase "inTmp nonsuch/" $
             inTmp $ \ d → pResolve_ "nonsuch/" ≫
-                          (Right (d ⫻ [reldir|nonsuch/|]) ≟)
+                          (Right (d ⫻ [reldir|nonsuch/|]) @=?)
 
         , testCase "inTmp ./" $ inTmp $ \ d → do
             d' <- pResolve_ "nonsuch/nonsuch"
-            Right (d ⫻ [reldir|nonsuch/nonsuch/|]) ≟ d'
+            Right (d ⫻ [reldir|nonsuch/nonsuch/|]) @=? d'
 
         , testCase "inTmp ../ (dirname)" $
-            inTmp $ \ d → pResolve_ "../" ≫ ((Right (d ⊣ dirname) ≟))
+            inTmp $ \ d → pResolve_ "../" ≫ ((Right (d ⊣ dirname) @=?))
         , testCase "inTmp ../ (basename)" $
-            inTmp $ \ d → pResolve_ "../" ≫ ((Right d ≟) ∘ fmap (⫻ basename d))
+            inTmp $ \ d → pResolve_ "../" ≫
+                            ((Right d @=?) ∘ fmap (⫻ basename d))
 
         , testCase "withTmp ./" $
-            withTmp $ \ d → pResolveDir_ d "./" ≫ (Right d ≟)
+            withTmp $ \ d → pResolveDir_ d "./" ≫ (Right d @=?)
         , testCase "withTmp ." $
-            withTmp $ \ d → pResolveDir_ d "." ≫ (Right d ≟)
+            withTmp $ \ d → pResolveDir_ d "." ≫ (Right d @=?)
         , testCase "withTmp .." $
             withTmp $ \ d → getTmpdir ≫ \ tmpdir →
-                      pResolveDir_ d ".." ≫ (Right tmpdir ≟)
+                      pResolveDir_ d ".." ≫ (Right tmpdir @=?)
 
         ]
 
@@ -358,22 +359,23 @@ pResolveAbsFileTests =
 
    in testGroup "AbsFile"
         [ testCase "inTmp '' x" $
-            inTmp $ \ d → pResolve_ "x" ≫ (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+            inTmp $ \ d → pResolve_ "x" ≫
+                            (Right (d ⫻ [relfile|x|] ∷ AbsFile) @=?)
         , testCase "withTmp '' x" $
             withTmp $ \ d → pResolveDir_ d "x" ≫
-                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) @=?)
         , testCase "inTmp ./ x" $
             inTmp $ \ d → pResolve_ "./x" ≫
-                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) @=?)
         , testCase "withTmp ./ x" $
             withTmp $ \ d → pResolveDir_ d "./x" ≫
-                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) ≟)
+                          (Right (d ⫻ [relfile|x|] ∷ AbsFile) @=?)
         , testCase "inTmp ../ x" $
             inTmp $ \ d → pResolve_ "../x" ≫
-                          (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
+                          (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) @=?)
         , testCase "withTmp ../ x" $
             withTmp $ \ d → pResolveDir_ d "../x" ≫
-                          (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) ≟)
+                          (Right (d ⊣ dirname ⫻ [relfile|x|] ∷ AbsFile) @=?)
         ]
 
 
@@ -406,35 +408,38 @@ pResolveAbsTests =
 
    in testGroup "Abs"
         [ testCase "withTmp ''" $
-            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE absT) ≟)
+            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE absT) @=?)
         , testCase "withTmp ./" $
-            withTmp $ \ d → pResolveDir_ d "./" ≫ (Right (AbsD d) ≟)
+            withTmp $ \ d → pResolveDir_ d "./" ≫ (Right (AbsD d) @=?)
         , testCase "withTmp ." $
-            withTmp $ \ d → pResolveDir_ d "." ≫ (Right (AbsD d) ≟)
+            withTmp $ \ d → pResolveDir_ d "." ≫ (Right (AbsD d) @=?)
         , testCase "withTmp .." $
-            withTmp $ \ d → pResolveDir_ d ".." ≫ (Right (AbsD (d ⊣ dirname)) ≟)
+            withTmp $ \ d → pResolveDir_ d ".." ≫
+                              (Right (AbsD (d ⊣ dirname)) @=?)
         , testCase "withTmp ../" $
-            withTmp $ \ d → pResolveDir_ d "../" ≫(Right (AbsD (d ⊣ dirname)) ≟)
+            withTmp $ \ d → pResolveDir_ d "../" ≫
+                              (Right (AbsD (d ⊣ dirname)) @=?)
         , testCase "withTmp ../." $
-            withTmp $ \ d → pResolveDir_ d "../."≫(Right (AbsD (d ⊣ dirname)) ≟)
+            withTmp $ \ d → pResolveDir_ d "../." ≫
+                              (Right (AbsD (d ⊣ dirname)) @=?)
         , testCase "withTmp ./../." $
             withTmp $ \ d →
-                      pResolveDir_ d "./../."≫(Right (AbsD (d ⊣ dirname)) ≟)
+                      pResolveDir_ d "./../."≫(Right (AbsD (d ⊣ dirname)) @=?)
         , testCase "withTmp .././." $
             withTmp $ \ d →
-                      pResolveDir_ d ".././."≫(Right (AbsD (d ⊣ dirname)) ≟)
+                      pResolveDir_ d ".././."≫(Right (AbsD (d ⊣ dirname)) @=?)
 
         , testCase "withTmp ''" $
-            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE absT) ≟)
+            withTmp $ \ d → pResolveDir_ d "" ≫ (Left (_FPathEmptyE absT) @=?)
         , testCase "withTmp '' x" $
             withTmp $ \ d → pResolveDir_ d "x" ≫
-                          (Right (AbsF (d ⫻ [relfile|x|])) ≟)
+                          (Right (AbsF (d ⫻ [relfile|x|])) @=?)
         , testCase "withTmp ./ x" $
             withTmp $ \ d → pResolveDir_ d "./x" ≫
-                          (Right (AbsF (d ⫻ [relfile|x|])) ≟)
+                          (Right (AbsF (d ⫻ [relfile|x|])) @=?)
         , testCase "withTmp ../ x" $
             withTmp $ \ d → pResolveDir_ d "../x" ≫
-                          (Right (AbsF (d ⊣ dirname ⫻ [relfile|x|])) ≟)
+                          (Right (AbsF (d ⊣ dirname ⫻ [relfile|x|])) @=?)
         ]
 
 --------------------------------------------------------------------------------

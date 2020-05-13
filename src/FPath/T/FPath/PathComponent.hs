@@ -35,7 +35,6 @@ import Test.Validity.GenValidity.Property  ( genGeneratesValid )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Natural    ( ℕ )
-import Data.MoreUnicode.Tasty      ( (≟) )
 import Data.MoreUnicode.Semigroup  ( (◇) )
 
 -- QuickCheck --------------------------
@@ -48,11 +47,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 
 -- tasty-quickcheck --------------------
 
@@ -81,8 +80,8 @@ pathCTextualTests ∷ TestTree
 pathCTextualTests =
   let nothin'     ∷ Maybe PathComponent
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  ≟ parseString s
-      fail s      = testCase s $ nothin'   ≟ fromString s
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
    in testGroup "Textual" [ success [pc|etc|]   "etc"
                           , success [pc|pam.d|] "pam.d"
                           , success [pc|.d|] ".d"
@@ -130,18 +129,18 @@ addExtTests =
 splitExtTests ∷ TestTree
 splitExtTests =
   testGroup "splitExt"
-    [ testCase "foo.bar" $ ([pc|foo|],Just [pc|bar|]) ≟ splitExt [pc|foo.bar|]
-    , testCase "f.o.bar" $ ([pc|f.o|],Just [pc|bar|]) ≟ splitExt [pc|f.o.bar|]
-    , testCase "foo."    $ ([pc|foo.|],Nothing)       ≟ splitExt [pc|foo.|]
-    , testCase "foo"     $ ([pc|foo|],Nothing)        ≟ splitExt [pc|foo|]
+    [ testCase "foo.bar" $ ([pc|foo|],Just [pc|bar|]) @=? splitExt [pc|foo.bar|]
+    , testCase "f.o.bar" $ ([pc|f.o|],Just [pc|bar|]) @=? splitExt [pc|f.o.bar|]
+    , testCase "foo."    $ ([pc|foo.|],Nothing)       @=? splitExt [pc|foo.|]
+    , testCase "foo"     $ ([pc|foo|],Nothing)        @=? splitExt [pc|foo|]
     ]
 
 extGetterTests ∷ TestTree
 extGetterTests =
-  testGroup "getter" [ testCase ".bar" $ Just [pc|bar|] ≟ ext [pc|foo.bar|]
-                     , testCase "-"    $ Nothing        ≟ ext [pc|foo|]
-                     , testCase "."    $ Nothing        ≟ ext [pc|foo.|]
-                     , testCase "baz"  $ Just [pc|baz|] ≟ ext [pc|f.b.x.baz|]
+  testGroup "getter" [ testCase ".bar" $ Just [pc|bar|] @=? ext [pc|foo.bar|]
+                     , testCase "-"    $ Nothing        @=? ext [pc|foo|]
+                     , testCase "."    $ Nothing        @=? ext [pc|foo.|]
+                     , testCase "baz"  $ Just [pc|baz|] @=? ext [pc|f.b.x.baz|]
                      ]
 
 extSetterTests ∷ TestTree

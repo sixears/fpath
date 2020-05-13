@@ -48,7 +48,6 @@ import Data.MoreUnicode.Applicative  ( (∤) )
 import Data.MoreUnicode.Functor      ( (⊳) )
 import Data.MoreUnicode.Lens         ( (⩼), (##) )
 import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -64,11 +63,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 
 -- text --------------------------------
 
@@ -132,23 +131,23 @@ instance AsFilePath Abs where
 filepathTests ∷ TestTree
 filepathTests =
   let nothin' = Nothing ∷ Maybe Abs
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "root"  $ "/"             ≟ AbsD root    ## filepath
             , testCase "etc"   $ "/etc/"         ≟ AbsD etc     ## filepath
             , testCase "pam.d" $ "/etc/pam.d/"   ≟ AbsD pamd    ## filepath
             , testCase "wgm"   $ "/w/g/M/"       ≟ AbsD wgm     ## filepath
-            , testCase "/etc/" $ Just (AbsD etc) ≟ "/etc/" ⩼ filepath
+            , testCase "/etc/" $ Just (AbsD etc) @=? "/etc/" ⩼ filepath
 
             , testCase "af1" $ "/r.e"       ≟ AbsF af1 ## filepath
             , testCase "af2" $ "/r/p.x"     ≟ AbsF af2 ## filepath
             , testCase "af3" $ "/p/q/r.mp3" ≟ AbsF af3 ## filepath
             , testCase "af4" $ "/.x"        ≟ AbsF af4 ## filepath
 
-            , testCase "af1" $ Just (AbsF af1) ≟ "/r.e"       ⩼ filepath
-            , testCase "af2" $ Just (AbsF af2) ≟ "/r/p.x"     ⩼ filepath
-            , testCase "af3" $ Just (AbsF af3) ≟ "/p/q/r.mp3" ⩼ filepath
-            , testCase "af4" $ Just (AbsF af4) ≟ "/.x"        ⩼ filepath
+            , testCase "af1" $ Just (AbsF af1) @=? "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just (AbsF af2) @=? "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just (AbsF af3) @=? "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just (AbsF af4) @=? "/.x"        ⩼ filepath
 
             , fail "etc"
             , fail "etc/pam.d/"
@@ -181,7 +180,7 @@ instance Parseable Abs where
 
 parseAbsTests ∷ TestTree
 parseAbsTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parse @Abs @FPathError t
+  let success d f t = testCase t $ Right (d ## f) @=? parse @Abs @FPathError t
    in testGroup "parseAbs"
                 [ success [absdir|/|]           _AbsDir "/"
                 , success [absdir|/etc/|]       _AbsDir "/etc/"

@@ -170,14 +170,14 @@ class (DirTypeC π, RelTypeC π) ⇒ Strippable π where
        directory might result in a relative dir of './'.
    -}
   stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
-                DirType π → π → η (RelType π)
-  stripDir' ∷ MonadError FPathNotAPrefixError η ⇒
-                 DirType π → π → η (RelType π)
+             DirType π → π → η (RelType π)
+
+  stripDir' ∷ MonadError FPathNotAPrefixError η ⇒ DirType π → π → η (RelType π)
   stripDir' = stripDir
 
 instance Strippable AbsFile where
   stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
-                AbsDir → AbsFile → η RelFile
+             AbsDir → AbsFile → η RelFile
   stripDir d'@(view seq → d) f'@(view seqNE → f) =
     maybe (__FPathNotAPrefixError__ absfileT (toText d') (toText f'))
           (return ∘ fromSeqNE)

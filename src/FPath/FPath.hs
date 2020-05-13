@@ -44,7 +44,6 @@ import Data.MoreUnicode.Applicative  ( (∤) )
 import Data.MoreUnicode.Functor      ( (⊳) )
 import Data.MoreUnicode.Lens         ( (⩼), (⫥) )
 import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -60,11 +59,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 
 -- text --------------------------------
 
@@ -170,43 +169,43 @@ instance AsFilePath FPath where
 filepathTests ∷ TestTree
 filepathTests =
   let nothin' = Nothing ∷ Maybe FPath
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "r0" $ "./"     ≟ FRelD r0 ⫥ filepath
             , testCase "r1" $ "r/"     ≟ FRelD r1 ⫥ filepath
             , testCase "r2" $ "r/p/"   ≟ FRelD r2 ⫥ filepath
             , testCase "r3" $ "p/q/r/" ≟ FRelD r3 ⫥ filepath
 
-            , testCase "r0" $ Just (FRelD r0) ≟ "./"     ⩼ filepath
-            , testCase "r1" $ Just (FRelD r1) ≟ "r/"     ⩼ filepath
-            , testCase "r2" $ Just (FRelD r2) ≟ "r/p/"   ⩼ filepath
-            , testCase "r3" $ Just (FRelD r3) ≟ "p/q/r/" ⩼ filepath
+            , testCase "r0" $ Just (FRelD r0) @=? "./"     ⩼ filepath
+            , testCase "r1" $ Just (FRelD r1) @=? "r/"     ⩼ filepath
+            , testCase "r2" $ Just (FRelD r2) @=? "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just (FRelD r3) @=? "p/q/r/" ⩼ filepath
 
             , testCase "rf1" $ "r.e"       ≟ FRelF rf1 ⫥ filepath
             , testCase "rf2" $ "r/p.x"     ≟ FRelF rf2 ⫥ filepath
             , testCase "rf3" $ "p/q/r.mp3" ≟ FRelF rf3 ⫥ filepath
             , testCase "rf4" $ ".x"        ≟ FRelF rf4 ⫥ filepath
 
-            , testCase "rf1" $ Just (FRelF rf1) ≟ "r.e"       ⩼ filepath
-            , testCase "rf2" $ Just (FRelF rf2) ≟ "r/p.x"     ⩼ filepath
-            , testCase "rf3" $ Just (FRelF rf3) ≟ "p/q/r.mp3" ⩼ filepath
-            , testCase "rf4" $ Just (FRelF rf4) ≟ ".x"        ⩼ filepath
+            , testCase "rf1" $ Just (FRelF rf1) @=? "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just (FRelF rf2) @=? "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just (FRelF rf3) @=? "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just (FRelF rf4) @=? ".x"        ⩼ filepath
 
             , testCase "root"  $ "/"             ≟ FAbsD root    ⫥ filepath
             , testCase "etc"   $ "/etc/"         ≟ FAbsD etc     ⫥ filepath
             , testCase "pam.d" $ "/etc/pam.d/"   ≟ FAbsD pamd    ⫥ filepath
             , testCase "wgm"   $ "/w/g/M/"       ≟ FAbsD wgm     ⫥ filepath
-            , testCase "/etc/" $ Just (FAbsD etc) ≟ "/etc/" ⩼ filepath
+            , testCase "/etc/" $ Just (FAbsD etc) @=? "/etc/" ⩼ filepath
 
             , testCase "af1" $ "/r.e"       ≟ FAbsF af1 ⫥ filepath
             , testCase "af2" $ "/r/p.x"     ≟ FAbsF af2 ⫥ filepath
             , testCase "af3" $ "/p/q/r.mp3" ≟ FAbsF af3 ⫥ filepath
             , testCase "af4" $ "/.x"        ≟ FAbsF af4 ⫥ filepath
 
-            , testCase "af1" $ Just (FAbsF af1) ≟ "/r.e"       ⩼ filepath
-            , testCase "af2" $ Just (FAbsF af2) ≟ "/r/p.x"     ⩼ filepath
-            , testCase "af3" $ Just (FAbsF af3) ≟ "/p/q/r.mp3" ⩼ filepath
-            , testCase "af4" $ Just (FAbsF af4) ≟ "/.x"        ⩼ filepath
+            , testCase "af1" $ Just (FAbsF af1) @=? "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just (FAbsF af2) @=? "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just (FAbsF af3) @=? "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just (FAbsF af4) @=? "/.x"        ⩼ filepath
 
             , fail "/etc//pam.d/"
             , fail "\0etc"
@@ -233,7 +232,7 @@ instance Parseable FPath where
 parseFPathTests ∷ TestTree
 parseFPathTests =
   let success d f t =
-        testCase t $ Right (d ⫥ f) ≟ parse @FPath @FPathError t
+        testCase t $ Right (d ⫥ f) @=? parse @FPath @FPathError t
    in testGroup "parseFPath"
                 [ success [absdir|/|]      _AbsDir  "/"
                 , success [absdir|/etc/|]  _AbsDir  "/etc/"

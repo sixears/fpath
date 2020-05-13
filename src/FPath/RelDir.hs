@@ -91,7 +91,6 @@ import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊩) )
 import Data.MoreUnicode.Monoid       ( ф, ю )
 import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -126,11 +125,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( assertListEq, runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), assertListEq, runTestsP, runTestsReplay, runTestTree )
 
 -- template-haskell --------------------
 
@@ -379,24 +378,24 @@ parseRelDirTests =
       illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
                        in FPathComponentE fpcice reldirT s
       badChar s p = testCase ("bad component " ⊕ toString s) $
-                        Left (illegalCE s p) ≟ parseRelDir_ s
+                        Left (illegalCE s p) @=? parseRelDir_ s
       emptyCompCE t = FPathComponentE FPathComponentEmptyE reldirT t
       parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
       parseRelDir_ = parse
    in testGroup "parseRelDir"
-                [ testCase "r0" $ Right r0 ≟ parseRelDir_ "./"
-                , testCase "r1" $ Right r1 ≟ parseRelDir_ "r/"
-                , testCase "r2" $ Right r2 ≟ parseRelDir_ "r/p/"
-                , testCase "r3" $ Right r3 ≟ parseRelDir_ "p/q/r/"
+                [ testCase "r0" $ Right r0 @=? parseRelDir_ "./"
+                , testCase "r1" $ Right r1 @=? parseRelDir_ "r/"
+                , testCase "r2" $ Right r2 @=? parseRelDir_ "r/p/"
+                , testCase "r3" $ Right r3 @=? parseRelDir_ "p/q/r/"
                 , testCase "no trailing /" $
-                      Left (FPathNotADirE reldirT pamF) ≟ parseRelDir_ pamF
+                      Left (FPathNotADirE reldirT pamF) @=? parseRelDir_ pamF
                 , testCase "leading /" $
-                      Left (FPathAbsE reldirT "/r/") ≟ parseRelDir_ "/r/"
+                      Left (FPathAbsE reldirT "/r/") @=? parseRelDir_ "/r/"
                 , badChar "x/\0/y/" "\0"
                 , badChar "r/p\0/" "p\0"
                 , badChar "\0r/p/" "\0r"
                 , testCase "empty component" $
-                      Left (emptyCompCE "r//p/") ≟ parseRelDir_ "r//p/"
+                      Left (emptyCompCE "r//p/") @=? parseRelDir_ "r//p/"
                 ]
 
 ----------------------------------------
@@ -433,21 +432,21 @@ parseRelDirPTests =
       _parseRelDirP ∷ MonadError FPathError η ⇒ Text → η RelDir
       _parseRelDirP = parseRelDirP'
    in testGroup "parseRelDirP"
-                [ testCase "r0" $ Right r0 ≟ _parseRelDirP "."
-                , testCase "r1" $ Right r1 ≟ _parseRelDirP "r/"
-                , testCase "r1" $ Right r1 ≟ _parseRelDirP "r"
-                , testCase "r2" $ Right r2 ≟ _parseRelDirP "r/p/"
-                , testCase "r2" $ Right r2 ≟ _parseRelDirP "r/p"
-                , testCase "r3" $ Right r3 ≟ _parseRelDirP "p/q/r/"
-                , testCase "r3" $ Right r3 ≟ _parseRelDirP "p/q/r"
+                [ testCase "r0" $ Right r0 @=? _parseRelDirP "."
+                , testCase "r1" $ Right r1 @=? _parseRelDirP "r/"
+                , testCase "r1" $ Right r1 @=? _parseRelDirP "r"
+                , testCase "r2" $ Right r2 @=? _parseRelDirP "r/p/"
+                , testCase "r2" $ Right r2 @=? _parseRelDirP "r/p"
+                , testCase "r3" $ Right r3 @=? _parseRelDirP "p/q/r/"
+                , testCase "r3" $ Right r3 @=? _parseRelDirP "p/q/r"
                 , testCase "empty" $
-                      Left (FPathEmptyE reldirT)  ≟ _parseRelDirP ""
+                      Left (FPathEmptyE reldirT)  @=? _parseRelDirP ""
                 , testCase "no leading /" $
-                      Left (FPathAbsE reldirT "/etc/") ≟ _parseRelDirP "/etc/"
+                      Left (FPathAbsE reldirT "/etc/") @=? _parseRelDirP "/etc/"
                 , testCase "bad component" $
-                      Left illegalCE ≟ _parseRelDirP pamNUL
+                      Left illegalCE @=? _parseRelDirP pamNUL
                 , testCase "empty component" $
-                      Left emptyCompCE ≟ _parseRelDirP "etc//pam.d/"
+                      Left emptyCompCE @=? _parseRelDirP "etc//pam.d/"
                 ]
 
 ----------------------------------------

@@ -59,7 +59,7 @@ import Data.MoreUnicode.Monoid           ( ю, ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟), (≣) )
+import Data.MoreUnicode.Tasty            ( (≣) )
 
 -- non-empty-containers ----------------
 
@@ -71,11 +71,12 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( propAssociative, propInvertibleString, propInvertibleText
+import TastyPlus  ( (≟)
+                  , propAssociative, propInvertibleString, propInvertibleText
                   , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
 
 -- tasty-quickcheck --------------------
@@ -112,10 +113,10 @@ reldirQQTests =
 relDirIsMonoSeqGetterTests ∷ TestTree
 relDirIsMonoSeqGetterTests =
   testGroup "getter"
-            [ testCase "r0" $ ф                                      ≟ r0 ⊣ seq
-            , testCase "r1" $ pure [pc|r|]                           ≟ r1 ⊣ seq
-            , testCase "r2" $ Seq.fromList [[pc|r|], [pc|p|]]        ≟ r2 ⊣ seq
-            , testCase "r3" $ Seq.fromList [[pc|p|],[pc|q|],[pc|r|]] ≟ r3 ⊣ seq
+            [ testCase "r0" $ ф                                      @=? r0⊣ seq
+            , testCase "r1" $ pure [pc|r|]                           @=? r1⊣ seq
+            , testCase "r2" $ Seq.fromList [[pc|r|], [pc|p|]]        @=? r2⊣ seq
+            , testCase "r3" $ Seq.fromList [[pc|p|],[pc|q|],[pc|r|]] @=? r3⊣ seq
             ]
 
 relDirSemigroupTests ∷ TestTree
@@ -143,10 +144,10 @@ relDirIsListTests =
                 , testCase "r3" $ r3 ≟ fromList [ [pc|p|], [pc|q|], [pc|r|] ]
                 ]
     , testGroup "toList"
-                [ testCase "r0" $ []                            ≟ toList r0
-                , testCase "r1" $ [ [pc|r|] ]                   ≟ toList r1
-                , testCase "r2" $ [ [pc|r|], [pc|p|] ]          ≟ toList r2
-                , testCase "r3" $ [ [pc|p|], [pc|q|], [pc|r|] ] ≟ toList r3
+                [ testCase "r0" $ []                            @=? toList r0
+                , testCase "r1" $ [ [pc|r|] ]                   @=? toList r1
+                , testCase "r2" $ [ [pc|r|], [pc|p|] ]          @=? toList r2
+                , testCase "r3" $ [ [pc|p|], [pc|q|], [pc|r|] ] @=? toList r3
                 ]
     ]
 
@@ -160,25 +161,25 @@ relDirMonoFoldableTests =
             , testCase "ofoldl'" $
                 "ф-p-q-r" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" r3
             , testCase "otoList" $
-                [ [pc|p|], [pc|q|], [pc|r|] ] ≟ otoList r3
+                [ [pc|p|], [pc|q|], [pc|r|] ] @=? otoList r3
             , testCase "oall (F)" $
-                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) r3
+                False @=? oall (Text.any (≡ 'r' ) ∘ toText) r3
             , testCase "oall (T)" $
-                True ≟ oall ((< 6) ∘ Text.length ∘ toText) r3
+                True @=? oall ((< 6) ∘ Text.length ∘ toText) r3
             , testCase "oany (F)" $
-                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) r3
+                False @=? oany (Text.any (≡ 'x' ) ∘ toText) r3
             , testProperty "onull" (\ x → (x ≡ [reldir|./|]) ≣ onull x)
             , testCase "olength" $
                 3 ≟ olength r3
             , testCase "olength64" $
                 0 ≟ olength64 r0
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength r3 (2 ∷ ℕ)
+               GT @=? ocompareLength r3 (2 ∷ ℕ)
             , testCase "ofoldlM" $
                   Just [[pc|r|],[pc|q|],[pc|p|]]
-                ≟ ofoldlM (\ a e → Just $ e : a) [] r3
+                @=? ofoldlM (\ a e → Just $ e : a) [] r3
             , testCase "ofoldMap1Ex" $
-                [[pc|p|],[pc|q|],[pc|r|]] ≟ ofoldMap1Ex pure r3
+                [[pc|p|],[pc|q|],[pc|r|]] @=? ofoldMap1Ex pure r3
             , testCase "ofoldr1Ex" $
                 [pc|pqr|] ≟ ofoldr1Ex (◇) r3
             , testCase "ofoldl1Ex'" $
@@ -192,13 +193,13 @@ relDirMonoFoldableTests =
             , testCase "minimumByEx" $
                 [pc|p|] ≟ minimumByEx (comparing toText) r3
             , testCase "oelem (T)" $
-                True ≟ oelem [pc|q|] r3
+                True @=? oelem [pc|q|] r3
             , testCase "oelem (F)" $
-                False ≟ oelem [pc|x|] r3
+                False @=? oelem [pc|x|] r3
             , testCase "onotElem (T)" $
-                True ≟ onotElem [pc|x|] r3
+                True @=? onotElem [pc|x|] r3
             , testCase "onotElem (F)" $
-                False ≟ onotElem [pc|q|] r3
+                False @=? onotElem [pc|q|] r3
             ]
 
 relDirIsMonoSeqSetterTests ∷ TestTree
@@ -241,8 +242,8 @@ relDirTextualTests ∷ TestTree
 relDirTextualTests =
   let nothin'     ∷ Maybe RelDir
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  ≟ parseString s
-      fail s      = testCase s $ nothin'   ≟ fromString s
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
    in testGroup "Textual" [ success r0 "./"
                           , success r1 "r/"
                           , success r2 "r/p/"
@@ -284,9 +285,9 @@ relDirIsMonoSeqTests = testGroup "IsMonoSeq" [ relDirIsMonoSeqGetterTests
 
 relDirParentMayGetterTests ∷ TestTree
 relDirParentMayGetterTests =
-   testGroup "getter" [ testCase "r0"  $ Nothing ≟ r0  ⊣ parentMay
-                      , testCase "r1"  $ Just r0 ≟ r1  ⊣ parentMay
-                      , testCase "r2"  $ Just r1 ≟ r2 ⊣ parentMay
+   testGroup "getter" [ testCase "r0"  $ Nothing @=? r0  ⊣ parentMay
+                      , testCase "r1"  $ Just r0 @=? r1  ⊣ parentMay
+                      , testCase "r2"  $ Just r1 @=? r2 ⊣ parentMay
                       ]
 
 relDirParentMaySetterTests ∷ TestTree
@@ -330,17 +331,17 @@ relDirParentMayTests = testGroup "parentMay"
 relDirFilepathTests ∷ TestTree
 relDirFilepathTests =
   let nothin' = Nothing ∷ Maybe RelDir
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "r0" $ "./"     ≟ r0 ## filepath
             , testCase "r1" $ "r/"     ≟ r1 ## filepath
             , testCase "r2" $ "r/p/"   ≟ r2 ## filepath
             , testCase "r3" $ "p/q/r/" ≟ r3 ## filepath
 
-            , testCase "r0" $ Just r0 ≟ "./"     ⩼ filepath
-            , testCase "r1" $ Just r1 ≟ "r/"     ⩼ filepath
-            , testCase "r2" $ Just r2 ≟ "r/p/"   ⩼ filepath
-            , testCase "r3" $ Just r3 ≟ "p/q/r/" ⩼ filepath
+            , testCase "r0" $ Just r0 @=? "./"     ⩼ filepath
+            , testCase "r1" $ Just r1 @=? "r/"     ⩼ filepath
+            , testCase "r2" $ Just r2 @=? "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just r3 @=? "p/q/r/" ⩼ filepath
 
             , fail "/etc"
             , fail "foo/etc"

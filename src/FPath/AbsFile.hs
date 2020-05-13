@@ -82,7 +82,6 @@ import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊩) )
 import Data.MoreUnicode.Monoid       ( ф, ю )
 import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Tasty        ( (≟) )
 
 -- mtl ---------------------------------
 
@@ -126,7 +125,7 @@ import Test.Tasty.HUnit  ( testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( assertListEq, runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), assertListEq, runTestsP, runTestsReplay, runTestTree )
 
 -- template-haskell --------------------
 

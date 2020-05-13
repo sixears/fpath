@@ -43,7 +43,6 @@ import Data.MoreUnicode.Functor    ( (⊳) )
 import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (##) )
 import Data.MoreUnicode.Natural    ( ℕ )
 import Data.MoreUnicode.Semigroup  ( (◇) )
-import Data.MoreUnicode.Tasty      ( (≟) )
 
 -- more-unicode ------------------------
 
@@ -60,11 +59,11 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 
 -- text --------------------------------
 
@@ -123,27 +122,27 @@ instance AsFilePath File where
 filepathTests ∷ TestTree
 filepathTests =
   let nothin' = Nothing ∷ Maybe File
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "af1" $ "/r.e"       ≟ FileA af1 ## filepath
             , testCase "af2" $ "/r/p.x"     ≟ FileA af2 ## filepath
             , testCase "af3" $ "/p/q/r.mp3" ≟ FileA af3 ## filepath
             , testCase "af4" $ "/.x"        ≟ FileA af4 ## filepath
 
-            , testCase "af1" $ Just (FileA af1) ≟ "/r.e"       ⩼ filepath
-            , testCase "af2" $ Just (FileA af2) ≟ "/r/p.x"     ⩼ filepath
-            , testCase "af3" $ Just (FileA af3) ≟ "/p/q/r.mp3" ⩼ filepath
-            , testCase "af4" $ Just (FileA af4) ≟ "/.x"        ⩼ filepath
+            , testCase "af1" $ Just (FileA af1) @=? "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just (FileA af2) @=? "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just (FileA af3) @=? "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just (FileA af4) @=? "/.x"        ⩼ filepath
 
             , testCase "rf1" $ "r.e"       ≟ FileR rf1 ## filepath
             , testCase "rf2" $ "r/p.x"     ≟ FileR rf2 ## filepath
             , testCase "rf3" $ "p/q/r.mp3" ≟ FileR rf3 ## filepath
             , testCase "rf4" $ ".x"        ≟ FileR rf4 ## filepath
 
-            , testCase "rf1" $ Just (FileR rf1) ≟ "r.e"       ⩼ filepath
-            , testCase "rf2" $ Just (FileR rf2) ≟ "r/p.x"     ⩼ filepath
-            , testCase "rf3" $ Just (FileR rf3) ≟ "p/q/r.mp3" ⩼ filepath
-            , testCase "rf4" $ Just (FileR rf4) ≟ ".x"        ⩼ filepath
+            , testCase "rf1" $ Just (FileR rf1) @=? "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just (FileR rf2) @=? "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just (FileR rf3) @=? "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just (FileR rf4) @=? ".x"        ⩼ filepath
 
             , fail "/etc/"
             , fail "etc/"
@@ -222,24 +221,26 @@ fileLikeSplitExtTests ∷ TestTree
 fileLikeSplitExtTests =
   testGroup "splitExt"
     [ testCase "foo/bar" $
-        (FileR [relfile|foo/bar|], Nothing) ≟ splitExt (FileR [relfile|foo/bar|])
+            (FileR [relfile|foo/bar|], Nothing)
+        @=? splitExt (FileR [relfile|foo/bar|])
     , testCase "r/p.x"   $
-        (FileR [relfile|r/p|],Just [pc|x|]) ≟ splitExt (FileR rf2)
+        (FileR [relfile|r/p|],Just [pc|x|]) @=? splitExt (FileR rf2)
     , testCase "f.x/g.y" $
-          (FileA [absfile|/f.x/g|], Just [pc|y|])
-        ≟ splitExt (FileA [absfile|/f.x/g.y|])
+            (FileA [absfile|/f.x/g|], Just [pc|y|])
+        @=? splitExt (FileA [absfile|/f.x/g.y|])
     , testCase "f.x/g"   $
-        (FileA [absfile|/f.x/g|], Nothing) ≟ splitExt (FileA [absfile|/f.x/g|])
+            (FileA [absfile|/f.x/g|], Nothing)
+        @=? splitExt (FileA [absfile|/f.x/g|])
     ]
 
 fileLikeExtGetterTests ∷ TestTree
 fileLikeExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] ≟ ext(FileR [relfile|foo.z/bar.x|])
+                         Just [pc|x|] @=? ext(FileR [relfile|foo.z/bar.x|])
                      , testCase "foo/bar" $
-                         Nothing ≟ ext (FileA [absfile|/foo/bar|])
+                         Nothing @=? ext (FileA [absfile|/foo/bar|])
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] ≟ ext (FileA [absfile|/g/f.b.x.baz|])
+                         Just [pc|baz|] @=? ext (FileA [absfile|/g/f.b.x.baz|])
                      ]
 
 fileLikeExtSetterTests ∷ TestTree
@@ -295,7 +296,7 @@ instance Parseable File where
 
 parseFileTests ∷ TestTree
 parseFileTests =
-  let success d f t = testCase t $ Right (d ## f) ≟ parse @File @FPathError t
+  let success d f t = testCase t $ Right (d ## f) @=? parse @File @FPathError t
    in testGroup "parseFile"
                 [ success [absfile|/etc|]  _AbsFile "/etc"
                 , success [relfile|etc|]   _RelFile "etc"

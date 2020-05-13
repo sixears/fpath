@@ -61,7 +61,7 @@ import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (#
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
-import Data.MoreUnicode.Tasty            ( (≟), (≣) )
+import Data.MoreUnicode.Tasty            ( (≣) )
 
 -- mtl ---------------------------------
 
@@ -79,12 +79,12 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( propInvertibleString, propInvertibleText, propInvertibleUtf8
-                  , runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), propInvertibleString, propInvertibleText
+                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree )
 
 -- tasty-quickcheck --------------------
 
@@ -133,25 +133,25 @@ parseAbsFileTests =
                         fpipce e = FPathComponentIllegalE e
                         fpipce' e f = FPathComponentE (fpipce e) absfileT f
                      in testCase ("illegal path component '" ⊕ s ⊕ "'") $
-                          Left (fpipce' (tail s) t) ≟ parseAbsFile_ t
+                          Left (fpipce' (tail s) t) @=? parseAbsFile_ t
       badChar s p = testCase ("bad component " ⊕ toString s) $
-                        Left (illegalCE s p) ≟ parseAbsFile_ s
+                        Left (illegalCE s p) @=? parseAbsFile_ s
       relfile t  = testCase ("non-absolute file '" ⊕ toString t ⊕ "'") $
-                      Left (FPathNonAbsE absfileT t) ≟ parseAbsFile_ t
+                      Left (FPathNonAbsE absfileT t) @=? parseAbsFile_ t
 
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
-                      Left (FPathNotAFileE absfileT t) ≟ parseAbsFile_ t
+                      Left (FPathNotAFileE absfileT t) @=? parseAbsFile_ t
       parseAbsFile_ ∷ MonadError FPathError η ⇒ Text → η AbsFile
       parseAbsFile_ = parse'
    in testGroup "parseAbsFile"
-                [ testCase "af1" $ Right af1 ≟ parseAbsFile_ "/r.e"
-                , testCase "af4" $ Right af4 ≟ parseAbsFile_ "/.x"
-                , testCase "af2" $ Right af2 ≟ parseAbsFile_ "/r/p.x"
-                , testCase "af3" $ Right af3 ≟ parseAbsFile_ "/p/q/r.mp3"
+                [ testCase "af1" $ Right af1 @=? parseAbsFile_ "/r.e"
+                , testCase "af4" $ Right af4 @=? parseAbsFile_ "/.x"
+                , testCase "af2" $ Right af2 @=? parseAbsFile_ "/r/p.x"
+                , testCase "af3" $ Right af3 @=? parseAbsFile_ "/p/q/r.mp3"
                 , relfile "p.e"
                 , relfile "r/p.e"
                 , testCase "empty" $
-                      Left (FPathEmptyE absfileT) ≟ parseAbsFile_ ""
+                      Left (FPathEmptyE absfileT) @=? parseAbsFile_ ""
                 , notAFile "./p/"
                 , notAFile "/r/"
                 , notAFile "./"
@@ -161,7 +161,7 @@ parseAbsFileTests =
                 , badChar "/r/p\0" "p\0"
                 , badChar "/\0r/p" "\0r"
                 , testCase "empty component" $
-                      Left (emptyCompCE "/r//p") ≟ parseAbsFile_ "/r//p"
+                      Left (emptyCompCE "/r//p") @=? parseAbsFile_ "/r//p"
                 ]
 
 absfileQQTests ∷ TestTree
@@ -183,22 +183,23 @@ absFileIsNonEmptyTests =
                 , testCase "af4" $ af4 ≟ fromNonEmpty (pure [pc|.x|])
                 ]
     , testGroup "toNonEmpty"
-                [ testCase "af1" $ pure [pc|r.e|]           ≟ toNonEmpty af1
-                , testCase "af2" $ [pc|r|] :| [ [pc|p.x|] ] ≟ toNonEmpty af2
+                [ testCase "af1" $ pure [pc|r.e|]           @=? toNonEmpty af1
+                , testCase "af2" $ [pc|r|] :| [ [pc|p.x|] ] @=? toNonEmpty af2
                 , testCase "af3" $
-                    [pc|p|] :| [ [pc|q|], [pc|r.mp3|] ]     ≟ toNonEmpty af3
-                , testCase "af4" $ pure [pc|.x|]            ≟ toNonEmpty af4
+                    [pc|p|] :| [ [pc|q|], [pc|r.mp3|] ]     @=? toNonEmpty af3
+                , testCase "af4" $ pure [pc|.x|]            @=? toNonEmpty af4
                 ]
     ]
 
 absFileIsMonoSeqNEGetterTests ∷ TestTree
 absFileIsMonoSeqNEGetterTests =
   testGroup "getter"
-            [ testCase "af1" $ pure [pc|r.e|]                      ≟ af1 ⊣ seqNE
-            , testCase "af2" $ fromNonEmpty ([pc|r|]:|[[pc|p.x|]]) ≟ af2 ⊣ seqNE
+            [ testCase "af1" $ pure [pc|r.e|]                   @=? af1 ⊣ seqNE
+            , testCase "af2" $
+                  fromNonEmpty ([pc|r|]:|[[pc|p.x|]]) @=? af2 ⊣ seqNE
             , testCase "af3" $
-                fromNonEmpty ([pc|p|] :| [[pc|q|],[pc|r.mp3|]])    ≟ af3 ⊣ seqNE
-            , testCase "af4" $ fromNonEmpty (pure [pc|.x|])        ≟ af4 ⊣ seqNE
+                fromNonEmpty ([pc|p|] :| [[pc|q|],[pc|r.mp3|]]) @=? af3 ⊣ seqNE
+            , testCase "af4" $ fromNonEmpty (pure [pc|.x|])     @=? af4 ⊣ seqNE
             ]
 
 absFileIsMonoSeqNESetterTests ∷ TestTree
@@ -262,8 +263,8 @@ absFileTextualTests ∷ TestTree
 absFileTextualTests =
   let nothin'     ∷ Maybe AbsFile
       nothin'     = Nothing
-      success e s = testCase s $ Parsed e  ≟ parseString s
-      fail s      = testCase s $ nothin'   ≟ fromString s
+      success e s = testCase s $ Parsed e  @=? parseString s
+      fail s      = testCase s $ nothin'   @=? fromString s
    in testGroup "Textual" [ success af1 "/r.e"
                           , success af2 "/r/p.x"
                           , success af3 "/p/q/r.mp3"
@@ -307,10 +308,10 @@ absFileIsMonoSeqNETests =
 
 absFileParentMayGetterTests ∷ TestTree
 absFileParentMayGetterTests =
-   testGroup "getter" [ testCase "af1" $ Just a0              ≟ af1 ⊣ parentMay
-                      , testCase "af2" $ Just a1              ≟ af2 ⊣ parentMay
-                      , testCase "af3" $ Just [absdir|/p/q/|] ≟ af3 ⊣ parentMay
-                      , testCase "af4" $ Just a0              ≟ af4 ⊣ parentMay
+   testGroup "getter" [ testCase "af1" $ Just a0              @=? af1⊣ parentMay
+                      , testCase "af2" $ Just a1              @=? af2⊣ parentMay
+                      , testCase "af3" $ Just [absdir|/p/q/|] @=? af3⊣ parentMay
+                      , testCase "af4" $ Just a0              @=? af4⊣ parentMay
                       ]
 
 absFileParentMaySetterTests ∷ TestTree
@@ -384,17 +385,17 @@ absFileFileTests =
 absFileFilepathTests ∷ TestTree
 absFileFilepathTests =
   let nothin' = Nothing ∷ Maybe AbsFile
-      fail s  = testCase s $ nothin' ≟ s ⩼ filepath
+      fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
             [ testCase "af1" $ "/r.e"       ≟ af1 ## filepath
             , testCase "af2" $ "/r/p.x"     ≟ af2 ## filepath
             , testCase "af3" $ "/p/q/r.mp3" ≟ af3 ## filepath
             , testCase "af4" $ "/.x"        ≟ af4 ## filepath
 
-            , testCase "af1" $ Just af1 ≟ "/r.e"       ⩼ filepath
-            , testCase "af2" $ Just af2 ≟ "/r/p.x"     ⩼ filepath
-            , testCase "af3" $ Just af3 ≟ "/p/q/r.mp3" ⩼ filepath
-            , testCase "af4" $ Just af4 ≟ "/.x"        ⩼ filepath
+            , testCase "af1" $ Just af1 @=? "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just af2 @=? "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just af3 @=? "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just af4 @=? "/.x"        ⩼ filepath
 
             , fail "etc"
             , fail "/etc/"
@@ -420,25 +421,25 @@ absFileMonoFoldableTests =
             , testCase "ofoldl'" $
                 "ф-p-q-r.mp3" ≟ ofoldl' (\ b a → b ⊕ "-" ⊕ toText a) "ф" af3
             , testCase "otoList" $
-                [ [pc|p|], [pc|q|], [pc|r.mp3|] ] ≟ otoList af3
+                [ [pc|p|], [pc|q|], [pc|r.mp3|] ] @=? otoList af3
             , testCase "oall (F)" $
-                False ≟ oall (Text.any (≡ 'r' ) ∘ toText) af3
+                False @=? oall (Text.any (≡ 'r' ) ∘ toText) af3
             , testCase "oall (T)" $
-                True ≟ oall ((< 6) ∘ Text.length ∘ toText) af3
+                True @=? oall ((< 6) ∘ Text.length ∘ toText) af3
             , testCase "oany (F)" $
-                False ≟ oany (Text.any (≡ 'x' ) ∘ toText) af3
+                False @=? oany (Text.any (≡ 'x' ) ∘ toText) af3
             , testProperty "onull" (\ (x ∷ AbsFile) → False ≣ onull x)
             , testCase "olength" $
-                3 ≟ olength af3
+                3 @=? olength af3
             , testCase "olength64" $
                 1 ≟ olength64 af4
             , testCase "ocompareLength" $
-               GT ≟ ocompareLength af3 (2 ∷ ℕ)
+               GT @=? ocompareLength af3 (2 ∷ ℕ)
             , testCase "ofoldlM" $
                   Just [[pc|r.mp3|],[pc|q|],[pc|p|]]
-                ≟ ofoldlM (\ a e → Just $ e : a) [] af3
+                @=? ofoldlM (\ a e → Just $ e : a) [] af3
             , testCase "ofoldMap1Ex" $
-                [[pc|p|],[pc|q|],[pc|r.mp3|]] ≟ ofoldMap1Ex pure af3
+                [[pc|p|],[pc|q|],[pc|r.mp3|]] @=? ofoldMap1Ex pure af3
             , testCase "ofoldr1Ex" $
                 [pc|pqr.mp3|] ≟ ofoldr1Ex (◇) af3
             , testCase "ofoldl1Ex'" $
@@ -452,13 +453,13 @@ absFileMonoFoldableTests =
             , testCase "minimumByEx" $
                 [pc|p|] ≟ minimumByEx (comparing toText) af3
             , testCase "oelem (T)" $
-                True ≟ oelem [pc|q|] af3
+                True @=? oelem [pc|q|] af3
             , testCase "oelem (F)" $
-                False ≟ oelem [pc|x|] af3
+                False @=? oelem [pc|x|] af3
             , testCase "onotElem (T)" $
-                True ≟ onotElem [pc|x|] af3
+                True @=? onotElem [pc|x|] af3
             , testCase "onotElem (F)" $
-                False ≟ onotElem [pc|q|] af3
+                False @=? onotElem [pc|q|] af3
             ]
 
 
@@ -501,23 +502,23 @@ absFileSplitExtTests ∷ TestTree
 absFileSplitExtTests =
   testGroup "splitExt"
     [ testCase "foo/bar" $
-        ([absfile|/foo/bar|], Nothing) ≟ splitExt [absfile|/foo/bar|]
+        ([absfile|/foo/bar|], Nothing) @=? splitExt [absfile|/foo/bar|]
     , testCase "r/p.x"   $
-        ([absfile|/r/p|],Just [pc|x|]) ≟ splitExt af2
+        ([absfile|/r/p|],Just [pc|x|]) @=? splitExt af2
     , testCase "f.x/g.y" $
-        ([absfile|/f.x/g|], Just [pc|y|]) ≟ splitExt [absfile|/f.x/g.y|]
+        ([absfile|/f.x/g|], Just [pc|y|]) @=? splitExt [absfile|/f.x/g.y|]
     , testCase "f.x/g"   $
-        ([absfile|/f.x/g|], Nothing) ≟ splitExt [absfile|/f.x/g|]
+        ([absfile|/f.x/g|], Nothing) @=? splitExt [absfile|/f.x/g|]
     ]
 
 absFileExtGetterTests ∷ TestTree
 absFileExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] ≟ ext [absfile|/foo.z/bar.x|]
+                         Just [pc|x|] @=? ext [absfile|/foo.z/bar.x|]
                      , testCase "foo/bar" $
-                         Nothing ≟ ext [absfile|/foo/bar|]
+                         Nothing @=? ext [absfile|/foo/bar|]
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] ≟ ext [absfile|/g/f.b.x.baz|]
+                         Just [pc|baz|] @=? ext [absfile|/g/f.b.x.baz|]
                      ]
 
 absFileExtSetterTests ∷ TestTree
