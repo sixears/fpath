@@ -108,11 +108,12 @@ library
 -------------------------------------------------------------------------------
 
 test-suite fpath-test
-  ghc-options:      -O2 -W -Wall -fhelpful-errors
-  type:             exitcode-stdio-1.0
-  hs-source-dirs:   t
-  main-is:          fpath-test.hs
-  build-depends:    base, fpath, tasty
-  default-language: Haskell2010
+  default-extensions: NoImplicitPrelude
+  ghc-options:        -O2 -W -Wall -fhelpful-errors
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     t
+  main-is:            fpath-test.hs
+  build-depends:      base, fpath, tasty
+  default-language:   Haskell2010
 
 -------------------------------------------------------------------------------

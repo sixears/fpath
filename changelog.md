@@ -2,6 +2,7 @@
 ==================
 - use ≟ from tasty-plus rather than more-unicode
 - use Text for paths rather than strings, for avoidance of UTF8 issues
+- update for GenValidity 0.5+
 
 1.0.5.1 2020-02-15
 ==================

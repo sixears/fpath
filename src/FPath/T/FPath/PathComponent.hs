@@ -56,8 +56,7 @@ import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 -- tasty-quickcheck --------------------
 
 import Test.Tasty.QuickCheck  ( Arbitrary( arbitrary ), Gen, Property
-                              , shrink, testProperty
-                              )
+                              , testProperty )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -112,8 +111,8 @@ pathCValidityTests =
       arbPC = arbitrary
    in testGroup "Validity"
                 [
-                  testProperty "genValid"  $ genGeneratesValid genValidPC shrink
-                , testProperty "arbitrary" $ genGeneratesValid arbPC      shrink
+                  testProperty "genValid"  $ genGeneratesValid genValidPC
+                , testProperty "arbitrary" $ genGeneratesValid arbPC
                 ]
 
 ----------------------------------------
