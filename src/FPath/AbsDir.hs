@@ -106,7 +106,7 @@ import Data.MoreUnicode.Function         ( (⅋) )
 import Data.MoreUnicode.Functor          ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens             ( (⊣), (⊢), (⊩), (⩼), (⫥), (⫣) )
 import Data.MoreUnicode.Monad            ( (≫) )
-import Data.MoreUnicode.Monoid           ( ф, ю )
+import Data.MoreUnicode.Monoid           ( ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
@@ -724,14 +724,14 @@ parentMayTests =
 parentsTests ∷ TestTree
 parentsTests =
   let check t d ps = assertListEq t ps (parents d)
-   in testGroup "parents" $ ю [ check "/"          root []
-                              , check "/etc/"      etc  [root]
-                              , check "/etc/pam.d" pamd [root,etc]
-                              , check "/w/g/m/"    wgm  [root,w,wg]
-                              , check "/etc/"      etcN  [root]
-                              , check "/etc/pam.d" pamdN [root,etc]
-                              , check "/w/g/m/"    wgmN  [root,w,wg]
-                              ]
+   in testGroup "parents" $ [ check "/"          root []
+                            , check "/etc/"      etc  [root]
+                            , check "/etc/pam.d" pamd [root,etc]
+                            , check "/w/g/m/"    wgm  [root,w,wg]
+                            , check "/etc/"      etcN  [root]
+                            , check "/etc/pam.d" pamdN [root,etc]
+                            , check "/w/g/m/"    wgmN  [root,w,wg]
+                            ]
 
 ----------------------------------------
 

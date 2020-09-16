@@ -22,6 +22,8 @@ class RelTypeC α ⇒ Basename α where
   {- | Well-typed version of `basename` utility; note that `basename` of "/" is
        "/", and `basename` of "./" is "./".
    -}
+  -- this would be a bit odd as a lens, as then
+  -- [absdir|/|] & basename .~ [pc|foo|] ⇒ [absfile|/foo|]
   basename ∷ α → RelType α
   {- | When applied to "/" or "./", `setBasename` will be a no-op -}
   updateBasename ∷ (PathComponent → PathComponent) → α → α

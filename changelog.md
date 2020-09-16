@@ -1,3 +1,7 @@
+1.0.5.3 2020-09-16
+==================
+- use tasty-plus 1.4.0.0
+
 1.0.5.2 2020-05-13
 ==================
 - use ≟ from tasty-plus rather than more-unicode

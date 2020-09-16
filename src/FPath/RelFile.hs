@@ -79,7 +79,7 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens     ( (⊩) )
-import Data.MoreUnicode.Monoid   ( ф, ю )
+import Data.MoreUnicode.Monoid   ( ф )
 import Data.MoreUnicode.Natural  ( ℕ )
 
 -- mtl ---------------------------------
@@ -297,11 +297,11 @@ parentsTests ∷ TestTree
 parentsTests =
   let check t d ps = assertListEq t ps (parents d)
    in testGroup "parents" $
-        ю [ check "r.e"       rf1 [fromSeq ф]
-          , check "r/p.x"     rf2 [fromSeq ф, fromSeq (pure [pc|r|])]
-          , check "p/q/r.mp3" rf3 [fromSeq ф, [reldir|p/|], [reldir|p/q/|]]
-          , check ".x"        rf4 [fromSeq ф]
-          ]
+        [ check "r.e"       rf1 [fromSeq ф]
+        , check "r/p.x"     rf2 [fromSeq ф, fromSeq (pure [pc|r|])]
+        , check "p/q/r.mp3" rf3 [fromSeq ф, [reldir|p/|], [reldir|p/q/|]]
+        , check ".x"        rf4 [fromSeq ф]
+        ]
 
 ----------------------------------------
   

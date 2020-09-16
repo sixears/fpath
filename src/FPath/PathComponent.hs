@@ -18,8 +18,8 @@
 module FPath.PathComponent
   ( PathComponent
   , (⊙)
-  , addExt, ext, parsePathC, pathComponent, pc, splitExt, stub, toLower, toUpper
-  , updateExt
+  , addExt, ext, parsePathC, pathComponent, pc, reverse, splitExt, stub, toLower
+  , toUpper, updateExt
 
   , tests
   )
@@ -126,7 +126,7 @@ import Language.Haskell.TH.Syntax  ( Lift )
 -- text --------------------------------
 
 import qualified  Data.Text  as  Text
-import Data.Text  ( Text, break, init, pack, reverse, unpack )
+import Data.Text  ( Text, break, init, pack, unpack )
 
 -- text-printer ------------------------
 
@@ -267,6 +267,9 @@ toUpper = pcmap Text.toUpper
 toLower ∷ PathComponent → PathComponent
 toLower = pcmap Text.toLower
 
+reverse ∷ PathComponent → PathComponent
+reverse = pcmap Text.reverse
+
 ----------------------------------------
 
 {- | Add an "extension", that is, join two `PathComponent`s with a '.'
@@ -282,11 +285,11 @@ infixr 6 ⊙ -- same as for ⊕
 
 splitExt ∷ PathComponent → (PathComponent, Maybe PathComponent)
 splitExt p@(PathComponent xs) =
-  case break (≡ '.') (reverse xs) of
+  case break (≡ '.') (Text.reverse xs) of
     (_,"")    → (p, Nothing)
     ("",_)    → (p, Nothing)
-    (sfx,pfx) → (PathComponent $ init (reverse pfx),
-                 Just $ PathComponent (reverse sfx))
+    (sfx,pfx) → (PathComponent $ init (Text.reverse pfx),
+                 Just $ PathComponent (Text.reverse sfx))
 
 stub ∷ PathComponent → PathComponent
 stub = fst ∘ splitExt

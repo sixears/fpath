@@ -62,6 +62,7 @@ class DirTypeC α ⇒ HasParentMay α where
              α → [DirType α]
   parents' d = reverse $ d : _parents d
 
+{- | Implementation for `parents`, `parents'`. -}
 _parents ∷ (HasParentMay α, HasParentMay (DirType α),
             DirType α ~ DirType (DirType α)) ⇒
            α → [DirType α]
