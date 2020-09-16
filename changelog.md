@@ -1,3 +1,7 @@
+1.0.6.0 2020-09-16
+==================
+- add AsDir, AsFile, AsFilePath', DirAs, FPathAs, IsDir classes
+
 1.0.5.3 2020-09-16
 ==================
 - use tasty-plus 1.4.0.0

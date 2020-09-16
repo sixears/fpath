@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -9,6 +10,7 @@
 module FPath.FileLike
   ( FileLike( (⊙), (<.>)
             , addExt, dir, dirfile, ext, file, split, splitExt, updateExt )
+  , IsFile
   )
 where
 
@@ -20,6 +22,10 @@ import Data.Tuple  ( snd )
 -- base-unicode-symbols ----------------
 
 import Data.Function.Unicode  ( (∘) )
+
+-- data-textual ------------------------
+
+import Data.Textual  ( Printable )
 
 -- lens --------------------------------
 
@@ -37,7 +43,10 @@ import Data.MoreUnicode.Lens       ( (⊣), (⫣) )
 
 import qualified FPath.PathComponent  as  PathComponent
 
+import FPath.AsFilePath     ( AsFilePath )
+import FPath.DirLike        ( IsDir )
 import FPath.DirType        ( DirTypeC( DirType ) )
+import FPath.Parent         ( HasParent, HasParentMay )
 import FPath.PathComponent  ( PathComponent )
 
 --------------------------------------------------------------------------------
@@ -46,7 +55,7 @@ import FPath.PathComponent  ( PathComponent )
      `PathComponent`.  Importantly, a `FileLike` is isomorphic with a File
      (`PathComponent`) and some other opaque thing (its Directory).
  -}
-class DirTypeC α ⇒ FileLike α where
+class (Printable α, DirTypeC α) ⇒ FileLike α where
   {- | Split/Reform a `FileLike` into its directory & file components -}
   dirfile ∷ Iso' α (DirType α, PathComponent)
 
@@ -62,7 +71,6 @@ class DirTypeC α ⇒ FileLike α where
   addExt ∷ α → PathComponent → α
   addExt a c = let (d,f) = a ⊣ dirfile
                 in (d,f `addExt` c) ⫣ dirfile
-
 
   {- | operator alias for `addExt` -}
   infixr 6 <.> -- same as for ⊕
@@ -108,5 +116,10 @@ instance FileLike PathComponent where
 
   updateExt ∷ (PathComponent → PathComponent) → PathComponent → PathComponent
   updateExt = PathComponent.updateExt
+
+{- | Just a marker class for types that represent a file, e.g., AbsFile,
+     RelFile, File. -}
+class (Printable α, AsFilePath α, AsFilePath (DirType α), IsDir (DirType α),
+       HasParent α, HasParentMay α) ⇒ IsFile α
 
 -- that's all, folks! ----------------------------------------------------------

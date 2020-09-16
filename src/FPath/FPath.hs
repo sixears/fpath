@@ -17,7 +17,7 @@ where
 import Data.Bool      ( Bool( False, True ) )
 import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
-import Data.Function  ( ($) )
+import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
@@ -82,6 +82,8 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.Dir               ( AsDir( _Dir ), Dir( DirA, DirR ) )
+import FPath.File              ( AsFile( _File ), File( FileA, FileR ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
 import FPath.Rel               ( AsRel(_Rel ), Rel( RelD, RelF ) )
@@ -148,6 +150,28 @@ instance AsRel FPath where
                                  FRelF f → Just $ RelF f
                                  _       → Nothing
                 )
+
+----------------------------------------
+
+instance AsDir FPath where
+  _Dir = prism' (\ p → case p of DirA d → FAbsD d
+                                 DirR f → FRelD f
+                )
+                (\ p → case p of FAbsD d → Just $ DirA d
+                                 FRelD f → Just $ DirR f
+                                 _       → Nothing
+                )
+
+----------------------------------------
+
+instance AsFile FPath where
+  _File = prism' (\ p → case p of FileA d → FAbsF d
+                                  FileR f → FRelF f
+                 )
+                 (\ p → case p of FAbsF d → Just $ FileA d
+                                  FRelF f → Just $ FileR f
+                                  _       → Nothing
+                 )
 
 ----------------------------------------
 
@@ -240,6 +264,40 @@ parseFPathTests =
                 , success [reldir|foo/|]   _RelDir  "foo/"
                 , success [relfile|bar|]   _RelFile "bar"
                 ]
+
+------------------------------------------------------------
+
+{- | Class of things that are guaranteed convertable to an FPath (but that an
+     FPath might or might not be able to convert to). -}
+class (Printable α, AsFilePath α) ⇒ FPathAs α where
+  _FPath ∷ Prism' FPath α
+
+instance FPathAs FPath where
+  _FPath = id
+
+instance FPathAs AbsDir where
+  _FPath = _AbsDir
+
+instance FPathAs RelDir where
+  _FPath = _RelDir
+
+instance FPathAs AbsFile where
+  _FPath = _AbsFile
+
+instance FPathAs RelFile where
+  _FPath = _RelFile
+
+instance FPathAs Dir where
+  _FPath = _Dir
+
+instance FPathAs File where
+  _FPath = _File
+
+instance FPathAs Rel where
+  _FPath = _Rel
+
+instance FPathAs Abs where
+  _FPath = _Abs
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

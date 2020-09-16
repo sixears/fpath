@@ -146,6 +146,7 @@ import qualified  Text.Printer  as  P
 
 import FPath.AbsDir            ( AbsDir, absdir, root )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathComponentError
@@ -155,7 +156,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathNonAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
-import FPath.FileLike          ( FileLike( dirfile ) )
+import FPath.FileLike          ( FileLike( dirfile ), IsFile )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -168,6 +169,8 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 {- | an absolute file -}
 data AbsFile = AbsFile AbsDir PathComponent
   deriving (Eq, Lift, Show)
+
+instance IsFile AbsFile
 
 type instance Element AbsFile = PathComponent
 
@@ -266,6 +269,9 @@ instance Printable AbsFile where
 
 instance AsFilePath AbsFile where
   filepath = prism' toString fromString
+
+instance AsFilePath' AbsFile where
+  filepath' = filepath
 
 ----------------------------------------
 

@@ -146,6 +146,7 @@ import qualified  Text.Printer  as  P
 
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
@@ -154,7 +155,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
-import FPath.FileLike          ( FileLike( dirfile ) )
+import FPath.FileLike          ( FileLike( dirfile ), IsFile )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -167,6 +168,8 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 {- | a relative file -}
 data RelFile = RelFile RelDir PathComponent
   deriving (Eq, Lift, Show)
+
+instance IsFile RelFile
 
 type instance Element RelFile = PathComponent
 
@@ -265,6 +268,9 @@ instance Printable RelFile where
 
 instance AsFilePath RelFile where
   filepath = prism' toString fromString
+
+instance AsFilePath' RelFile where
+  filepath' = filepath
 
 ----------------------------------------
 

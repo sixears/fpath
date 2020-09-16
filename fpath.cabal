@@ -7,7 +7,7 @@ name:                fpath
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             1.0.5.3
+version:             1.0.6.0
 
 -- A short (one-line) description of the package.
 synopsis:            Strongly-type file paths
@@ -52,9 +52,11 @@ library
                  , FPath.AbsFile, FPath.T.FPath.AbsFile
                  , FPath.AppendableFPath
                  , FPath.AsFilePath
+                 , FPath.AsFilePath'
                  , FPath.Basename
                  , FPath.Dirname
                  , FPath.Dir
+                 , FPath.DirLike
                  , FPath.DirType
                  , FPath.File
                  , FPath.FileLike
@@ -88,7 +90,7 @@ library
                , data-textual, directory, exceptions, filepath, genvalidity
                , genvalidity-bytestring, genvalidity-property, genvalidity-text
                , lens, mono-traversable, mtl, optparse-applicative, parsers
-               , QuickCheck, template-haskell, tasty, tasty-hunit
+               , QuickCheck, safe, template-haskell, tasty, tasty-hunit
                , tasty-quickcheck, temporary, text, text-printer
                , th-lift-instances, unix, validity
 
