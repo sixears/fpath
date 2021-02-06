@@ -1,3 +1,7 @@
+1.0.7.0 2020-02-06
+==================
+- add FPath.Error.FPathError.fpathIOErrorEither
+
 1.0.6.0 2020-09-16
 ==================
 - add AsDir, AsFile, AsFilePath', DirAs, FPathAs, IsDir classes

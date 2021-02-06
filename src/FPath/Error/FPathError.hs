@@ -16,7 +16,7 @@ module FPath.Error.FPathError
   , __FPathAbsE__, __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__
   , __FPathNotADirE__, __FPathNotAFileE__, __FPathNotAPrefixError__
   , __FPathRootDirE__
-  , mapTypeRepE, tmap, mapTextE
+  , fpathIOErrorEither, mapTypeRepE, tmap, mapTextE
   )
 where
 
@@ -24,7 +24,7 @@ where
 
 import Control.Exception  ( Exception )
 import Control.Monad      ( return )
-import Data.Either        ( Either, either )
+import Data.Either        ( Either( Left, Right ), either )
 import Data.Eq            ( Eq )
 import Data.Function      ( ($), id )
 import Data.Maybe         ( Maybe( Just, Nothing ) )
@@ -261,5 +261,9 @@ instance AsIOError FPathIOError where
 instance Printable FPathIOError where
   print (FPIO_PATH_ERROR e) = print e
   print (FPIO_IO_ERROR   e) = print e
+
+fpathIOErrorEither ∷ FPathIOError → Either IOError FPathError
+fpathIOErrorEither (FPIO_IO_ERROR   e) = Left e
+fpathIOErrorEither (FPIO_PATH_ERROR e) = Right e
 
 -- that's all, folks! ----------------------------------------------------------
