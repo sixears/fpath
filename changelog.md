@@ -1,4 +1,12 @@
-1.0.7.0 2020-02-06
+1.0.8.1 2021-02-11
+==================
+- deprecate `IsFile` in favour of `FileAs`
+
+1.0.8.0 2021-02-10
+==================
+- add FileAs class
+
+1.0.7.0 2021-02-06
 ==================
 - add FPath.Error.FPathError.fpathIOErrorEither
 

@@ -9,7 +9,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.File
-  ( AsFile( _File ), File(..)
+  ( AsFile( _File ), File(..), FileAs( _File_ )
 
   , tests
   )
@@ -19,7 +19,7 @@ where
 
 import Data.Bifunctor  ( first )
 import Data.Bool       ( Bool( False, True ) )
-import Data.Either     ( Either( Right ) )
+import Data.Either     ( Either( Left, Right ) )
 import Data.Eq         ( Eq )
 import Data.Function   ( ($), (&), const, id )
 import Data.Maybe      ( Maybe( Just, Nothing ) )
@@ -42,7 +42,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 import Control.Lens.Iso     ( Iso', iso )
 import Control.Lens.Lens    ( lens )
-import Control.Lens.Prism   ( Prism', prism' )
+import Control.Lens.Prism   ( Prism', prism, prism' )
 
 -- more-unicode-symbols ----------------
 
@@ -118,6 +118,17 @@ class AsFile α where
 
 instance AsFile File where
   _File = id
+
+--------------------
+
+class FileAs γ where
+  _File_ ∷ Prism' File γ
+
+instance FileAs File    where
+  _File_ = id
+
+instance FileAs AbsFile where
+  _File_ = prism FileA (\ case (FileA a) → Right a; f → Left f)
 
 --------------------
 

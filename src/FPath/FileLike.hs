@@ -119,6 +119,7 @@ instance FileLike PathComponent where
 
 {- | Just a marker class for types that represent a file, e.g., AbsFile,
      RelFile, File. -}
+{-# DEPRECATED IsFile "use `FileAs` instead" #-}
 class (Printable α, AsFilePath α, AsFilePath (DirType α), IsDir (DirType α),
        HasParent α, HasParentMay α) ⇒ IsFile α
 
