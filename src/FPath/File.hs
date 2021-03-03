@@ -94,7 +94,7 @@ import FPath.Dir               ( Dir( DirA, DirR ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
-                                         , splitExt, updateExt ), IsFile )
+                                         , splitExt, updateExt ) )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -108,8 +108,6 @@ import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 
 data File = FileA AbsFile | FileR RelFile
   deriving (Eq, Show)
-
-instance IsFile File
 
 --------------------
 

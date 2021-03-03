@@ -10,7 +10,6 @@
 module FPath.FileLike
   ( FileLike( (⊙), (<.>)
             , addExt, dir, dirfile, ext, file, split, splitExt, updateExt )
-  , IsFile
   )
 where
 
@@ -43,10 +42,7 @@ import Data.MoreUnicode.Lens       ( (⊣), (⫣) )
 
 import qualified FPath.PathComponent  as  PathComponent
 
-import FPath.AsFilePath     ( AsFilePath )
-import FPath.DirLike        ( IsDir )
 import FPath.DirType        ( DirTypeC( DirType ) )
-import FPath.Parent         ( HasParent, HasParentMay )
 import FPath.PathComponent  ( PathComponent )
 
 --------------------------------------------------------------------------------
@@ -116,11 +112,5 @@ instance FileLike PathComponent where
 
   updateExt ∷ (PathComponent → PathComponent) → PathComponent → PathComponent
   updateExt = PathComponent.updateExt
-
-{- | Just a marker class for types that represent a file, e.g., AbsFile,
-     RelFile, File. -}
-{-# DEPRECATED IsFile "use `FileAs` instead" #-}
-class (Printable α, AsFilePath α, AsFilePath (DirType α), IsDir (DirType α),
-       HasParent α, HasParentMay α) ⇒ IsFile α
 
 -- that's all, folks! ----------------------------------------------------------

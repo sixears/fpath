@@ -155,7 +155,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
-import FPath.FileLike          ( FileLike( dirfile ), IsFile )
+import FPath.FileLike          ( FileLike( dirfile ) )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -168,8 +168,6 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 {- | a relative file -}
 data RelFile = RelFile RelDir PathComponent
   deriving (Eq, Lift, Show)
-
-instance IsFile RelFile
 
 type instance Element RelFile = PathComponent
 

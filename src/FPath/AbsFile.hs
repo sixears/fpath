@@ -156,7 +156,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , __FPathNonAbsE__, __FPathNotAFileE__
                                , mapTypeRepE, mapTextE
                                )
-import FPath.FileLike          ( FileLike( dirfile ), IsFile )
+import FPath.FileLike          ( FileLike( dirfile ) )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -169,8 +169,6 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 {- | an absolute file -}
 data AbsFile = AbsFile AbsDir PathComponent
   deriving (Eq, Lift, Show)
-
-instance IsFile AbsFile
 
 type instance Element AbsFile = PathComponent
 

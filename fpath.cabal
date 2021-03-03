@@ -7,7 +7,7 @@ name:                fpath
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             1.0.8.1
+version:             1.1.0.0
 
 -- A short (one-line) description of the package.
 synopsis:            Strongly-type file paths
@@ -56,7 +56,6 @@ library
                  , FPath.Basename
                  , FPath.Dirname
                  , FPath.Dir
-                 , FPath.DirLike
                  , FPath.DirType
                  , FPath.File
                  , FPath.FileLike
@@ -94,13 +93,13 @@ library
                , tasty-quickcheck, temporary, text, text-printer
                , th-lift-instances, unix, validity
 
-               , exited               >= 1.0.2.0
-               , monaderror-io        >= 1.0.3.0
-               , more-unicode         >= 0.0.9.0
+               , exited               >= 1.0.3.0
+               , monaderror-io        >= 1.0.5.0
+               , more-unicode         >= 0.0.13.0
                , non-empty-containers >= 1.4.0.0
                , quasiquoting         >= 1.0.0.0
                , tasty-plus           >= 1.4.0.0
-               , tfmt                 >= 0.2.2.0
+               , tfmt                 >= 0.2.3.0
   -- Directories containing source files.
   hs-source-dirs:      src
 

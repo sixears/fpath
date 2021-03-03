@@ -1,3 +1,8 @@
+1.1.0.0 2021-03-03
+==================
+- _Dir' -> _Dir_
+- Begone, IsFile & IsDir classes (and DirLike.hs)
+
 1.0.8.1 2021-02-11
 ==================
 - deprecate `IsFile` in favour of `FileAs`

@@ -9,7 +9,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.Dir
-  ( AsDir( _Dir ), Dir(..), DirAs( _Dir' )
+  ( AsDir( _Dir ), Dir(..), DirAs( _Dir_ )
 
   , tests
   )
@@ -87,7 +87,6 @@ import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
-import FPath.DirLike           ( IsDir )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parent            ( HasParentMay( parentMay, parents, parents' ) )
@@ -105,18 +104,14 @@ data Dir = DirA AbsDir | DirR RelDir
 
 --------------------
 
-instance IsDir Dir
-
---------------------
-
 class (Printable α, AsFilePath α) ⇒ DirAs α where
-  _Dir' ∷ Prism' Dir α
+  _Dir_ ∷ Prism' Dir α
 instance DirAs Dir where
-  _Dir' = id
+  _Dir_ = id
 instance DirAs AbsDir where
-  _Dir' = _AbsDir
+  _Dir_ = _AbsDir
 instance DirAs RelDir where
-  _Dir' = _RelDir
+  _Dir_ = _RelDir
 
 --------------------
 
