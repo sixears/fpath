@@ -54,6 +54,7 @@ import Data.MoreUnicode.Semigroup  ( (◇) )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Lens         ( (⫥), (⩼) )
 
 -- mtl ---------------------------------
@@ -91,6 +92,7 @@ import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
 import FPath.Dir               ( Dir( DirA, DirR ) )
+import FPath.Dirname           ( HasDirname( dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
@@ -228,6 +230,90 @@ updateBasenameTests =
             , test rf2f (FileR [relfile|r/P.X|])
             , test rf3f (FileR [relfile|p/q/R.MP3|])
             , test rf4f (FileR [relfile|.X|])
+            ]
+
+--------------------
+
+instance HasDirname File where
+  dirname = lens ( \ case (FileA fn) → DirA $ fn ⊣ dirname
+                          (FileR fn) → DirR $ fn ⊣ dirname; )
+                 ( \ f d → case (f,d) of
+                             ((FileA fn),(DirA dn)) → FileA $ fn ⅋ dirname ⊢ dn
+                             ((FileA _),(DirR dn)) → FileR $ dn ⫻ basename f
+                             ((FileR fn),(DirR dn)) → FileR $ fn ⅋ dirname ⊢ dn
+                             ((FileR _),(DirA dn)) → FileA $ dn ⫻ basename f
+                 )
+
+----------
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "af1f" $ DirA [absdir|/|]     ≟ af1f ⊣ dirname
+            , testCase "af2f" $ DirA [absdir|/r/|]   ≟ af2f ⊣ dirname
+            , testCase "af3f" $ DirA [absdir|/p/q/|] ≟ af3f ⊣ dirname
+            , testCase "af4f" $ DirA [absdir|/|]     ≟ af4f ⊣ dirname
+
+            , testCase "rf1f" $ DirR [reldir|./|]   ≟ rf1f ⊣ dirname
+            , testCase "rf2f" $ DirR [reldir|r/|]   ≟ rf2f ⊣ dirname
+            , testCase "rf3f" $ DirR [reldir|p/q/|] ≟ rf3f ⊣ dirname
+            , testCase "rf4f" $ DirR [reldir|./|]   ≟ rf4f ⊣ dirname
+
+            , testCase "af1f←/" $
+                FileA [absfile|/r.e|]     ≟ af1f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "af1f←/p/" $
+                FileA [absfile|/p/r.e|]   ≟ af1f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "af1f←/p/q/" $
+                FileA [absfile|/p/q/r.e|] ≟ af1f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "af1f←./" $
+                FileR [relfile|r.e|]     ≟ af1f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "af1f←p/" $
+                FileR [relfile|p/r.e|]   ≟ af1f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "af1f←p/q/" $
+                FileR [relfile|p/q/r.e|] ≟ af1f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "af2f←/" $
+                FileA [absfile|/p.x|]     ≟ af2f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "af2f←/p/" $
+                FileA [absfile|/p/p.x|]   ≟ af2f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "af2f←/p/q/" $
+                FileA [absfile|/p/q/p.x|] ≟ af2f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "af2f←./" $
+                FileR [relfile|p.x|]     ≟ af2f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "af2f←p/" $
+                FileR [relfile|p/p.x|]   ≟ af2f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "af2f←p/q/" $
+                FileR [relfile|p/q/p.x|] ≟ af2f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "rf1f←/" $
+                FileA [absfile|/r.e|]     ≟ rf1f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "rf1f←/p/" $
+                FileA [absfile|/p/r.e|]   ≟ rf1f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "rf1f←/p/q/" $
+                FileA [absfile|/p/q/r.e|] ≟ rf1f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "rf1f←./" $
+                FileR [relfile|r.e|]     ≟ rf1f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "rf1f←p/" $
+                FileR [relfile|p/r.e|]   ≟ rf1f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "rf1f←p/q/" $
+                FileR [relfile|p/q/r.e|] ≟ rf1f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "rf2f←/" $
+                FileA [absfile|/p.x|]     ≟ rf2f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "rf2f←/p/" $
+                FileA [absfile|/p/p.x|]   ≟ rf2f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "rf2f←/p/q/" $
+                FileA [absfile|/p/q/p.x|] ≟ rf2f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "rf2f←./" $
+                FileR [relfile|p.x|]     ≟ rf2f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "rf2f←p/" $
+                FileR [relfile|p/p.x|]   ≟ rf2f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "rf2f←p/q/" $
+                FileR [relfile|p/q/p.x|] ≟ rf2f ⅋ dirname ⊢ DirR [reldir|p/q/|]
             ]
 
 --------------------
@@ -645,7 +731,7 @@ tests ∷ TestTree
 tests = testGroup "FPath.File" [ basenameTests, asFilePath'Tests, parentTests
                                , parentMayTests, parentsTests
                                , parseFileTests, fileLikeTests, filepathTests
-                               , updateBasenameTests
+                               , updateBasenameTests, dirnameTests
                                ]
 
 --------------------

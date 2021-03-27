@@ -60,7 +60,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( iso )
-import Control.Lens.Lens   ( lens )
+import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
 -- monaderror-io -----------------------
@@ -78,8 +78,9 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⋫) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens         ( (⊩) )
+import Data.MoreUnicode.Lens         ( (⊣), (⊩), (⊢) )
 import Data.MoreUnicode.Monoid       ( ф )
 import Data.MoreUnicode.Natural      ( ℕ )
 
@@ -157,6 +158,7 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , mapTypeRepE, mapTextE
                                )
 import FPath.FileLike          ( FileLike( dirfile ) )
+import FPath.Dirname           ( HasDirname( dirname ) )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -317,8 +319,8 @@ instance Basename AbsFile where
   updateBasename ∷ (PathComponent → PathComponent) → AbsFile → AbsFile
   updateBasename f (AbsFile d n) = AbsFile d (f n)
 
-absFileBasenameTests ∷ TestTree
-absFileBasenameTests =
+basenameTests ∷ TestTree
+basenameTests =
   testGroup "basename"
             [ testCase "af1" $ [relfile|r.e|]  ≟ basename af1
 
@@ -332,6 +334,29 @@ absFileBasenameTests =
                 ≟ updateBasename (const [pc|r|]) af3
             , testCase "af4 -> af1"   $
                 af1 ≟ updateBasename (const [pc|r.e|]) af4
+            ]
+
+----------------------------------------
+
+instance HasDirname AbsFile where
+  dirname ∷ Lens' AbsFile AbsDir
+  dirname = lens (\ (AbsFile d _) → d) (\ (AbsFile _ f) d → AbsFile d f)
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "af1" $ [absdir|/|]     ≟ af1 ⊣ dirname
+            , testCase "af2" $ [absdir|/r/|]   ≟ af2 ⊣ dirname
+            , testCase "af3" $ [absdir|/p/q/|] ≟ af3 ⊣ dirname
+            , testCase "af4" $ [absdir|/|]     ≟ af4 ⊣ dirname
+
+            , testCase "af1" $ af1 ≟ af1 ⅋ dirname ⊢ [absdir|/|]
+            , testCase "af1 ← /r/" $
+                fromSeqNE ([pc|r|]⋖[[pc|r.e|]]) ≟ af1 ⅋ dirname ⊢ [absdir|/r/|]
+            , testCase "af3 ← /" $
+                fromSeqNE ([pc|r.mp3|]⋖[]) ≟ af3 ⅋ dirname ⊢ [absdir|/|]
+            , testCase "af3 ← /r/" $
+                fromSeqNE ([pc|r|]⋖[[pc|r.mp3|]]) ≟ af3 ⅋ dirname ⊢ [absdir|/r/|]
             ]
 
 ------------------------------------------------------------
@@ -395,7 +420,7 @@ af4 = fromSeqNE $ pure [pc|.x|]
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.AbsFile" [ absFileBasenameTests, parentsTests ]
+tests = testGroup "FPath.AbsFile" [ basenameTests, dirnameTests, parentsTests ]
                 
 --------------------
 

@@ -60,7 +60,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 import Control.Lens.Cons    ( unsnoc )
 import Control.Lens.Iso     ( iso )
-import Control.Lens.Lens    ( lens )
+import Control.Lens.Lens    ( Lens', lens )
 import Control.Lens.Prism   ( Prism', prism' )
 
 -- monaderror-io -----------------------
@@ -77,10 +77,11 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor  ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens     ( (⊩) )
-import Data.MoreUnicode.Monoid   ( ф )
-import Data.MoreUnicode.Natural  ( ℕ )
+import Data.MoreUnicode.Function  ( (⅋) )
+import Data.MoreUnicode.Functor   ( (⊳), (⩺) )
+import Data.MoreUnicode.Lens      ( (⊣), (⊩), (⊢) )
+import Data.MoreUnicode.Monoid    ( ф )
+import Data.MoreUnicode.Natural   ( ℕ )
 
 -- mtl ---------------------------------
 
@@ -147,6 +148,7 @@ import qualified  Text.Printer  as  P
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
+import FPath.Dirname           ( HasDirname( dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
@@ -316,8 +318,8 @@ instance Basename RelFile where
   updateBasename ∷ (PathComponent → PathComponent) → RelFile → RelFile
   updateBasename f (RelFile d n) = RelFile d (f n)
 
-relFileBasenameTests ∷ TestTree
-relFileBasenameTests =
+basenameTests ∷ TestTree
+basenameTests =
   testGroup "basename"
             [ testCase "rf1" $ fromSeqNE (pure [pc|r.e|])  ≟ basename rf1
 
@@ -331,6 +333,30 @@ relFileBasenameTests =
                 ≟ updateBasename (const [pc|r|]) rf3
             , testCase "rf4 -> rf1"   $
                 rf1 ≟ updateBasename (const [pc|r.e|]) rf4
+            ]
+
+
+----------------------------------------
+
+instance HasDirname RelFile where
+  dirname ∷ Lens' RelFile RelDir
+  dirname = lens (\ (RelFile d _) → d) (\ (RelFile _ f) d → RelFile d f)
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "rf1" $ [reldir|./|]     ≟ rf1 ⊣ dirname
+            , testCase "rf2" $ [reldir|r/|]     ≟ rf2 ⊣ dirname
+            , testCase "rf3" $ [reldir|p/q/|]   ≟ rf3 ⊣ dirname
+            , testCase "rf4" $ [reldir|./|]     ≟ rf4 ⊣ dirname
+
+            , testCase "rf1" $ rf1                ≟ rf1 ⅋ dirname ⊢ [reldir|./|]
+            , testCase "rf1 ← /r/" $
+                fromSeqNE ([pc|r|]⋖[[pc|r.e|]])   ≟ rf1 ⅋ dirname ⊢ [reldir|r/|]
+            , testCase "rf3 ← /" $
+                fromSeqNE ([pc|r.mp3|]⋖[])        ≟ rf3 ⅋ dirname ⊢ [reldir|./|]
+            , testCase "rf3 ← /r/" $
+                fromSeqNE ([pc|r|]⋖[[pc|r.mp3|]]) ≟ rf3 ⅋ dirname ⊢ [reldir|r/|]
             ]
 
 ------------------------------------------------------------
@@ -392,7 +418,7 @@ rf4 = fromSeqNE $ pure [pc|.x|]
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.RelFile" [ relFileBasenameTests, parentsTests ]
+tests = testGroup "FPath.RelFile" [ basenameTests, dirnameTests, parentsTests ]
                 
 --------------------
 

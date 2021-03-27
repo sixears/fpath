@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
@@ -35,13 +36,15 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 -- lens --------------------------------
 
+import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⫥), (⩼) )
+import Data.MoreUnicode.Lens         ( (⊣), (⫥), (⩼), (⊢) )
 import Data.MoreUnicode.Natural      ( ℕ )
 
 -- mtl ---------------------------------
@@ -73,11 +76,16 @@ import Data.Text  ( last, null )
 ------------------------------------------------------------
 
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.Basename          ( Basename( basename, updateBasename) )
+import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
+import FPath.PathComponent     ( PathComponent, toUpper )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile
                                , relfile )
+import FPath.RelType           ( RelTypeC( RelType ) )
 import FPath.T.FPath.TestData  ( r0, r1, r2, r3, rf1, rf2, rf3, rf4 )
 
 --------------------------------------------------------------------------------
@@ -120,25 +128,25 @@ filepathTests =
   let nothin' = Nothing ∷ Maybe Rel
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "r0" $ "./"     ≟ RelD r0 ⫥ filepath
-            , testCase "r1" $ "r/"     ≟ RelD r1 ⫥ filepath
-            , testCase "r2" $ "r/p/"   ≟ RelD r2 ⫥ filepath
-            , testCase "r3" $ "p/q/r/" ≟ RelD r3 ⫥ filepath
+            [ testCase "r0d" $ "./"     ≟ r0d ⫥ filepath
+            , testCase "r1d" $ "r/"     ≟ r1d ⫥ filepath
+            , testCase "r2d" $ "r/p/"   ≟ r2d ⫥ filepath
+            , testCase "r3d" $ "p/q/r/" ≟ r3d ⫥ filepath
 
-            , testCase "r0" $ Just (RelD r0) @=? "./"     ⩼ filepath
-            , testCase "r1" $ Just (RelD r1) @=? "r/"     ⩼ filepath
-            , testCase "r2" $ Just (RelD r2) @=? "r/p/"   ⩼ filepath
-            , testCase "r3" $ Just (RelD r3) @=? "p/q/r/" ⩼ filepath
+            , testCase "r0" $ Just r0d @=? "./"     ⩼ filepath
+            , testCase "r1" $ Just r1d @=? "r/"     ⩼ filepath
+            , testCase "r2" $ Just r2d @=? "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just r3d @=? "p/q/r/" ⩼ filepath
 
-            , testCase "rf1" $ "r.e"       ≟ RelF rf1 ⫥ filepath
-            , testCase "rf2" $ "r/p.x"     ≟ RelF rf2 ⫥ filepath
-            , testCase "rf3" $ "p/q/r.mp3" ≟ RelF rf3 ⫥ filepath
-            , testCase "rf4" $ ".x"        ≟ RelF rf4 ⫥ filepath
+            , testCase "rf1" $ "r.e"       ≟ r1f ⫥ filepath
+            , testCase "rf2" $ "r/p.x"     ≟ r2f ⫥ filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ r3f ⫥ filepath
+            , testCase "rf4" $ ".x"        ≟ r4f ⫥ filepath
 
-            , testCase "rf1" $ Just (RelF rf1) @=? "r.e"       ⩼ filepath
-            , testCase "rf2" $ Just (RelF rf2) @=? "r/p.x"     ⩼ filepath
-            , testCase "rf3" $ Just (RelF rf3) @=? "p/q/r.mp3" ⩼ filepath
-            , testCase "rf4" $ Just (RelF rf4) @=? ".x"        ⩼ filepath
+            , testCase "rf1" $ Just r1f @=? "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just r2f @=? "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just r3f @=? "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just r4f @=? ".x"        ⩼ filepath
 
             , fail "/etc"
             , fail "/etc/pam.d/"
@@ -173,14 +181,173 @@ parseRelTests =
                 , success [relfile|etc/group|] _RelFile "etc/group"
                 ]
 
+--------------------
+
+instance RelTypeC Rel where
+  type RelType Rel = Rel
+
+--------------------
+
+instance DirTypeC Rel where
+  type DirType Rel = RelDir
+
+--------------------
+
+instance Basename Rel where
+  basename ∷ Rel → Rel
+  basename (RelD d) = RelD (basename d)
+  basename (RelF f) = RelF (basename f)
+
+  updateBasename ∷ (PathComponent → PathComponent) → Rel → Rel
+  updateBasename g (RelD d) = RelD (updateBasename g d)
+  updateBasename g (RelF f) = RelF (updateBasename g f)
+
+----------
+
+basenameTests ∷ TestTree
+basenameTests =
+  testGroup "basename"
+            [ 
+              testCase "r0d" $ r0d                   ≟ basename r0d
+            , testCase "r1d" $ r1d                   ≟ basename r1d
+            , testCase "r2d" $ RelD [reldir|p/|]     ≟ basename r2d
+            , testCase "r3d" $ r1d                   ≟ basename r3d
+            , testCase "r1f" $ r1f                   ≟ basename r1f
+            , testCase "r2f" $ RelF [relfile|p.x|]   ≟ basename r2f
+            , testCase "r3f" $ RelF [relfile|r.mp3|] ≟ basename r3f
+            , testCase "r4f" $ r4f                   ≟ basename r4f
+            ]
+
+----------
+
+updateBasenameTests ∷ TestTree
+updateBasenameTests =
+  let
+      test input expect =
+        testCase (toString input) $ expect ≟ updateBasename toUpper input
+   in testGroup "updateBasename"
+            [ test r0d r0d
+            , test r1d (RelD [reldir|R/|])
+            , test r2d (RelD [reldir|r/P/|])
+            , test r3d (RelD [reldir|p/q/R/|])
+            , test r1f (RelF [relfile|R.E|])
+            , test r2f (RelF [relfile|r/P.X|])
+            , test r3f (RelF [relfile|p/q/R.MP3|])
+            , test r4f (RelF [relfile|.X|])
+            ]
+
+--------------------
+
+instance HasDirname Rel where
+  dirname ∷ Lens' Rel RelDir
+  dirname = lens (\ case (RelD d) → d ⊣ dirname
+                         (RelF f) → f ⊣ dirname)
+                 (\ r rd → case (r,rd) of
+                             (RelD d, _) → RelD $ d ⅋ dirname ⊢ rd
+                             (RelF f, _) → RelF $ f ⅋ dirname ⊢ rd
+                 )
+
+----------
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "r0d" $ [reldir|./|]   ≟ r0d ⊣ dirname
+            , testCase "r1d" $ [reldir|./|]   ≟ r1d ⊣ dirname
+            , testCase "r2d" $ [reldir|r/|]   ≟ r2d ⊣ dirname
+            , testCase "r3d" $ [reldir|p/q/|] ≟ r3d ⊣ dirname
+
+            , testCase "r1f" $ [reldir|./|]   ≟ r1f ⊣ dirname
+            , testCase "r2f" $ [reldir|r/|]   ≟ r2f ⊣ dirname
+            , testCase "r3f" $ [reldir|p/q/|] ≟ r3f ⊣ dirname
+            , testCase "r4f" $ [reldir|./|]   ≟ r4f ⊣ dirname
+
+            , testCase "r0d←./" $
+                RelD [reldir|./|]   ≟ r0d ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r0d←/p/" $
+                RelD [reldir|p/|]   ≟ r0d ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r0d←/p/q/" $
+                RelD [reldir|p/q/|] ≟ r0d ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r1f←./" $
+                RelF [relfile|r.e|]     ≟ r1f ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r1f←p/" $
+                RelF [relfile|p/r.e|]   ≟ r1f ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r1f←p/q/" $
+                RelF [relfile|p/q/r.e|] ≟ r1f ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r1d←./" $
+                RelD [reldir|r/|]     ≟ r1d ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r1d←p/" $
+                RelD [reldir|p/r/|]   ≟ r1d ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r1d←p/q/" $
+                RelD [reldir|p/q/r/|] ≟ r1d ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r2f←./" $
+                RelF [relfile|p.x|]     ≟ r2f ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r2f←p/" $
+                RelF [relfile|p/p.x|]   ≟ r2f ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r2f←p/q/" $
+                RelF [relfile|p/q/p.x|] ≟ r2f ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r2d←./" $
+                RelD [reldir|p/|]   ≟ r2d ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r2d←p/" $
+                RelD [reldir|p/p/|]   ≟ r2d ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r2d←p/q/" $
+                RelD [reldir|p/q/p/|] ≟ r2d ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r3f←./" $
+                RelF [relfile|r.mp3|]     ≟ r3f ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r3f←p/" $
+                RelF [relfile|p/r.mp3|]   ≟ r3f ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r3f←p/q/" $
+                RelF [relfile|p/q/r.mp3|] ≟ r3f ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r3d←./" $
+                RelD [reldir|r/|]     ≟ r3d ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r3d←p/" $
+                RelD [reldir|p/r/|]   ≟ r3d ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r3d←p/q/" $
+                RelD [reldir|p/q/r/|] ≟ r3d ⅋ dirname ⊢ [reldir|p/q/|]
+
+            , testCase "r4f←./" $
+                RelF [relfile|.x|]     ≟ r4f ⅋ dirname ⊢ [reldir|./|]
+            , testCase "r4f←p/" $
+                RelF [relfile|p/.x|]   ≟ r4f ⅋ dirname ⊢ [reldir|p/|]
+            , testCase "r4f←p/q/" $
+                RelF [relfile|p/q/.x|] ≟ r4f ⅋ dirname ⊢ [reldir|p/q/|]
+            ]
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --
 --------------------------------------------------------------------------------
 
+-- test data ---------------------------
+
+r0d ∷ Rel
+r0d = RelD r0
+r1d ∷ Rel
+r1d = RelD r1
+r2d ∷ Rel
+r2d = RelD r2
+r3d ∷ Rel
+r3d = RelD r3
+
+r1f ∷ Rel
+r1f = RelF rf1
+r2f ∷ Rel
+r2f = RelF rf2
+r3f ∷ Rel
+r3f = RelF rf3
+r4f ∷ Rel
+r4f = RelF rf4
+
+----------------------------------------
+
 tests ∷ TestTree
-tests = testGroup "Rel" [ filepathTests, parseRelTests ]
-                
+tests = testGroup "Rel" [ basenameTests, updateBasenameTests, dirnameTests
+                        , filepathTests, parseRelTests ]
 
 ----------------------------------------
 

@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
@@ -36,13 +37,15 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 -- lens --------------------------------
 
+import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⩼), (⫥) )
+import Data.MoreUnicode.Lens         ( (⊣), (⊢), (⩼), (⫥) )
 import Data.MoreUnicode.Natural      ( ℕ )
 
 -- mtl ---------------------------------
@@ -81,14 +84,20 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
                                , absfile )
+import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.Basename          ( Basename( basename, updateBasename) )
 import FPath.Dir               ( AsDir( _Dir ), Dir( DirA, DirR ) )
+import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.File              ( AsFile( _File ), File( FileA, FileR ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
+import FPath.PathComponent     ( PathComponent, toUpper )
 import FPath.Rel               ( AsRel(_Rel ), Rel( RelD, RelF ) )
 import FPath.RelDir            ( AsRelDir( _RelDir ), RelDir, reldir )
 import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile, relfile )
+import FPath.RelType           ( RelTypeC( RelType ) )
 import FPath.T.FPath.TestData  ( af1, af2, af3, af4, etc, pamd
                                , r0, r1, r2, r3, rf1, rf2, rf3, rf4, root, wgm )
 
@@ -195,41 +204,41 @@ filepathTests =
   let nothin' = Nothing ∷ Maybe FPath
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "r0" $ "./"     ≟ FRelD r0 ⫥ filepath
-            , testCase "r1" $ "r/"     ≟ FRelD r1 ⫥ filepath
-            , testCase "r2" $ "r/p/"   ≟ FRelD r2 ⫥ filepath
-            , testCase "r3" $ "p/q/r/" ≟ FRelD r3 ⫥ filepath
+            [ testCase "r0" $ "./"     ≟ r0d ⫥ filepath
+            , testCase "r1" $ "r/"     ≟ r1d ⫥ filepath
+            , testCase "r2" $ "r/p/"   ≟ r2d ⫥ filepath
+            , testCase "r3" $ "p/q/r/" ≟ r3d ⫥ filepath
 
-            , testCase "r0" $ Just (FRelD r0) @=? "./"     ⩼ filepath
-            , testCase "r1" $ Just (FRelD r1) @=? "r/"     ⩼ filepath
-            , testCase "r2" $ Just (FRelD r2) @=? "r/p/"   ⩼ filepath
-            , testCase "r3" $ Just (FRelD r3) @=? "p/q/r/" ⩼ filepath
+            , testCase "r0" $ Just r0d @=? "./"     ⩼ filepath
+            , testCase "r1" $ Just r1d @=? "r/"     ⩼ filepath
+            , testCase "r2" $ Just r2d @=? "r/p/"   ⩼ filepath
+            , testCase "r3" $ Just r3d @=? "p/q/r/" ⩼ filepath
 
-            , testCase "rf1" $ "r.e"       ≟ FRelF rf1 ⫥ filepath
-            , testCase "rf2" $ "r/p.x"     ≟ FRelF rf2 ⫥ filepath
-            , testCase "rf3" $ "p/q/r.mp3" ≟ FRelF rf3 ⫥ filepath
-            , testCase "rf4" $ ".x"        ≟ FRelF rf4 ⫥ filepath
+            , testCase "rf1" $ "r.e"       ≟ r1f ⫥ filepath
+            , testCase "rf2" $ "r/p.x"     ≟ r2f ⫥ filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ r3f ⫥ filepath
+            , testCase "rf4" $ ".x"        ≟ r4f ⫥ filepath
 
-            , testCase "rf1" $ Just (FRelF rf1) @=? "r.e"       ⩼ filepath
-            , testCase "rf2" $ Just (FRelF rf2) @=? "r/p.x"     ⩼ filepath
-            , testCase "rf3" $ Just (FRelF rf3) @=? "p/q/r.mp3" ⩼ filepath
-            , testCase "rf4" $ Just (FRelF rf4) @=? ".x"        ⩼ filepath
+            , testCase "rf1" $ Just r1f @=? "r.e"       ⩼ filepath
+            , testCase "rf2" $ Just r2f @=? "r/p.x"     ⩼ filepath
+            , testCase "rf3" $ Just r3f @=? "p/q/r.mp3" ⩼ filepath
+            , testCase "rf4" $ Just r4f @=? ".x"        ⩼ filepath
 
-            , testCase "root"  $ "/"             ≟ FAbsD root    ⫥ filepath
-            , testCase "etc"   $ "/etc/"         ≟ FAbsD etc     ⫥ filepath
-            , testCase "pam.d" $ "/etc/pam.d/"   ≟ FAbsD pamd    ⫥ filepath
-            , testCase "wgm"   $ "/w/g/M/"       ≟ FAbsD wgm     ⫥ filepath
+            , testCase "root"  $ "/"             ≟ a0d ⫥ filepath
+            , testCase "etc"   $ "/etc/"         ≟ a1d ⫥ filepath
+            , testCase "pam.d" $ "/etc/pam.d/"   ≟ a2d ⫥ filepath
+            , testCase "wgm"   $ "/w/g/M/"       ≟ a3d ⫥ filepath
             , testCase "/etc/" $ Just (FAbsD etc) @=? "/etc/" ⩼ filepath
 
-            , testCase "af1" $ "/r.e"       ≟ FAbsF af1 ⫥ filepath
-            , testCase "af2" $ "/r/p.x"     ≟ FAbsF af2 ⫥ filepath
-            , testCase "af3" $ "/p/q/r.mp3" ≟ FAbsF af3 ⫥ filepath
-            , testCase "af4" $ "/.x"        ≟ FAbsF af4 ⫥ filepath
+            , testCase "af1" $ "/r.e"       ≟ a1f ⫥ filepath
+            , testCase "af2" $ "/r/p.x"     ≟ a2f ⫥ filepath
+            , testCase "af3" $ "/p/q/r.mp3" ≟ a3f ⫥ filepath
+            , testCase "af4" $ "/.x"        ≟ a4f ⫥ filepath
 
-            , testCase "af1" $ Just (FAbsF af1) @=? "/r.e"       ⩼ filepath
-            , testCase "af2" $ Just (FAbsF af2) @=? "/r/p.x"     ⩼ filepath
-            , testCase "af3" $ Just (FAbsF af3) @=? "/p/q/r.mp3" ⩼ filepath
-            , testCase "af4" $ Just (FAbsF af4) @=? "/.x"        ⩼ filepath
+            , testCase "af1" $ Just a1f @=? "/r.e"       ⩼ filepath
+            , testCase "af2" $ Just a2f @=? "/r/p.x"     ⩼ filepath
+            , testCase "af3" $ Just a3f @=? "/p/q/r.mp3" ⩼ filepath
+            , testCase "af4" $ Just a4f @=? "/.x"        ⩼ filepath
 
             , fail "/etc//pam.d/"
             , fail "\0etc"
@@ -299,12 +308,405 @@ instance FPathAs Rel where
 instance FPathAs Abs where
   _FPath = _Abs
 
+----------------------------------------
+
+instance RelTypeC FPath where
+  type RelType FPath = Rel
+
+--------------------
+
+instance DirTypeC FPath where
+  type DirType FPath = Dir
+
+--------------------
+
+instance Basename FPath where
+  basename ∷ FPath → Rel
+  basename (FAbsD d) = RelD $ basename d
+  basename (FAbsF f) = RelF $ basename f
+  basename (FRelD d) = RelD $ basename d
+  basename (FRelF f) = RelF $ basename f
+
+  updateBasename ∷ (PathComponent → PathComponent) → FPath → FPath
+  updateBasename g (FAbsD d) = FAbsD (updateBasename g d)
+  updateBasename g (FAbsF f) = FAbsF (updateBasename g f)
+  updateBasename g (FRelD d) = FRelD (updateBasename g d)
+  updateBasename g (FRelF f) = FRelF (updateBasename g f)
+
+----------
+
+basenameTests ∷ TestTree
+basenameTests =
+  testGroup "basename"
+            [ testCase "a0d" $ RelD [reldir|./|]     ≟ basename a0d
+            , testCase "a1d" $ RelD [reldir|etc/|]   ≟ basename a1d
+            , testCase "a2d" $ RelD [reldir|pam.d/|] ≟ basename a2d
+            , testCase "a3d" $ RelD [reldir|M/|]     ≟ basename a3d
+            , testCase "a1f" $ RelF [relfile|r.e|]   ≟ basename a1f
+            , testCase "a2f" $ RelF [relfile|p.x|]   ≟ basename a2f
+            , testCase "a3f" $ RelF [relfile|r.mp3|] ≟ basename a3f
+            , testCase "a4f" $ RelF [relfile|.x|]    ≟ basename a4f
+            , testCase "r0d" $ RelD [reldir|./|]     ≟ basename r0d
+            , testCase "r1d" $ RelD [reldir|r/|]     ≟ basename r1d
+            , testCase "r2d" $ RelD [reldir|p/|]     ≟ basename r2d
+            , testCase "r3d" $ RelD [reldir|r/|]     ≟ basename r3d
+            , testCase "r1f" $ RelF [relfile|r.e|]   ≟ basename r1f
+            , testCase "r2f" $ RelF [relfile|p.x|]   ≟ basename r2f
+            , testCase "r3f" $ RelF [relfile|r.mp3|] ≟ basename r3f
+            , testCase "r4f" $ RelF [relfile|.x|]    ≟ basename r4f
+            ]
+----------
+
+updateBasenameTests ∷ TestTree
+updateBasenameTests =
+  let test input expect =
+        testCase (toString input) $ expect ≟ updateBasename toUpper input
+   in testGroup "updateBasename"
+            [ test a0d a0d
+            , test a1d (FAbsD [absdir|/ETC/|])
+            , test a2d (FAbsD [absdir|/etc/PAM.D/|])
+            , test a3d (FAbsD [absdir|/w/g/M/|])
+            , test a1f (FAbsF [absfile|/R.E|])
+            , test a2f (FAbsF [absfile|/r/P.X|])
+            , test a3f (FAbsF [absfile|/p/q/R.MP3|])
+            , test a4f (FAbsF [absfile|/.X|])
+            , test r0d r0d
+            , test r1d (FRelD [reldir|R/|])
+            , test r2d (FRelD [reldir|r/P/|])
+            , test r3d (FRelD [reldir|p/q/R/|])
+            , test r1f (FRelF [relfile|R.E|])
+            , test r2f (FRelF [relfile|r/P.X|])
+            , test r3f (FRelF [relfile|p/q/R.MP3|])
+            , test r4f (FRelF [relfile|.X|])
+            ]
+
+--------------------
+
+instance HasDirname FPath where
+  dirname ∷ Lens' FPath Dir
+  dirname = lens (\ case (FAbsD d) → DirA $ d ⊣ dirname
+                         (FAbsF f) → DirA $ f ⊣ dirname
+                         (FRelD d) → DirR $ d ⊣ dirname
+                         (FRelF f) → DirR $ f ⊣ dirname
+                 )
+                 (\ a d → case (a,d) of
+                             (FAbsD f, DirA n) → FAbsD $ f ⅋ dirname ⊢ n
+                             (FAbsD f, DirR n) → FRelD $ n ⫻ (basename f)
+                             (FAbsF f, DirA n) → FAbsF $ f ⅋ dirname ⊢ n
+                             (FAbsF f, DirR n) → FRelF $ n ⫻ (basename f)
+                             (FRelD f, DirA n) → FAbsD $ n ⫻ (basename f)
+                             (FRelD f, DirR n) → FRelD $ f ⅋ dirname ⊢ n
+                             (FRelF f, DirA n) → FAbsF $ n ⫻ (basename f)
+                             (FRelF f, DirR n) → FRelF $ f ⅋ dirname ⊢ n
+                 )
+
+----------
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "a0d" $ DirA [absdir|/|]     ≟ a0d ⊣ dirname
+            , testCase "a1d" $ DirA [absdir|/|]     ≟ a1d ⊣ dirname
+            , testCase "a2d" $ DirA [absdir|/etc/|] ≟ a2d ⊣ dirname
+            , testCase "a3d" $ DirA [absdir|/w/g/|] ≟ a3d ⊣ dirname
+
+            , testCase "a1f" $ DirA [absdir|/|]     ≟ a1f ⊣ dirname
+            , testCase "a2f" $ DirA [absdir|/r/|]   ≟ a2f ⊣ dirname
+            , testCase "a3f" $ DirA [absdir|/p/q/|] ≟ a3f ⊣ dirname
+            , testCase "a4f" $ DirA [absdir|/|]     ≟ a4f ⊣ dirname
+
+            , testCase "r0d" $ DirR [reldir|./|]   ≟ r0d ⊣ dirname
+            , testCase "r1d" $ DirR [reldir|./|]   ≟ r1d ⊣ dirname
+            , testCase "r2d" $ DirR [reldir|r/|]   ≟ r2d ⊣ dirname
+            , testCase "r3d" $ DirR [reldir|p/q/|] ≟ r3d ⊣ dirname
+
+            , testCase "r1f" $ DirR [reldir|./|]   ≟ r1f ⊣ dirname
+            , testCase "r2f" $ DirR [reldir|r/|]   ≟ r2f ⊣ dirname
+            , testCase "r3f" $ DirR [reldir|p/q/|] ≟ r3f ⊣ dirname
+            , testCase "r4f" $ DirR [reldir|./|]   ≟ r4f ⊣ dirname
+
+            , testCase "a0d←/" $
+                FAbsD [absdir|/|]     ≟ a0d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a0d←/p/" $
+                FAbsD [absdir|/p/|]   ≟ a0d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a0d←/p/q/" $
+                FAbsD [absdir|/p/q/|] ≟ a0d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a0d←./" $
+                FRelD [reldir|./|]   ≟ a0d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a0d←/p/" $
+                FRelD [reldir|p/|]   ≟ a0d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a0d←/p/q/" $
+                FRelD [reldir|p/q/|] ≟ a0d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a1f←./" $
+                FAbsF [absfile|/r.e|]     ≟ a1f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a1f←p/" $
+                FAbsF [absfile|/p/r.e|]   ≟ a1f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a1f←p/q/" $
+                FAbsF [absfile|/p/q/r.e|] ≟ a1f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a1f←./" $
+                FRelF [relfile|r.e|]     ≟ a1f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a1f←p/" $
+                FRelF [relfile|p/r.e|]   ≟ a1f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a1f←p/q/" $
+                FRelF [relfile|p/q/r.e|] ≟ a1f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a1d←/" $
+                FAbsD [absdir|/etc/|]     ≟ a1d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a1d←/p/" $
+                FAbsD [absdir|/p/etc/|]   ≟ a1d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a1d←/p/q/" $
+                FAbsD [absdir|/p/q/etc/|] ≟ a1d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a1d←./" $
+                FRelD [reldir|etc/|]     ≟ a1d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a1d←p/" $
+                FRelD [reldir|p/etc/|]   ≟ a1d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a1d←p/q/" $
+                FRelD [reldir|p/q/etc/|] ≟ a1d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a2f←/" $
+                FAbsF [absfile|/p.x|]     ≟ a2f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a2f←/p/" $
+                FAbsF [absfile|/p/p.x|]   ≟ a2f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a2f←/p/q/" $
+                FAbsF [absfile|/p/q/p.x|] ≟ a2f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a2f←./" $
+                FRelF [relfile|p.x|]     ≟ a2f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a2f←p/" $
+                FRelF [relfile|p/p.x|]   ≟ a2f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a2f←p/q/" $
+                FRelF [relfile|p/q/p.x|] ≟ a2f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a2d←/" $
+                FAbsD [absdir|/pam.d/|]     ≟ a2d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a2d←/p/" $
+                FAbsD [absdir|/p/pam.d/|]   ≟ a2d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a2d←/p/q/" $
+                FAbsD [absdir|/p/q/pam.d/|] ≟ a2d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+            , testCase "a2d←./" $
+                FRelD [reldir|pam.d/|]     ≟ a2d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a2d←p/" $
+                FRelD [reldir|p/pam.d/|]   ≟ a2d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a2d←p/q/" $
+                FRelD [reldir|p/q/pam.d/|] ≟ a2d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a3f←/" $
+                FAbsF [absfile|/r.mp3|]     ≟ a3f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a3f←/p/" $
+                FAbsF [absfile|/p/r.mp3|]   ≟ a3f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a3f←/p/q/" $
+                FAbsF [absfile|/p/q/r.mp3|] ≟ a3f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a3f←./" $
+                FRelF [relfile|r.mp3|]     ≟ a3f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a3f←p/" $
+                FRelF [relfile|p/r.mp3|]   ≟ a3f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a3f←p/q/" $
+                FRelF [relfile|p/q/r.mp3|] ≟ a3f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a3d←/" $
+                FAbsD [absdir|/M/|]     ≟ a3d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a3d←/p/" $
+                FAbsD [absdir|/p/M/|]   ≟ a3d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a3d←/p/q/" $
+                FAbsD [absdir|/p/q/M/|] ≟ a3d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a3d←./" $
+                FRelD [reldir|M/|]     ≟ a3d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a3d←p/" $
+                FRelD [reldir|p/M/|]   ≟ a3d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a3d←p/q/" $
+                FRelD [reldir|p/q/M/|] ≟ a3d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a4f←/" $
+                FAbsF [absfile|/.x|]     ≟ a4f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a4f←/p/" $
+                FAbsF [absfile|/p/.x|]   ≟ a4f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a4f←/p/q/" $
+                FAbsF [absfile|/p/q/.x|] ≟ a4f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a4f←./" $
+                FRelF [relfile|.x|]     ≟ a4f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a4f←p/" $
+                FRelF [relfile|p/.x|]   ≟ a4f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a4f←p/q/" $
+                FRelF [relfile|p/q/.x|] ≟ a4f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r0d←/" $
+                FAbsD [absdir|/|]     ≟ r0d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r0d←/p/" $
+                FAbsD [absdir|/p/|]   ≟ r0d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r0d←/p/q/" $
+                FAbsD [absdir|/p/q/|] ≟ r0d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r0d←./" $
+                FRelD [reldir|./|]   ≟ r0d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r0d←/p/" $
+                FRelD [reldir|p/|]   ≟ r0d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r0d←/p/q/" $
+                FRelD [reldir|p/q/|] ≟ r0d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r1f←./" $
+                FAbsF [absfile|/r.e|]     ≟ r1f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r1f←p/" $
+                FAbsF [absfile|/p/r.e|]   ≟ r1f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r1f←p/q/" $
+                FAbsF [absfile|/p/q/r.e|] ≟ r1f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r1f←./" $
+                FRelF [relfile|r.e|]     ≟ r1f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r1f←p/" $
+                FRelF [relfile|p/r.e|]   ≟ r1f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r1f←p/q/" $
+                FRelF [relfile|p/q/r.e|] ≟ r1f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r1d←/" $
+                FAbsD [absdir|/r/|]     ≟ r1d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r1d←/p/" $
+                FAbsD [absdir|/p/r/|]   ≟ r1d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r1d←/p/q/" $
+                FAbsD [absdir|/p/q/r/|] ≟ r1d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r1d←./" $
+                FRelD [reldir|r/|]     ≟ r1d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r1d←p/" $
+                FRelD [reldir|p/r/|]   ≟ r1d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r1d←p/q/" $
+                FRelD [reldir|p/q/r/|] ≟ r1d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r2f←/" $
+                FAbsF [absfile|/p.x|]     ≟ r2f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r2f←/p/" $
+                FAbsF [absfile|/p/p.x|]   ≟ r2f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r2f←/p/q/" $
+                FAbsF [absfile|/p/q/p.x|] ≟ r2f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r2f←./" $
+                FRelF [relfile|p.x|]     ≟ r2f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r2f←p/" $
+                FRelF [relfile|p/p.x|]   ≟ r2f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r2f←p/q/" $
+                FRelF [relfile|p/q/p.x|] ≟ r2f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r2d←/" $
+                FAbsD [absdir|/p/|]     ≟ r2d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r2d←/p/" $
+                FAbsD [absdir|/p/p/|]   ≟ r2d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r2d←/p/q/" $
+                FAbsD [absdir|/p/q/p/|] ≟ r2d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+            , testCase "r2d←./" $
+                FRelD [reldir|p/|]     ≟ r2d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r2d←p/" $
+                FRelD [reldir|p/p/|]   ≟ r2d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r2d←p/q/" $
+                FRelD [reldir|p/q/p/|] ≟ r2d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r3f←/" $
+                FAbsF [absfile|/r.mp3|]     ≟ r3f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r3f←/p/" $
+                FAbsF [absfile|/p/r.mp3|]   ≟ r3f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r3f←/p/q/" $
+                FAbsF [absfile|/p/q/r.mp3|] ≟ r3f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r3f←./" $
+                FRelF [relfile|r.mp3|]     ≟ r3f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r3f←p/" $
+                FRelF [relfile|p/r.mp3|]   ≟ r3f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r3f←p/q/" $
+                FRelF [relfile|p/q/r.mp3|] ≟ r3f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r3d←/" $
+                FAbsD [absdir|/r/|]     ≟ r3d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r3d←/p/" $
+                FAbsD [absdir|/p/r/|]   ≟ r3d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r3d←/p/q/" $
+                FAbsD [absdir|/p/q/r/|] ≟ r3d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r3d←./" $
+                FRelD [reldir|r/|]     ≟ r3d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r3d←p/" $
+                FRelD [reldir|p/r/|]   ≟ r3d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r3d←p/q/" $
+                FRelD [reldir|p/q/r/|] ≟ r3d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r4f←/" $
+                FAbsF [absfile|/.x|]     ≟ r4f ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r4f←/p/" $
+                FAbsF [absfile|/p/.x|]   ≟ r4f ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r4f←/p/q/" $
+                FAbsF [absfile|/p/q/.x|] ≟ r4f ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r4f←./" $
+                FRelF [relfile|.x|]     ≟ r4f ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r4f←p/" $
+                FRelF [relfile|p/.x|]   ≟ r4f ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r4f←p/q/" $
+                FRelF [relfile|p/q/.x|] ≟ r4f ⅋ dirname ⊢ DirR [reldir|p/q/|]
+            ]
+
 --------------------------------------------------------------------------------
 --                                   tests                                    --
 --------------------------------------------------------------------------------
 
+-- test data ---------------------------
+
+r1f ∷ FPath
+r1f = FRelF rf1
+
+r2f ∷ FPath
+r2f = FRelF rf2
+
+r3f ∷ FPath
+r3f = FRelF rf3
+
+r4f ∷ FPath
+r4f = FRelF rf4
+
+r0d ∷ FPath
+r0d = FRelD r0
+
+r1d ∷ FPath
+r1d = FRelD r1
+
+r2d ∷ FPath
+r2d = FRelD r2
+
+r3d ∷ FPath
+r3d = FRelD r3
+
+a0d ∷ FPath
+a0d = FAbsD root
+
+a1d ∷ FPath
+a1d = FAbsD etc
+
+a2d ∷ FPath
+a2d = FAbsD pamd
+
+a3d ∷ FPath
+a3d = FAbsD wgm
+
+a1f ∷ FPath
+a1f = FAbsF af1
+
+a2f ∷ FPath
+a2f = FAbsF af2
+
+a3f ∷ FPath
+a3f = FAbsF af3
+
+a4f ∷ FPath
+a4f = FAbsF af4
+
+----------------------------------------
+
 tests ∷ TestTree
-tests = testGroup "FPath" [ filepathTests, parseFPathTests ]
+tests = testGroup "FPath" [ basenameTests, updateBasenameTests, dirnameTests
+                          , filepathTests, parseFPathTests ]
 
 --------------------
 

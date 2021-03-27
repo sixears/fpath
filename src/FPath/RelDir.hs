@@ -54,7 +54,7 @@ import Data.Monoid.Unicode    ( (⊕) )
 
 import qualified  Data.Sequence  as  Seq
 
-import Data.Sequence  ( Seq, (<|) )
+import Data.Sequence  ( Seq( Empty, (:|>) ), (<|) )
 
 -- data-default ------------------------
 
@@ -69,7 +69,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( iso )
-import Control.Lens.Lens   ( lens )
+import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
 -- monaderror-io -----------------------
@@ -87,8 +87,9 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤), (⋪) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens         ( (⊩) )
+import Data.MoreUnicode.Lens         ( (⊣), (⊩), (⊢) )
 import Data.MoreUnicode.Monoid       ( ф )
 import Data.MoreUnicode.Natural      ( ℕ )
 
@@ -150,6 +151,7 @@ import qualified  Text.Printer  as  P
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
 import FPath.Basename     ( Basename( basename, updateBasename ) )
+import FPath.Dirname      ( HasDirname( dirname ) )
 import FPath.DirType      ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError
@@ -327,19 +329,71 @@ instance Basename RelDir where
 basenameTests ∷ TestTree
 basenameTests =
   testGroup "basename"
-            [ testCase "r0"  $ fromList [] ≟ basename r0
-            , testCase "r2" $ fromList [[pc|p|]]  ≟ basename r2
+    [ testGroup "basename"
+            [ testCase "r0 (./) → ./"  $ fromList [] ≟ basename r0
+            , testCase "r2 (./r/p) → p" $ fromList [[pc|p|]]  ≟ basename r2
+            ]
 
-            , testCase "r0 -> r0"    $
-                r0 ≟ updateBasename (const [pc|r1|]) r0
-            , testCase "r1 -> r1"     $
-                r1 ≟ updateBasename (const [pc|r|]) r1
-            , testCase "r2 -> r2"     $
-                r2 ≟ updateBasename (const [pc|p|]) r2
-            , testCase "r2 -> r/q"     $
-                fromList [[pc|r|],[pc|q|]] ≟ updateBasename (const [pc|q|]) r2
-            , testCase "r2 -> r/P"   $
-                fromList [[pc|r|],[pc|P|]] ≟ updateBasename toUpper r2
+    , testGroup "updateBasename"
+        [ testCase "r0 (./) -> r0 (./)"    $
+              r0 ≟ updateBasename (const [pc|r1|]) r0
+        , testCase "r1 (r/) + r -> r1 (r/)"     $
+            r1 ≟ updateBasename (const [pc|r|]) r1
+        , testCase "r2 (./r/p) + p -> r2 (./r/p)"     $
+            r2 ≟ updateBasename (const [pc|p|]) r2
+        , testCase "r2 (./r/p) + q -> r/q"     $
+            fromList [[pc|r|],[pc|q|]] ≟ updateBasename (const [pc|q|]) r2
+        , testCase "r2 (./r/p) × toUpper -> r/P"   $
+            fromList [[pc|r|],[pc|P|]] ≟ updateBasename toUpper r2
+        ]
+    ]
+
+----------------------------------------
+
+instance HasDirname RelDir where
+  dirname ∷ Lens' RelDir RelDir
+  dirname = lens (\ case RelDir Empty     → RelDir Empty
+                         RelDir (s :|> _) → RelDir s)
+                 (\ r (RelDir d) → case r of
+                                     RelDir Empty     → RelDir d
+                                     RelDir (_ :|> a) → RelDir (d :|> a)
+                 )
+
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "r0" $ r0 ≟ r0 ⊣ dirname
+            , testCase "r1" $ r0 ≟ r1 ⊣ dirname
+            , testCase "r2" $ r1 ≟ r2 ⊣ dirname
+            , testCase "r3" $ fromList [[pc|p|],[pc|q|]] ≟ r3 ⊣ dirname
+
+            , testCase "r0 -> r0" $ r0 ≟ r0 ⅋ dirname ⊢ r0
+            , testCase "r0 -> r1" $ r1 ≟ r0 ⅋ dirname ⊢ r1
+            , testCase "r1 -> r0" $ r1 ≟ r1 ⅋ dirname ⊢ r0
+            , testCase "r1 -> r1" $ fromList [[pc|r|],[pc|r|]] ≟
+                                                r1 ⅋ dirname ⊢ r1
+
+            , testCase "r0 -> r2" $ r2 ≟ r0 ⅋ dirname ⊢ r2
+            , testCase "r2 -> r0" $ fromList [[pc|p|]] ≟ r2 ⅋ dirname ⊢ r0
+            , testCase "r1 -> r2" $ fromList [[pc|r|],[pc|p|],[pc|r|]] ≟
+                                                r1 ⅋ dirname ⊢ r2
+            , testCase "r2 -> r1" $ r2 ≟ r2 ⅋ dirname ⊢ r1
+            , testCase "r2 -> r2" $ fromList [[pc|r|],[pc|p|],[pc|p|]] ≟
+                                    r2 ⅋ dirname ⊢ r2
+
+            , testCase "r0 -> r3" $ r3 ≟ r0 ⅋ dirname ⊢ r3
+            , testCase "r3 -> r0" $ fromList [[pc|r|]] ≟ r3 ⅋ dirname ⊢ r0
+            , testCase "r1 -> r3" $ fromList [[pc|p|],[pc|q|],[pc|r|],[pc|r|]] ≟
+                                    r1 ⅋ dirname ⊢ r3
+            , testCase "r3 -> r1" $ fromList [[pc|r|],[pc|r|]] ≟
+                                    r3 ⅋ dirname ⊢ r1
+            , testCase "r2 -> r3" $ fromList [[pc|p|],[pc|q|],[pc|r|],[pc|p|]] ≟
+                                    r2 ⅋ dirname ⊢ r3
+            , testCase "r3 -> r2" $ fromList [[pc|r|],[pc|p|],[pc|r|]] ≟
+                                    r3 ⅋ dirname ⊢ r2
+            , testCase "r3 -> r3" $ fromList [[pc|p|],[pc|q|],[pc|r|],[pc|r|]] ≟
+                                    r3 ⅋ dirname ⊢ r3
             ]
 
 ------------------------------------------------------------
@@ -383,7 +437,7 @@ parseRelDirTests =
       parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
       parseRelDir_ = parse
    in testGroup "parseRelDir"
-                [ testCase "r0" $ Right r0 @=? parseRelDir_ "./"
+                [ testCase "r0 (./)" $ Right r0 @=? parseRelDir_ "./"
                 , testCase "r1" $ Right r1 @=? parseRelDir_ "r/"
                 , testCase "r2" $ Right r2 @=? parseRelDir_ "r/p/"
                 , testCase "r3" $ Right r3 @=? parseRelDir_ "p/q/r/"
@@ -485,7 +539,8 @@ constructionTests = testGroup "construction" [ parseRelDirTests
 
 tests ∷ TestTree
 tests = testGroup "FPath.RelDir"
-                  [ constructionTests, basenameTests, parentsTests ]
+                  [ constructionTests, basenameTests, dirnameTests
+                  , parentsTests ]
                 
 ----------------------------------------
 

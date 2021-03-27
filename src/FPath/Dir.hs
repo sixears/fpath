@@ -45,6 +45,7 @@ import Control.Lens.Prism   ( Prism', prism' )
 -- more-unicode-symbols ----------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳) )
 import Data.MoreUnicode.Lens         ( (⊣), (⊢), (⊩), (⫥), (⩼), (##) )
 import Data.MoreUnicode.Natural      ( ℕ )
@@ -87,6 +88,7 @@ import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
+import FPath.Dirname           ( HasDirname( dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parent            ( HasParentMay( parentMay, parents, parents' ) )
@@ -282,6 +284,90 @@ updateBasenameTests =
             , test r1d (DirR [reldir|R/|])
             , test r2d (DirR [reldir|r/P/|])
             , test r3d (DirR [reldir|p/q/R/|])
+            ]
+
+--------------------
+
+instance HasDirname Dir where
+  dirname = lens ( \ case (DirA fn) → DirA $ fn ⊣ dirname
+                          (DirR fn) → DirR $ fn ⊣ dirname; )
+                 ( \ f d → case (f,d) of
+                             ((DirA fn),(DirA dn)) → DirA $ fn ⅋ dirname ⊢ dn
+                             ((DirA _),(DirR dn)) → DirR $ dn ⫻ basename f
+                             ((DirR fn),(DirR dn)) → DirR $ fn ⅋ dirname ⊢ dn
+                             ((DirR _),(DirA dn)) → DirA $ dn ⫻ basename f
+                 )
+
+----------
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "a0d" $ DirA [absdir|/|]     ≟ a0d ⊣ dirname
+            , testCase "a1d" $ DirA [absdir|/|]     ≟ a1d ⊣ dirname
+            , testCase "a2d" $ DirA [absdir|/r/|]   ≟ a2d ⊣ dirname
+            , testCase "a3d" $ DirA [absdir|/p/q/|] ≟ a3d ⊣ dirname
+
+            , testCase "r0d" $ DirR [reldir|./|]   ≟ r0d ⊣ dirname
+            , testCase "r1d" $ DirR [reldir|./|]   ≟ r1d ⊣ dirname
+            , testCase "r2d" $ DirR [reldir|r/|]   ≟ r2d ⊣ dirname
+            , testCase "r3d" $ DirR [reldir|p/q/|] ≟ r3d ⊣ dirname
+
+            , testCase "a0d←/" $
+                DirA [absdir|/|]     ≟ a0d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a0d←/p/" $
+                DirA [absdir|/p/|]   ≟ a0d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a0d←/p/q/" $
+                DirA [absdir|/p/q/|] ≟ a0d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a0d←./" $
+                DirR [reldir|./|]   ≟ a0d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a0d←p/" $
+                DirR [reldir|p/|]   ≟ a0d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a0d←p/q/" $
+                DirR [reldir|p/q/|] ≟ a0d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "a1d←/" $
+                DirA [absdir|/r/|]     ≟ a1d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "a1d←/p/" $
+                DirA [absdir|/p/r/|]   ≟ a1d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "a1d←/p/q/" $
+                DirA [absdir|/p/q/r/|] ≟ a1d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "a1d←./" $
+                DirR [reldir|r/|]     ≟ a1d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "a1d←p/" $
+                DirR [reldir|p/r/|]   ≟ a1d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "a1d←p/q/" $
+                DirR [reldir|p/q/r/|] ≟ a1d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r0d←/" $
+                DirA [absdir|/|]     ≟ r0d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r0d←/p/" $
+                DirA [absdir|/p/|]   ≟ r0d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r0d←/p/q/" $
+                DirA [absdir|/p/q/|] ≟ r0d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r0d←./" $
+                DirR [reldir|./|]   ≟ r0d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r0d←p/" $
+                DirR [reldir|p/|]   ≟ r0d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r0d←p/q/" $
+                DirR [reldir|p/q/|] ≟ r0d ⅋ dirname ⊢ DirR [reldir|p/q/|]
+
+            , testCase "r1d←/" $
+                DirA [absdir|/r/|]     ≟ r1d ⅋ dirname ⊢ DirA [absdir|/|]
+            , testCase "r1d←/p/" $
+                DirA [absdir|/p/r/|]   ≟ r1d ⅋ dirname ⊢ DirA [absdir|/p/|]
+            , testCase "r1d←/p/q/" $
+                DirA [absdir|/p/q/r/|] ≟ r1d ⅋ dirname ⊢ DirA [absdir|/p/q/|]
+
+            , testCase "r1d←./" $
+                DirR [reldir|r/|]     ≟ r1d ⅋ dirname ⊢ DirR [reldir|./|]
+            , testCase "r1d←p/" $
+                DirR [reldir|p/r/|]   ≟ r1d ⅋ dirname ⊢ DirR [reldir|p/|]
+            , testCase "r1d←p/q/" $
+                DirR [reldir|p/q/r/|] ≟ r1d ⅋ dirname ⊢ DirR [reldir|p/q/|]
             ]
 
 --------------------
@@ -493,8 +579,9 @@ r3d = DirR r3
 
 tests ∷ TestTree
 tests = testGroup "FPath.Dir" [ filepathTests, asFilePath'Tests, basenameTests
-                              , updateBasenameTests, parentMayTests
-                              , parentsTests, parents'Tests, parseDirTests
+                              , updateBasenameTests, dirnameTests
+                              , parentMayTests, parentsTests, parents'Tests
+                              , parseDirTests
                               ]
 
 --------------------

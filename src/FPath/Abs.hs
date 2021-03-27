@@ -40,13 +40,15 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 -- lens --------------------------------
 
+import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
+import Data.MoreUnicode.Function     ( (⅋) )
 import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⩼), (##) )
+import Data.MoreUnicode.Lens         ( (⊣), (⊢), (⩼), (##) )
 import Data.MoreUnicode.Natural      ( ℕ )
 
 -- mtl ---------------------------------
@@ -84,8 +86,16 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.Basename          ( Basename( basename, updateBasename) )
+import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
+import FPath.PathComponent     ( PathComponent, toUpper )
+import FPath.Rel               ( Rel( RelD, RelF ) )
+import FPath.RelDir            ( reldir )
+import FPath.RelFile           ( relfile )
+import FPath.RelType           ( RelTypeC( RelType ) )
 import FPath.T.FPath.TestData  ( etc, pamd, af1, af2, af3, af4, root, wgm )
 
 --------------------------------------------------------------------------------
@@ -187,12 +197,172 @@ parseAbsTests =
                 , success [absfile|/etc/group|] _AbsFile "/etc/group"
                 ]
 
+--------------------
+
+instance RelTypeC Abs where
+  type RelType Abs = Rel
+
+--------------------
+
+instance DirTypeC Abs where
+  type DirType Abs = AbsDir
+
+--------------------
+
+instance Basename Abs where
+  basename ∷ Abs → Rel
+  basename (AbsD d) = RelD (basename d)
+  basename (AbsF f) = RelF (basename f)
+
+  updateBasename ∷ (PathComponent → PathComponent) → Abs → Abs
+  updateBasename g (AbsD d) = AbsD (updateBasename g d)
+  updateBasename g (AbsF f) = AbsF (updateBasename g f)
+
+----------
+
+basenameTests ∷ TestTree
+basenameTests =
+  testGroup "basename"
+            [ 
+              testCase "a0d" $ RelD [reldir|./|]     ≟ basename a0d
+            , testCase "a1d" $ RelD [reldir|etc/|]   ≟ basename a1d
+            , testCase "a2d" $ RelD [reldir|pam.d/|] ≟ basename a2d
+            , testCase "a3d" $ RelD [reldir|M/|]     ≟ basename a3d
+            , testCase "a1f" $ RelF [relfile|r.e|]   ≟ basename a1f
+            , testCase "a2f" $ RelF [relfile|p.x|]   ≟ basename a2f
+            , testCase "a3f" $ RelF [relfile|r.mp3|] ≟ basename a3f
+            , testCase "a4f" $ RelF [relfile|.x|]    ≟ basename a4f
+            ]
+----------
+
+updateBasenameTests ∷ TestTree
+updateBasenameTests =
+  let
+      test input expect =
+        testCase (toString input) $ expect ≟ updateBasename toUpper input
+   in testGroup "updateBasename"
+            [ test a0d a0d
+            , test a1d (AbsD [absdir|/ETC/|])
+            , test a2d (AbsD [absdir|/etc/PAM.D/|])
+            , test a3d (AbsD [absdir|/w/g/M/|])
+            , test a1f (AbsF [absfile|/R.E|])
+            , test a2f (AbsF [absfile|/r/P.X|])
+            , test a3f (AbsF [absfile|/p/q/R.MP3|])
+            , test a4f (AbsF [absfile|/.X|])
+            ]
+
+--------------------
+
+instance HasDirname Abs where
+  dirname ∷ Lens' Abs AbsDir
+  dirname = lens (\ case (AbsD d) → d ⊣ dirname
+                         (AbsF f) → f ⊣ dirname)
+                 (\ a ad → case (a,ad) of
+                             (AbsD d, _) → AbsD $ d ⅋ dirname ⊢ ad
+                             (AbsF f, _) → AbsF $ f ⅋ dirname ⊢ ad
+                 )
+
+----------
+
+dirnameTests ∷ TestTree
+dirnameTests =
+  testGroup "dirname"
+            [ testCase "a0d" $ [absdir|/|]     ≟ a0d ⊣ dirname
+            , testCase "a1d" $ [absdir|/|]     ≟ a1d ⊣ dirname
+            , testCase "a2d" $ [absdir|/etc/|] ≟ a2d ⊣ dirname
+            , testCase "a3d" $ [absdir|/w/g/|] ≟ a3d ⊣ dirname
+
+            , testCase "a1f" $ [absdir|/|]     ≟ a1f ⊣ dirname
+            , testCase "a2f" $ [absdir|/r/|]   ≟ a2f ⊣ dirname
+            , testCase "a3f" $ [absdir|/p/q/|] ≟ a3f ⊣ dirname
+            , testCase "a4f" $ [absdir|/|]     ≟ a4f ⊣ dirname
+
+            , testCase "a0d←./" $
+                AbsD [absdir|/|]   ≟ a0d ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a0d←/p/" $
+                AbsD [absdir|/p/|]   ≟ a0d ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a0d←/p/q/" $
+                AbsD [absdir|/p/q/|] ≟ a0d ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a1f←./" $
+                AbsF [absfile|/r.e|]     ≟ a1f ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a1f←p/" $
+                AbsF [absfile|/p/r.e|]   ≟ a1f ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a1f←p/q/" $
+                AbsF [absfile|/p/q/r.e|] ≟ a1f ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a1d←./" $
+                AbsD [absdir|/etc/|]     ≟ a1d ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a1d←p/" $
+                AbsD [absdir|/p/etc/|]   ≟ a1d ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a1d←p/q/" $
+                AbsD [absdir|/p/q/etc/|] ≟ a1d ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a2f←./" $
+                AbsF [absfile|/p.x|]     ≟ a2f ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a2f←p/" $
+                AbsF [absfile|/p/p.x|]   ≟ a2f ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a2f←p/q/" $
+                AbsF [absfile|/p/q/p.x|] ≟ a2f ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a2d←./" $
+                AbsD [absdir|/pam.d/|]     ≟ a2d ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a2d←p/" $
+                AbsD [absdir|/p/pam.d/|]   ≟ a2d ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a2d←p/q/" $
+                AbsD [absdir|/p/q/pam.d/|] ≟ a2d ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a3f←./" $
+                AbsF [absfile|/r.mp3|]     ≟ a3f ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a3f←p/" $
+                AbsF [absfile|/p/r.mp3|]   ≟ a3f ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a3f←p/q/" $
+                AbsF [absfile|/p/q/r.mp3|] ≟ a3f ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a3d←./" $
+                AbsD [absdir|/M/|]     ≟ a3d ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a3d←p/" $
+                AbsD [absdir|/p/M/|]   ≟ a3d ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a3d←p/q/" $
+                AbsD [absdir|/p/q/M/|] ≟ a3d ⅋ dirname ⊢ [absdir|/p/q/|]
+
+            , testCase "a4f←./" $
+                AbsF [absfile|/.x|]     ≟ a4f ⅋ dirname ⊢ [absdir|/|]
+            , testCase "a4f←p/" $
+                AbsF [absfile|/p/.x|]   ≟ a4f ⅋ dirname ⊢ [absdir|/p/|]
+            , testCase "a4f←p/q/" $
+                AbsF [absfile|/p/q/.x|] ≟ a4f ⅋ dirname ⊢ [absdir|/p/q/|]
+            ]
+
 --------------------------------------------------------------------------------
 --                                   tests                                    --
 --------------------------------------------------------------------------------
 
+-- test data ---------------------------
+
+a0d ∷ Abs
+a0d = AbsD root
+a1d ∷ Abs
+a1d = AbsD etc
+a2d ∷ Abs
+a2d = AbsD pamd
+a3d ∷ Abs
+a3d = AbsD wgm
+
+a1f ∷ Abs
+a1f = AbsF af1
+a2f ∷ Abs
+a2f = AbsF af2
+a3f ∷ Abs
+a3f = AbsF af3
+a4f ∷ Abs
+a4f = AbsF af4
+
+----------------------------------------
+
 tests ∷ TestTree
-tests = testGroup "Abs" [ filepathTests, parseAbsTests ]
+tests = testGroup "Abs" [ basenameTests, dirnameTests, updateBasenameTests
+                        , filepathTests, parseAbsTests ]
                 
 ----------------------------------------
 
