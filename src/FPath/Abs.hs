@@ -23,6 +23,7 @@ import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
+import Data.Monoid    ( Monoid )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 import System.Exit    ( ExitCode )
@@ -43,6 +44,14 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
+
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
@@ -55,9 +64,18 @@ import Data.MoreUnicode.Natural      ( ℕ )
 
 import Control.Monad.Except  ( MonadError )
 
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+
 -- parsers -----------------------------
 
 import Text.Parser.Combinators  ( try )
+
+-- QuickCheck --------------------------
+
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+import Test.QuickCheck.Gen        ( Gen, oneof )
 
 -- tasty -------------------------------
 
@@ -87,7 +105,7 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -262,6 +280,10 @@ instance HasDirname Abs where
                              (AbsF f, _) → AbsF $ f ⅋ dirname ⊢ ad
                  )
 
+  ancestors' ∷ Abs → [AbsDir]
+  ancestors' (AbsD d) = ancestors' d
+  ancestors' (AbsF f) = ancestors' f
+
 ----------
 
 dirnameTests ∷ TestTree
@@ -333,6 +355,61 @@ dirnameTests =
             , testCase "a4f←p/q/" $
                 AbsF [absfile|/p/q/.x|] ≟ a4f ⅋ dirname ⊢ [absdir|/p/q/|]
             ]
+
+----------------------------------------
+
+type instance Element Abs = PathComponent
+
+----------------------------------------
+
+instance MonoFunctor Abs where
+  omap ∷ (PathComponent → PathComponent) → Abs → Abs
+  omap g (AbsF f) = AbsF (omap g f)
+  omap g (AbsD d) = AbsD (omap g d)
+
+----------------------------------------
+
+instance MonoFoldable Abs where
+  otoList ∷ Abs → [PathComponent]
+  otoList (AbsF f) = otoList f
+  otoList (AbsD d) = otoList d
+
+  ofoldl' ∷ (α → PathComponent → α) → α → Abs → α
+  ofoldl' g x (AbsF f) = ofoldl' g x f
+  ofoldl' g x (AbsD d) = ofoldl' g x d
+
+  ofoldr ∷ (PathComponent → α → α) → α → Abs → α
+  ofoldr g x (AbsF f) = ofoldr g x f
+  ofoldr g x (AbsD d) = ofoldr g x d
+
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → Abs → ν
+  ofoldMap g (AbsF f) = ofoldMap g f
+  ofoldMap g (AbsD d) = ofoldMap g d
+
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → Abs
+            → PathComponent
+  ofoldr1Ex g (AbsF f) = ofoldr1Ex g f
+  ofoldr1Ex g (AbsD d) = ofoldr1Ex g d
+  
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → Abs
+             → PathComponent
+  ofoldl1Ex' g (AbsF f) = ofoldl1Ex' g f
+  ofoldl1Ex' g (AbsD d) = ofoldl1Ex' g d
+
+----------------------------------------
+
+instance ToMonoSeq Abs where
+  toSeq (AbsF f) = toSeq f
+  toSeq (AbsD d) = toSeq d
+
+----------------------------------------
+
+instance Arbitrary Abs where
+  arbitrary ∷ Gen Abs
+  arbitrary = oneof [AbsF ⊳ arbitrary @AbsFile, AbsD ⊳ arbitrary @AbsDir]
+  shrink ∷ Abs → [Abs]
+  shrink (AbsF f) = AbsF ⊳ shrink f
+  shrink (AbsD d) = AbsD ⊳ shrink d
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

@@ -20,6 +20,7 @@ import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
+import Data.Monoid    ( Monoid )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 import System.Exit    ( ExitCode )
@@ -40,6 +41,14 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
+
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
@@ -52,9 +61,18 @@ import Data.MoreUnicode.Natural      ( ℕ )
 
 import Control.Monad.Except  ( MonadError )
 
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+
 -- parsers -----------------------------
 
 import Text.Parser.Combinators  ( try )
+
+-- QuickCheck --------------------------
+
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+import Test.QuickCheck.Gen        ( Gen, oneof )
 
 -- tasty -------------------------------
 
@@ -88,7 +106,7 @@ import FPath.AppendableFPath   ( (⫻) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
 import FPath.Dir               ( AsDir( _Dir ), Dir( DirA, DirR ) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.File              ( AsFile( _File ), File( FileA, FileR ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
@@ -400,6 +418,12 @@ instance HasDirname FPath where
                              (FRelF f, DirR n) → FRelF $ f ⅋ dirname ⊢ n
                  )
 
+  ancestors' ∷ FPath → [Dir]
+  ancestors' (FRelD d) = DirR ⊳ ancestors' d
+  ancestors' (FRelF f) = DirR ⊳ ancestors' f
+  ancestors' (FAbsD d) = DirA ⊳ ancestors' d
+  ancestors' (FAbsF f) = DirA ⊳ ancestors' f
+
 ----------
 
 dirnameTests ∷ TestTree
@@ -647,6 +671,81 @@ dirnameTests =
             , testCase "r4f←p/q/" $
                 FRelF [relfile|p/q/.x|] ≟ r4f ⅋ dirname ⊢ DirR [reldir|p/q/|]
             ]
+
+
+----------------------------------------
+
+type instance Element FPath = PathComponent
+
+----------------------------------------
+
+instance MonoFunctor FPath where
+  omap ∷ (PathComponent → PathComponent) → FPath → FPath
+  omap g (FAbsF f) = FAbsF (omap g f)
+  omap g (FAbsD d) = FAbsD (omap g d)
+  omap g (FRelF f) = FRelF (omap g f)
+  omap g (FRelD d) = FRelD (omap g d)
+
+----------------------------------------
+
+instance MonoFoldable FPath where
+  otoList ∷ FPath → [PathComponent]
+  otoList (FAbsF f) = otoList f
+  otoList (FAbsD d) = otoList d
+  otoList (FRelF f) = otoList f
+  otoList (FRelD d) = otoList d
+
+  ofoldl' ∷ (α → PathComponent → α) → α → FPath → α
+  ofoldl' g x (FAbsF f) = ofoldl' g x f
+  ofoldl' g x (FAbsD d) = ofoldl' g x d
+  ofoldl' g x (FRelF f) = ofoldl' g x f
+  ofoldl' g x (FRelD d) = ofoldl' g x d
+
+  ofoldr ∷ (PathComponent → α → α) → α → FPath → α
+  ofoldr g x (FAbsF f) = ofoldr g x f
+  ofoldr g x (FAbsD d) = ofoldr g x d
+  ofoldr g x (FRelF f) = ofoldr g x f
+  ofoldr g x (FRelD d) = ofoldr g x d
+
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → FPath → ν
+  ofoldMap g (FAbsF f) = ofoldMap g f
+  ofoldMap g (FAbsD d) = ofoldMap g d
+  ofoldMap g (FRelF f) = ofoldMap g f
+  ofoldMap g (FRelD d) = ofoldMap g d
+
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → FPath
+            → PathComponent
+  ofoldr1Ex g (FAbsF f) = ofoldr1Ex g f
+  ofoldr1Ex g (FAbsD d) = ofoldr1Ex g d
+  ofoldr1Ex g (FRelF f) = ofoldr1Ex g f
+  ofoldr1Ex g (FRelD d) = ofoldr1Ex g d
+  
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → FPath
+             → PathComponent
+  ofoldl1Ex' g (FAbsF f) = ofoldl1Ex' g f
+  ofoldl1Ex' g (FAbsD d) = ofoldl1Ex' g d
+  ofoldl1Ex' g (FRelF f) = ofoldl1Ex' g f
+  ofoldl1Ex' g (FRelD d) = ofoldl1Ex' g d
+
+----------------------------------------
+
+instance ToMonoSeq FPath where
+  toSeq (FAbsF f) = toSeq f
+  toSeq (FAbsD d) = toSeq d
+  toSeq (FRelF f) = toSeq f
+  toSeq (FRelD d) = toSeq d
+
+----------------------------------------
+
+instance Arbitrary FPath where
+  arbitrary ∷ Gen FPath
+  arbitrary = oneof [ FAbsF ⊳ arbitrary @AbsFile, FAbsD ⊳ arbitrary @AbsDir
+                    , FRelF ⊳ arbitrary @RelFile, FRelD ⊳ arbitrary @RelDir ]
+  shrink ∷ FPath → [FPath]
+  shrink (FAbsF f) = FAbsF ⊳ shrink f
+  shrink (FAbsD d) = FAbsD ⊳ shrink d
+  shrink (FRelF f) = FRelF ⊳ shrink f
+  shrink (FRelD d) = FRelD ⊳ shrink d
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

@@ -37,7 +37,7 @@ import qualified  Data.List.NonEmpty  as  NonEmpty
 
 import Control.Applicative  ( pure )
 import Control.Monad        ( mapM, return )
-import Data.Bool            ( Bool( False, True) )
+import Data.Bool            ( Bool( False, True ), otherwise )
 import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
 import Data.Foldable        ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
@@ -185,7 +185,8 @@ import qualified  Text.Printer  as  P
 
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( Basename( basename, updateBasename ) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( Ancestors( ancestors )
+                               , HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathComponentError
                                ( FPathComponentError( FPathComponentEmptyE
@@ -972,6 +973,19 @@ instance HasDirname AbsDir where
                             AbsNonRootDir n → AbsNonRootDir $ n & parent ⊢ d
                  )
 
+  ancestors' ∷ AbsDir → [AbsDir]
+  ancestors' fp | fp ≡ root  = []
+                | otherwise  = (fp ⊣ dirname) : ancestors' (fp ⊣ dirname)
+
+absDirAncestors'Tests ∷ TestTree
+absDirAncestors'Tests =
+  testGroup "AbsDir"
+            [ testCase "root" $ []          @=? ancestors' root
+            , testCase "etc"  $ [root]      @=? ancestors' etc
+            , testCase "pamd" $ [etc,root]  @=? ancestors' pamd
+            , testCase "wgm"  $ [wg,w,root] @=? ancestors' wgm
+            ]
+
 absDirDirnameTests ∷ TestTree
 absDirDirnameTests =
   testGroup "AbsDir"
@@ -989,9 +1003,24 @@ absDirDirnameTests =
 
 --------------------
 
+instance Ancestors NonRootAbsDir where
+  ancestors ∷ NonRootAbsDir → NonEmpty AbsDir
+  ancestors fp = (fp ⊣ dirname) :| ancestors' (fp ⊣ dirname)
+
+nonRootAbsDirAncestorsTests ∷ TestTree
+nonRootAbsDirAncestorsTests =
+  testGroup "NonRootAbsDir"
+            [ testCase "etc"  $ pure root      @=? ancestors etcN
+            , testCase "pamd" $ etc :| [root]  @=? ancestors pamdN
+            , testCase "wgm"  $ wg :| [w,root] @=? ancestors wgmN
+            ]
+
 instance HasDirname NonRootAbsDir where
   dirname ∷ Lens' NonRootAbsDir AbsDir
   dirname = parent
+
+  ancestors' ∷ NonRootAbsDir → [AbsDir]
+  ancestors' fp = (fp ⊣ dirname) : ancestors' (fp ⊣ dirname)
 
 nonRootAbsDirDirnameTests ∷ TestTree
 nonRootAbsDirDirnameTests =
@@ -1007,9 +1036,21 @@ nonRootAbsDirDirnameTests =
                 pamdN ≟ fromNonEmpty (pure [pc|pam.d|]) ⅋ dirname ⊢ etc
             ]
 
+nonRootAbsDirAncestors'Tests ∷ TestTree
+nonRootAbsDirAncestors'Tests =
+  testGroup "NonRootAbsDir"
+            [ testCase "etc"  $ [root]      @=? ancestors' etcN
+            , testCase "pamd" $ [etc,root]  @=? ancestors' pamdN
+            , testCase "wgm"  $ [wg,w,root] @=? ancestors' wgmN
+            ]
+
 dirnameTests ∷ TestTree
 dirnameTests = testGroup "dirname" [ absDirDirnameTests
                                    , nonRootAbsDirDirnameTests ]
+
+ancestors'Tests ∷ TestTree
+ancestors'Tests = testGroup "ancestors'" [ absDirAncestors'Tests
+                                         , nonRootAbsDirAncestors'Tests ]
 
 ----------------------------------------
 
@@ -1123,7 +1164,8 @@ constructionTests = testGroup "construction" [ parseAbsDirTests
 tests ∷ TestTree
 tests = testGroup "FPath.AbsDir" [ constructionTests, showTests
                                  , isListTests, filepathTests
-                                 , dirnameTests, basenameTests
+                                 , dirnameTests, nonRootAbsDirAncestorsTests
+                                 , ancestors'Tests, basenameTests
                                  , printableTests, textualTests
                                  , monoFoldableTests, isMonoSeqTests
                                  , monoFunctorTests

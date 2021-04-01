@@ -122,7 +122,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
@@ -158,7 +158,8 @@ import FPath.Error.FPathError  ( AsFPathError, FPathError
                                , mapTypeRepE, mapTextE
                                )
 import FPath.FileLike          ( FileLike( dirfile ) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( Ancestors( ancestors )
+                               , HasDirname( ancestors', dirname ) )
 import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -338,9 +339,28 @@ basenameTests =
 
 ----------------------------------------
 
+instance Ancestors AbsFile where
+  ancestors ∷ AbsFile → NonEmpty AbsDir
+  ancestors fp = let d = fp ⊣ dirname
+                  in d :| ancestors' d
+
+ancestorsTests ∷ TestTree
+ancestorsTests =
+  testGroup "ancestors"
+            [ testCase "af1" $ pure root  @=? ancestors af1
+            , testCase "af2"  $
+                ([absdir|/r/|] :| [root]) @=? ancestors af2
+            , testCase "af3" $
+                ([absdir|/p/q/|] :| [[absdir|/p/|], root]) @=? ancestors af3
+            , testCase "af4"  $ pure root @=? ancestors af4
+            ]
+
 instance HasDirname AbsFile where
   dirname ∷ Lens' AbsFile AbsDir
   dirname = lens (\ (AbsFile d _) → d) (\ (AbsFile _ f) d → AbsFile d f)
+
+  ancestors' ∷ AbsFile → [AbsDir]
+  ancestors' = toList ∘ ancestors
 
 dirnameTests ∷ TestTree
 dirnameTests =
@@ -357,6 +377,17 @@ dirnameTests =
                 fromSeqNE ([pc|r.mp3|]⋖[]) ≟ af3 ⅋ dirname ⊢ [absdir|/|]
             , testCase "af3 ← /r/" $
                 fromSeqNE ([pc|r|]⋖[[pc|r.mp3|]]) ≟ af3 ⅋ dirname ⊢ [absdir|/r/|]
+            ]
+
+ancestors'Tests ∷ TestTree
+ancestors'Tests =
+  testGroup "ancestors'"
+            [ testCase "af1" $ [root]  @=? ancestors' af1
+            , testCase "af2"  $
+                [[absdir|/r/|],root] @=? ancestors' af2
+            , testCase "af3" $
+                [[absdir|/p/q/|],[absdir|/p/|],root]  @=? ancestors' af3
+            , testCase "af4"  $ [root] @=? ancestors' af4
             ]
 
 ------------------------------------------------------------
@@ -420,7 +451,8 @@ af4 = fromSeqNE $ pure [pc|.x|]
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.AbsFile" [ basenameTests, dirnameTests, parentsTests ]
+tests = testGroup "FPath.AbsFile" [ basenameTests, dirnameTests, parentsTests
+                                  , ancestorsTests, ancestors'Tests ]
                 
 --------------------
 

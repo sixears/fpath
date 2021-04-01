@@ -23,6 +23,7 @@ import Data.Either    ( Either( Right ) )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($), id )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
+import Data.Monoid    ( Monoid )
 import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 import System.Exit    ( ExitCode )
@@ -39,6 +40,14 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 import Control.Lens.Lens   ( Lens', lens )
 import Control.Lens.Prism  ( Prism', prism' )
 
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
+
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (∤) )
@@ -51,9 +60,18 @@ import Data.MoreUnicode.Natural      ( ℕ )
 
 import Control.Monad.Except  ( MonadError )
 
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+
 -- parsers -----------------------------
 
 import Text.Parser.Combinators  ( try )
+
+-- QuickCheck --------------------------
+
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+import Test.QuickCheck.Gen        ( Gen, oneof )
 
 -- tasty -------------------------------
 
@@ -77,7 +95,7 @@ import Data.Text  ( last, null )
 
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -247,6 +265,10 @@ instance HasDirname Rel where
                              (RelF f, _) → RelF $ f ⅋ dirname ⊢ rd
                  )
 
+  ancestors' ∷ Rel → [RelDir]
+  ancestors' (RelD d) = ancestors' d
+  ancestors' (RelF f) = ancestors' f
+
 ----------
 
 dirnameTests ∷ TestTree
@@ -318,6 +340,61 @@ dirnameTests =
             , testCase "r4f←p/q/" $
                 RelF [relfile|p/q/.x|] ≟ r4f ⅋ dirname ⊢ [reldir|p/q/|]
             ]
+
+----------------------------------------
+
+type instance Element Rel = PathComponent
+
+----------------------------------------
+
+instance MonoFunctor Rel where
+  omap ∷ (PathComponent → PathComponent) → Rel → Rel
+  omap g (RelF f) = RelF (omap g f)
+  omap g (RelD d) = RelD (omap g d)
+
+----------------------------------------
+
+instance MonoFoldable Rel where
+  otoList ∷ Rel → [PathComponent]
+  otoList (RelF f) = otoList f
+  otoList (RelD d) = otoList d
+
+  ofoldl' ∷ (α → PathComponent → α) → α → Rel → α
+  ofoldl' g x (RelF f) = ofoldl' g x f
+  ofoldl' g x (RelD d) = ofoldl' g x d
+
+  ofoldr ∷ (PathComponent → α → α) → α → Rel → α
+  ofoldr g x (RelF f) = ofoldr g x f
+  ofoldr g x (RelD d) = ofoldr g x d
+
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → Rel → ν
+  ofoldMap g (RelF f) = ofoldMap g f
+  ofoldMap g (RelD d) = ofoldMap g d
+
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → Rel
+            → PathComponent
+  ofoldr1Ex g (RelF f) = ofoldr1Ex g f
+  ofoldr1Ex g (RelD d) = ofoldr1Ex g d
+  
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → Rel
+             → PathComponent
+  ofoldl1Ex' g (RelF f) = ofoldl1Ex' g f
+  ofoldl1Ex' g (RelD d) = ofoldl1Ex' g d
+
+----------------------------------------
+
+instance ToMonoSeq Rel where
+  toSeq (RelF f) = toSeq f
+  toSeq (RelD d) = toSeq d
+
+----------------------------------------
+
+instance Arbitrary Rel where
+  arbitrary ∷ Gen Rel
+  arbitrary = oneof [RelF ⊳ arbitrary @RelFile, RelD ⊳ arbitrary @RelDir]
+  shrink ∷ Rel → [Rel]
+  shrink (RelF f) = RelF ⊳ shrink f
+  shrink (RelD d) = RelD ⊳ shrink d
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

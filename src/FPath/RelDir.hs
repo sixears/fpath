@@ -151,7 +151,7 @@ import qualified  Text.Printer  as  P
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
 import FPath.Basename     ( Basename( basename, updateBasename ) )
-import FPath.Dirname      ( HasDirname( dirname ) )
+import FPath.Dirname      ( HasDirname( ancestors', dirname ) )
 import FPath.DirType      ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError
@@ -359,6 +359,9 @@ instance HasDirname RelDir where
                                      RelDir (_ :|> a) → RelDir (d :|> a)
                  )
 
+  ancestors' ∷ RelDir → [RelDir]
+  ancestors' (RelDir Empty) = []
+  ancestors' fp             = (fp ⊣ dirname) : ancestors' (fp ⊣ dirname)
 
 dirnameTests ∷ TestTree
 dirnameTests =
@@ -394,6 +397,15 @@ dirnameTests =
                                     r3 ⅋ dirname ⊢ r2
             , testCase "r3 -> r3" $ fromList [[pc|p|],[pc|q|],[pc|r|],[pc|r|]] ≟
                                     r3 ⅋ dirname ⊢ r3
+            ]
+
+ancestors'Tests ∷ TestTree
+ancestors'Tests =
+  testGroup "ancestors'"
+            [ testCase "r0" $ []            @=? ancestors' r0
+            , testCase "r1" $ [r0]          @=? ancestors' r1
+            , testCase "r2" $ [r1,r0]       @=? ancestors' r2
+            , testCase "r3" $ [r3pq,r3p,r0] @=? ancestors' r3
             ]
 
 ------------------------------------------------------------
@@ -530,6 +542,12 @@ r2 = fromSeqNE $ [pc|r|] ⋖ [[pc|p|]]
 r3 ∷ RelDir
 r3 = fromSeqNE $ [pc|p|] ⋖ [[pc|q|], [pc|r|]]
 
+r3p ∷ RelDir
+r3p = fromSeqNE $ pure [pc|p|]
+
+r3pq ∷ RelDir
+r3pq = fromSeqNE $ [pc|p|] ⋖ [[pc|q|]]
+
 ----------------------------------------
 
 constructionTests ∷ TestTree
@@ -540,7 +558,7 @@ constructionTests = testGroup "construction" [ parseRelDirTests
 tests ∷ TestTree
 tests = testGroup "FPath.RelDir"
                   [ constructionTests, basenameTests, dirnameTests
-                  , parentsTests ]
+                  , parentsTests, ancestors'Tests ]
                 
 ----------------------------------------
 

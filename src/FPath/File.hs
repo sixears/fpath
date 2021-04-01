@@ -17,21 +17,28 @@ where
 
 -- base --------------------------------
 
-import Data.Bifunctor  ( first )
-import Data.Bool       ( Bool( False, True ) )
-import Data.Either     ( Either( Left, Right ) )
-import Data.Eq         ( Eq )
-import Data.Function   ( ($), (&), const, id )
-import Data.Maybe      ( Maybe( Just, Nothing ) )
-import Data.String     ( String )
-import Data.Typeable   ( Proxy( Proxy ), TypeRep, typeRep )
-import System.Exit     ( ExitCode )
-import System.IO       ( IO )
-import Text.Show       ( Show )
+import Data.Bifunctor      ( first )
+import Data.Bool           ( Bool( False, True ) )
+import Data.Either         ( Either( Left, Right ) )
+import Data.Eq             ( Eq )
+import Data.Function       ( ($), (&), const, id )
+import Data.Maybe          ( Maybe( Just, Nothing ) )
+import Data.Monoid         ( Monoid )
+import Data.List.NonEmpty  ( NonEmpty, toList )
+import Data.String         ( String )
+import Data.Typeable       ( Proxy( Proxy ), TypeRep, typeRep )
+import System.Exit         ( ExitCode )
+import System.IO           ( IO )
+import Text.Show           ( Show )
 
 -- base-unicode-symbols ----------------
 
-import Data.Monoid.Unicode  ( (⊕) )
+import Data.Function.Unicode  ( (∘) )
+import Data.Monoid.Unicode    ( (⊕) )
+
+-- containers --------------------------
+
+import Data.Sequence  ( Seq )
 
 -- data-textual ------------------------
 
@@ -41,8 +48,16 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 -- lens --------------------------------
 
 import Control.Lens.Iso     ( Iso', iso )
-import Control.Lens.Lens    ( lens )
+import Control.Lens.Lens    ( Lens', lens )
 import Control.Lens.Prism   ( Prism', prism, prism' )
+
+-- mono-traversable --------------------
+
+import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
+                                                    , ofoldMap, ofoldr
+                                                    , ofoldr1Ex, otoList )
+                             , MonoFunctor( omap )
+                             )
 
 -- more-unicode-symbols ----------------
 
@@ -60,6 +75,19 @@ import Data.MoreUnicode.Lens         ( (⫥), (⩼) )
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.IsNonEmpty        ( ToMonoNonEmpty( toNonEmpty ) )
+import NonEmptyContainers.SeqConversions    ( ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqNE             ( SeqNE )
+import NonEmptyContainers.SeqNEConversions  ( ToMonoSeqNonEmpty( toSeqNE
+                                                               , toSeq_ ) )
+
+-- QuickCheck --------------------------
+
+import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+import Test.QuickCheck.Gen        ( Gen, oneof )
 
 -- safe --------------------------------
 
@@ -92,7 +120,8 @@ import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
 import FPath.Dir               ( Dir( DirA, DirR ) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( Ancestors( ancestors )
+                               , HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
@@ -234,7 +263,15 @@ updateBasenameTests =
 
 --------------------
 
+instance Ancestors File where
+  ancestors ∷ File → NonEmpty Dir
+  ancestors (FileA a) = DirA ⊳ ancestors a
+  ancestors (FileR r) = DirR ⊳ ancestors r
+
+--------------------
+
 instance HasDirname File where
+  dirname ∷ Lens' File Dir
   dirname = lens ( \ case (FileA fn) → DirA $ fn ⊣ dirname
                           (FileR fn) → DirR $ fn ⊣ dirname; )
                  ( \ f d → case (f,d) of
@@ -243,6 +280,9 @@ instance HasDirname File where
                              ((FileR fn),(DirR dn)) → FileR $ fn ⅋ dirname ⊢ dn
                              ((FileR _),(DirA dn)) → FileA $ dn ⫻ basename f
                  )
+
+  ancestors' ∷ File → [Dir]
+  ancestors' = toList ∘ ancestors
 
 ----------
 
@@ -694,6 +734,75 @@ parseFileTests =
                 [ success [absfile|/etc|]  _AbsFile "/etc"
                 , success [relfile|etc|]   _RelFile "etc"
                 ]
+
+----------------------------------------
+
+type instance Element File = PathComponent
+
+----------------------------------------
+
+instance MonoFunctor File where
+  omap ∷ (PathComponent → PathComponent) → File → File
+  omap f (FileA a) = FileA (omap f a)
+  omap f (FileR r) = FileR (omap f r)
+
+----------------------------------------
+
+instance MonoFoldable File where
+  otoList ∷ File → [PathComponent]
+  otoList (FileA a) = otoList a
+  otoList (FileR r) = otoList r
+
+  ofoldl' ∷ (α → PathComponent → α) → α → File → α
+  ofoldl' f x (FileA a) = ofoldl' f x a
+  ofoldl' f x (FileR r) = ofoldl' f x r
+
+  ofoldr ∷ (PathComponent → α → α) → α → File → α
+  ofoldr f x (FileA a) = ofoldr f x a
+  ofoldr f x (FileR r) = ofoldr f x r
+
+  ofoldMap ∷ Monoid ν => (PathComponent → ν) → File → ν
+  ofoldMap f (FileA a) = ofoldMap f a
+  ofoldMap f (FileR r) = ofoldMap f r
+
+  ofoldr1Ex ∷ (PathComponent → PathComponent → PathComponent) → File
+            → PathComponent
+  ofoldr1Ex f (FileA a) = ofoldr1Ex f a
+  ofoldr1Ex f (FileR r) = ofoldr1Ex f r
+  
+  ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → File
+             → PathComponent
+  ofoldl1Ex' f (FileA a) = ofoldl1Ex' f a
+  ofoldl1Ex' f (FileR r) = ofoldl1Ex' f r
+
+----------------------------------------
+
+instance ToMonoSeqNonEmpty File where
+  toSeqNE ∷ File → SeqNE PathComponent
+  toSeqNE (FileA a) = toSeqNE a
+  toSeqNE (FileR r) = toSeqNE r
+
+----------------------------------------
+
+instance ToMonoSeq File where
+  toSeq ∷ File → Seq PathComponent
+  toSeq = toSeq_
+
+----------------------------------------
+
+instance ToMonoNonEmpty File where
+  toNonEmpty ∷ File → NonEmpty PathComponent
+  toNonEmpty (FileA a) = toNonEmpty a
+  toNonEmpty (FileR r) = toNonEmpty r
+
+----------------------------------------
+
+instance Arbitrary File where
+  arbitrary ∷ Gen File
+  arbitrary = oneof [FileA ⊳ arbitrary @AbsFile, FileR ⊳ arbitrary @RelFile]
+  shrink ∷ File → [File]
+  shrink (FileA a) = FileA ⊳ shrink a
+  shrink (FileR r) = FileR ⊳ shrink r
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

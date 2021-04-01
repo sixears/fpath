@@ -89,7 +89,6 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-
 import NonEmptyContainers.IsNonEmpty        ( FromMonoNonEmpty( fromNonEmpty )
                                             , IsMonoNonEmpty( nonEmpty )
                                             , ToMonoNonEmpty( toNonEmpty ) )
@@ -122,7 +121,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
@@ -148,7 +147,8 @@ import qualified  Text.Printer  as  P
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
-import FPath.Dirname           ( HasDirname( dirname ) )
+import FPath.Dirname           ( Ancestors( ancestors )
+                               , HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError  ( FPathComponentError )
@@ -338,9 +338,29 @@ basenameTests =
 
 ----------------------------------------
 
+instance Ancestors RelFile where
+  ancestors ∷ RelFile → NonEmpty RelDir
+  ancestors fp = let d = fp ⊣ dirname
+                  in d :| ancestors' d
+
+ancestorsTests ∷ TestTree
+ancestorsTests =
+  testGroup "ancestors"
+            [ testCase "rf1" $ pure [reldir|./|]  @=? ancestors rf1
+            , testCase "rf2"  $
+                ([reldir|r/|] :| [[reldir|./|]]) @=? ancestors rf2
+            , testCase "rf3" $
+                    ([reldir|p/q/|] :| [[reldir|p/|], [reldir|./|]])
+                @=? ancestors rf3
+            , testCase "rf4"  $ pure [reldir|./|] @=? ancestors rf4
+            ]
+
 instance HasDirname RelFile where
   dirname ∷ Lens' RelFile RelDir
   dirname = lens (\ (RelFile d _) → d) (\ (RelFile _ f) d → RelFile d f)
+
+  ancestors' ∷ RelFile → [RelDir]
+  ancestors' = toList ∘ ancestors
 
 dirnameTests ∷ TestTree
 dirnameTests =
@@ -357,6 +377,16 @@ dirnameTests =
                 fromSeqNE ([pc|r.mp3|]⋖[])        ≟ rf3 ⅋ dirname ⊢ [reldir|./|]
             , testCase "rf3 ← /r/" $
                 fromSeqNE ([pc|r|]⋖[[pc|r.mp3|]]) ≟ rf3 ⅋ dirname ⊢ [reldir|r/|]
+            ]
+
+ancestors'Tests ∷ TestTree
+ancestors'Tests =
+  testGroup "ancestors'"
+            [ testCase "rf1" $ [[reldir|./|]]  @=? ancestors' rf1
+            , testCase "rf2" $ [[reldir|r/|], [reldir|./|]] @=? ancestors' rf2
+            , testCase "rf3" $
+                [[reldir|p/q/|], [reldir|p/|], [reldir|./|]] @=? ancestors' rf3
+            , testCase "rf4" $ pure [reldir|./|] @=? ancestors' rf4
             ]
 
 ------------------------------------------------------------
@@ -418,7 +448,8 @@ rf4 = fromSeqNE $ pure [pc|.x|]
 ----------------------------------------
 
 tests ∷ TestTree
-tests = testGroup "FPath.RelFile" [ basenameTests, dirnameTests, parentsTests ]
+tests = testGroup "FPath.RelFile" [ basenameTests, dirnameTests, parentsTests
+                                  , ancestorsTests, ancestors'Tests ]
                 
 --------------------
 

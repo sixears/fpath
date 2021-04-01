@@ -1,3 +1,7 @@
+1.1.2.0 2021-04-01
+==================
+- add ancestors{,'}, MonoFoldable, MonoFunctor, ToMonoSeq{,NonEmpty} throughout
+
 1.1.1.0 2021-03-26
 ==================
 - add dirname,basename throughout
