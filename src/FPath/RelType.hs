@@ -19,7 +19,4 @@ class RelTypeC α where
   {- | the relative "version" of a type; e.g., `RelType RelFile = AbsFile` -}
   type RelType α
 
-{- | Just a marker class for types that represent a relative path -}
--- class (Element α ~ PathComponent, IsMonoSeq α) ⇒ IsRel α
-
 -- that's all, folks! ----------------------------------------------------------

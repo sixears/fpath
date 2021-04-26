@@ -159,6 +159,9 @@ instance FileAs File    where
 instance FileAs AbsFile where
   _File_ = prism FileA (\ case (FileA a) → Right a; f → Left f)
 
+instance FileAs RelFile where
+  _File_ = prism FileR (\ case (FileR r) → Right r; f → Left f)
+
 --------------------
 
 instance AsFilePath' File where

@@ -10,7 +10,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.Rel
-  ( AsRel( _Rel ), Rel(..)
+  ( AsRel( _Rel ), Rel(..), RelAs(..)
 
   , tests
   )
@@ -395,6 +395,17 @@ instance Arbitrary Rel where
   shrink ∷ Rel → [Rel]
   shrink (RelF f) = RelF ⊳ shrink f
   shrink (RelD d) = RelD ⊳ shrink d
+
+----------------------------------------
+
+class RelAs α where
+  _Rel_ ∷ Prism' Rel α
+instance RelAs Rel where
+  _Rel_ = id
+instance RelAs RelFile where
+  _Rel_ = _RelFile
+instance RelAs RelDir where
+  _Rel_ = _RelDir
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

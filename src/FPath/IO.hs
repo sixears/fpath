@@ -10,7 +10,7 @@
 {-# LANGUAGE UnicodeSyntax       #-}
 {-# LANGUAGE ViewPatterns        #-}
 
-module FPath.IO
+module FPath.IO {-# DEPRECATED "use MonadIO.FPath" #-}
   ( PResolvable( pResolveDir, pResolveDir', pResolve, pResolve' )
   , getCwd, getCwd', inDir, inDirT
 
@@ -242,7 +242,7 @@ class PResolvable α where
 instance PResolvable AbsDir where
 
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,
-                 MonadIO μ)⇒
+                 MonadIO μ) ⇒
                 AbsDir → τ → μ AbsDir
   pResolveDir d (toString → p) = do
     (extant,non_extant) ← resolve d p
@@ -319,7 +319,7 @@ pResolveAbsDirTests =
 
 {- | Physically resolve every directory up to and including the dirname of the
      input stringlike; and then tacks the file basename onto the end.  Treats a
-     trailing '/' as a dir, and this fails.
+     trailing '/' as a dir, and thus fails.
  -}
 instance PResolvable AbsFile where
   pResolveDir ∷ (Printable τ, AsIOError ε, AsFPathError ε, MonadError ε μ,

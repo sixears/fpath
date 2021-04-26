@@ -796,7 +796,8 @@ parseAbsDirTests =
 {- | Like `parseAbsDir`, but non-empty input that doesn't end in a '/' character
      has a '/' appended rather than failing as a non-file (thus, "permissive
      `parseAbsDir`" -}
-parseAbsDirP ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η AbsDir
+parseAbsDirP ∷ ∀ ε τ η . (AsFPathError ε, MonadError ε η, Printable τ) ⇒
+               τ → η AbsDir
 parseAbsDirP (toText → t) =
   let safeLast "" = Nothing
       safeLast s  = Just $ last s
@@ -805,6 +806,7 @@ parseAbsDirP (toText → t) =
         Just '/' → parse t
         _        → parse (t ⊕ "/")
 
+{-# DEPRECATED parseAbsDirP' "use parseAbsDirP @FPathError" #-}
 parseAbsDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η AbsDir
 parseAbsDirP' = parseAbsDirP
 

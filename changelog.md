@@ -1,3 +1,7 @@
+1.1.3.0 2021-04-26
+==================
+- add FileTypeC, RelAs, FileAs instance of RelFile
+
 1.1.2.0 2021-04-01
 ==================
 - add ancestors{,'}, MonoFoldable, MonoFunctor, ToMonoSeq{,NonEmpty} throughout
