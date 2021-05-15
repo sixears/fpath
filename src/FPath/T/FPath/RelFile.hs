@@ -100,14 +100,12 @@ import Data.Text  ( Text )
 import qualified  FPath.RelFile
 
 import FPath.AsFilePath        ( filepath )
-import FPath.Error.FPathError  ( FPathError( FPathAbsE, FPathComponentE
-                                           , FPathEmptyE, FPathNotAFileE )
+import FPath.Error.FPathError  ( FPathError( FPathComponentE )
+                               , fPathAbsE, fPathEmptyE, fPathNotAFileE
                                )
 import FPath.Error.FPathComponentError
-                               ( FPathComponentError( FPathComponentEmptyE
-                                                    , FPathComponentIllegalCharE
-                                                    , FPathComponentIllegalE
-                                                    )
+                               ( fPathComponentEmptyE
+                               , fPathComponentIllegalCharE, fPathIllegalE
                                )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, ext, file, splitExt
                                          , updateExt ) )
@@ -123,22 +121,22 @@ import FPath.T.FPath.TestData  ( rf1, rf2, rf3, rf4, r0, r1, r2, r3 )
 parseRelFileTests ∷ TestTree
 parseRelFileTests =
   let relfileT    = typeRep (Proxy ∷ Proxy RelFile)
-      illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
+      illegalCE s t = let fpcice = fPathComponentIllegalCharE '\0' t
                        in FPathComponentE fpcice relfileT s
-      emptyCompCE t = FPathComponentE FPathComponentEmptyE relfileT t
+      emptyCompCE t = FPathComponentE fPathComponentEmptyE relfileT t
 
       illegalPC t = let s = toString t
-                        fpipce e = FPathComponentIllegalE e
+                        fpipce e = fPathIllegalE e
                         fpipce' e f = FPathComponentE (fpipce e) relfileT f
                      in testCase ("illegal path component '" ⊕ s ⊕ "'") $
                           Left (fpipce' s t) @=? parseRelFile_ t
       badChar s p = testCase ("bad component " ⊕ toString s) $
                         Left (illegalCE s p) @=? parseRelFile_ s
       absfile t  = testCase ("absolute file '" ⊕ toString t ⊕ "'") $
-                      Left (FPathAbsE relfileT t) @=? parseRelFile_ t
+                      Left (fPathAbsE relfileT t) @=? parseRelFile_ t
 
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
-                      Left (FPathNotAFileE relfileT t) @=? parseRelFile_ t
+                      Left (fPathNotAFileE relfileT t) @=? parseRelFile_ t
       parseRelFile_ ∷ MonadError FPathError η ⇒ Text → η RelFile
       parseRelFile_ = parse'
    in testGroup "parseRelFile"
@@ -150,7 +148,7 @@ parseRelFileTests =
                 , absfile "/p.e"
                 , absfile "/r/p.e"
                 , testCase "empty" $
-                      Left (FPathEmptyE relfileT) @=? parseRelFile_ ""
+                      Left (fPathEmptyE relfileT) @=? parseRelFile_ ""
                 , notAFile "./p/"
                 , notAFile "/r/"
                 , notAFile "./"

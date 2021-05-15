@@ -50,6 +50,7 @@ import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
+import GHC.Stack            ( HasCallStack )
 import System.Exit          ( ExitCode )
 import System.IO            ( IO )
 import Text.Show            ( Show( show ) )
@@ -189,20 +190,18 @@ import FPath.Dirname           ( Ancestors( ancestors )
                                , HasDirname( ancestors', dirname ) )
 import FPath.DirType           ( DirTypeC( DirType ) )
 import FPath.Error.FPathComponentError
-                               ( FPathComponentError( FPathComponentEmptyE
-                                                    , FPathComponentIllegalCharE
-                                                    ) )
-import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathNotADirE
-                                                         , FPathComponentE
-                                                         , FPathEmptyE
-                                                         , FPathNonAbsE
-                                                         , FPathRootDirE
-                                                         )
+                               ( FPathComponentError
+                               , fPathComponentEmptyE
+                               , fPathComponentIllegalCharE
+                               )
+import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathComponentE )
                                , __FPathComponentE__
                                , __FPathEmptyE__
                                , __FPathNonAbsE__
                                , __FPathNotADirE__
                                , __FPathRootDirE__
+                               , fPathEmptyE, fPathNonAbsE, fPathNotADirE
+                               , fPathRootDirE
                                , mapTypeRepE
                                )
 import FPath.Parent            ( HasParent( parent )
@@ -769,9 +768,9 @@ parseAbsDirTests ∷ TestTree
 parseAbsDirTests =
   let pamNUL      = "/etc/pam\0/"
       pamF        = "/etc/pam"
-      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+      illegalCE   = let fpcice = fPathComponentIllegalCharE '\0' "pam\0"
                      in FPathComponentE fpcice absdirT pamNUL
-      emptyCompCE = FPathComponentE FPathComponentEmptyE absdirT "/etc//pam.d/"
+      emptyCompCE = FPathComponentE fPathComponentEmptyE absdirT "/etc//pam.d/"
       _parseAbsDir ∷ MonadError FPathError η ⇒ Text → η AbsDir
       _parseAbsDir = parse'
    in testGroup "parseAbsDir"
@@ -780,11 +779,11 @@ parseAbsDirTests =
                 , testCase "pam.d" $ Right pamd   @=? _parseAbsDir "/etc/pam.d/"
                 , testCase "wgm"   $ Right wgm    @=? _parseAbsDir "/w/g/M/"
                 , testCase "no trailing /" $
-                      Left (FPathNotADirE absdirT pamF) @=? _parseAbsDir pamF
+                      Left (fPathNotADirE absdirT pamF) @=? _parseAbsDir pamF
                 , testCase "empty" $
-                      Left (FPathEmptyE absdirT)  @=? _parseAbsDir ""
+                      Left (fPathEmptyE absdirT)  @=? _parseAbsDir ""
                 , testCase "no leading /" $
-                      Left (FPathNonAbsE absdirT "etc/") @=? _parseAbsDir "etc/"
+                      Left (fPathNonAbsE absdirT "etc/") @=? _parseAbsDir "etc/"
                 , testCase "bad component" $
                       Left illegalCE @=? _parseAbsDir pamNUL
                 , testCase "empty component" $
@@ -821,9 +820,9 @@ __parseAbsDirP'__ = __parseAbsDirP__
 parseAbsDirPTests ∷ TestTree
 parseAbsDirPTests =
   let pamNUL      = "/etc/pam\0/"
-      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+      illegalCE   = let fpcice = fPathComponentIllegalCharE '\0' "pam\0"
                      in FPathComponentE fpcice absdirT pamNUL
-      emptyCompCE = FPathComponentE FPathComponentEmptyE absdirT "/etc//pam.d/"
+      emptyCompCE = FPathComponentE fPathComponentEmptyE absdirT "/etc//pam.d/"
       _parseAbsDirP ∷ MonadError FPathError η ⇒ Text → η AbsDir
       _parseAbsDirP = parseAbsDirP'
    in testGroup "parseAbsDirP"
@@ -836,9 +835,9 @@ parseAbsDirPTests =
                 , testCase "wgm"   $ Right wgm    @=? _parseAbsDirP "/w/g/M/"
                 , testCase "wgm"   $ Right wgm    @=? _parseAbsDirP "/w/g/M"
                 , testCase "empty" $
-                      Left (FPathEmptyE absdirT)  @=? _parseAbsDirP ""
+                      Left (fPathEmptyE absdirT)  @=? _parseAbsDirP ""
                 , testCase "no leading /" $
-                          Left (FPathNonAbsE absdirT "etc/")
+                          Left (fPathNonAbsE absdirT "etc/")
                       @=? _parseAbsDirP "etc/"
                 , testCase "bad component" $
                       Left illegalCE @=? _parseAbsDirP pamNUL
@@ -860,9 +859,9 @@ parseAbsDirNTests ∷ TestTree
 parseAbsDirNTests =
   let pamNUL      = "/etc/pam\0/"
       pamF        = "/etc/pam"
-      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+      illegalCE   = let fpcice = fPathComponentIllegalCharE '\0' "pam\0"
                      in FPathComponentE fpcice nrabsdirT pamNUL
-      emptyCompCE = FPathComponentE FPathComponentEmptyE nrabsdirT "/etc//pam/"
+      emptyCompCE = FPathComponentE fPathComponentEmptyE nrabsdirT "/etc//pam/"
       parseAbsDirN_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
       parseAbsDirN_ = parse'
    in testGroup "parseAbsDirN"
@@ -871,16 +870,16 @@ parseAbsDirNTests =
                       Right pamdN   @=? parseAbsDirN_ "/etc/pam.d/"
                 , testCase "wgm"   $ Right wgmN    @=? parseAbsDirN_ "/w/g/M/"
                 , testCase "root"  $
-                          Left (FPathRootDirE nrabsdirT)
+                          Left (fPathRootDirE nrabsdirT)
                       @=? parseAbsDirN_ "/"
                 , testCase "no trailing /" $
-                          Left (FPathNotADirE nrabsdirT pamF)
+                          Left (fPathNotADirE nrabsdirT pamF)
                       @=? parseAbsDirN_ pamF
                 , testCase "empty" $
-                          Left (FPathEmptyE nrabsdirT)
+                          Left (fPathEmptyE nrabsdirT)
                       @=? parseAbsDirN_ ""
                 , testCase "no leading /" $
-                         Left (FPathNonAbsE nrabsdirT "etc/")
+                         Left (fPathNonAbsE nrabsdirT "etc/")
                       @=? parseAbsDirN_ "etc/"
                 , testCase "bad component" $
                       Left illegalCE @=? parseAbsDirN_ pamNUL
@@ -910,10 +909,10 @@ parseAbsDirNP' = parseAbsDirNP
 
 --------------------
 
-__parseAbsDirNP__ ∷ String → NonRootAbsDir
+__parseAbsDirNP__ ∷ HasCallStack ⇒ String → NonRootAbsDir
 __parseAbsDirNP__ s = case parse' s of
                        Left e → __ERROR'__ e
-                       Right AbsRootDir → __ERROR'__ $ FPathRootDirE nrabsdirT
+                       Right AbsRootDir → __ERROR'__ $ fPathRootDirE nrabsdirT
                        Right (AbsNonRootDir nr) → nr
 
 __parseAbsDirNP'__ ∷ String → NonRootAbsDir
@@ -924,9 +923,9 @@ __parseAbsDirNP'__ = __parseAbsDirNP__
 parseAbsDirNPTests ∷ TestTree
 parseAbsDirNPTests =
   let pamNUL      = "/etc/pam\0/"
-      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+      illegalCE   = let fpcice = fPathComponentIllegalCharE '\0' "pam\0"
                      in FPathComponentE fpcice nrabsdirT pamNUL
-      emptyCompCE = FPathComponentE FPathComponentEmptyE nrabsdirT "/etc//pam/"
+      emptyCompCE = FPathComponentE fPathComponentEmptyE nrabsdirT "/etc//pam/"
       parseAbsDirNP_ ∷ MonadError FPathError η ⇒ Text → η NonRootAbsDir
       parseAbsDirNP_ = parseAbsDirNP'
    in testGroup "parseAbsDirNP"
@@ -934,11 +933,11 @@ parseAbsDirNPTests =
                 , testCase "pam.d" $ Right pamdN @=? parseAbsDirNP_ "/etc/pam.d"
                 , testCase "wgm"   $ Right wgmN  @=? parseAbsDirNP_ "/w/g/M"
                 , testCase "root"  $
-                      Left (FPathRootDirE nrabsdirT) @=? parseAbsDirNP_ "/"
+                      Left (fPathRootDirE nrabsdirT) @=? parseAbsDirNP_ "/"
                 , testCase "empty" $
-                      Left (FPathEmptyE nrabsdirT)  @=? parseAbsDirNP_ ""
+                      Left (fPathEmptyE nrabsdirT)  @=? parseAbsDirNP_ ""
                 , testCase "no leading /" $
-                        Left (FPathNonAbsE nrabsdirT "etc/")
+                        Left (fPathNonAbsE nrabsdirT "etc/")
                       @=? parseAbsDirNP_ "etc/"
                 , testCase "bad component" $
                       Left illegalCE @=? parseAbsDirNP_ pamNUL

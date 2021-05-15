@@ -155,15 +155,16 @@ import FPath.Dirname      ( HasDirname( ancestors', dirname ) )
 import FPath.DirType      ( DirTypeC( DirType ) )
 
 import FPath.Error.FPathComponentError
-                               ( FPathComponentError( FPathComponentEmptyE
-                                                    , FPathComponentIllegalCharE
-                                                    ) )
-import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathAbsE
-                                                         , FPathComponentE
-                                                         , FPathEmptyE
-                                                         , FPathNotADirE )
+                               ( FPathComponentError
+                               , fPathComponentEmptyE
+                               , fPathComponentIllegalCharE
+                               )
+import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathComponentE )
                                , __FPathComponentE__, __FPathEmptyE__
                                , __FPathAbsE__, __FPathNotADirE__
+                               , _FPathComponentE
+                               , fPathAbsE, fPathEmptyE
+                               , fPathNotADirE
                                )
 import FPath.Parent            ( HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
@@ -213,7 +214,7 @@ instance MonoFunctor RelDir where
 instance MonoFoldable RelDir where
   otoList ∷ RelDir → [PathComponent]
   otoList (RelDir ps) = toList ps
-  ofoldl' ∷ (α → PathComponent → α) → α → RelDir → α 
+  ofoldl' ∷ (α → PathComponent → α) → α → RelDir → α
   ofoldl' f x r = foldl' f x (toList r)
 
   ofoldr ∷ (PathComponent → α → α) → α → RelDir → α
@@ -316,7 +317,7 @@ parentsTests =
         ]
 
 ----------------------------------------
-  
+
 instance Basename RelDir where
   basename ∷ RelDir → RelDir
   basename (RelDir (_ Seq.:|> p)) = fromList [p]
@@ -441,11 +442,11 @@ instance Parseable RelDir where
 parseRelDirTests ∷ TestTree
 parseRelDirTests =
   let pamF        = "etc/pam"
-      illegalCE s t = let fpcice = FPathComponentIllegalCharE '\0' t
+      illegalCE s t = let fpcice = fPathComponentIllegalCharE '\0' t
                        in FPathComponentE fpcice reldirT s
       badChar s p = testCase ("bad component " ⊕ toString s) $
                         Left (illegalCE s p) @=? parseRelDir_ s
-      emptyCompCE t = FPathComponentE FPathComponentEmptyE reldirT t
+      emptyCompCE t = FPathComponentE fPathComponentEmptyE reldirT t
       parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
       parseRelDir_ = parse
    in testGroup "parseRelDir"
@@ -454,9 +455,9 @@ parseRelDirTests =
                 , testCase "r2" $ Right r2 @=? parseRelDir_ "r/p/"
                 , testCase "r3" $ Right r3 @=? parseRelDir_ "p/q/r/"
                 , testCase "no trailing /" $
-                      Left (FPathNotADirE reldirT pamF) @=? parseRelDir_ pamF
+                      Left (fPathNotADirE reldirT pamF) @=? parseRelDir_ pamF
                 , testCase "leading /" $
-                      Left (FPathAbsE reldirT "/r/") @=? parseRelDir_ "/r/"
+                      Left (fPathAbsE reldirT "/r/") @=? parseRelDir_ "/r/"
                 , badChar "x/\0/y/" "\0"
                 , badChar "r/p\0/" "p\0"
                 , badChar "\0r/p/" "\0r"
@@ -477,7 +478,7 @@ parseRelDirP (toText → t) =
         Nothing  → parse empty
         Just '/' → parse t
         _        → parse (t ⊕ "/")
-                              
+
 parseRelDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
 parseRelDirP' = parseRelDirP
 
@@ -492,9 +493,9 @@ __parseRelDirP'__ = __parseRelDirP__
 parseRelDirPTests ∷ TestTree
 parseRelDirPTests =
   let pamNUL      = "etc/pam\0/"
-      illegalCE   = let fpcice = FPathComponentIllegalCharE '\0' "pam\0"
+      illegalCE   = let fpcice = fPathComponentIllegalCharE '\0' "pam\0"
                      in FPathComponentE fpcice reldirT pamNUL
-      emptyCompCE = FPathComponentE FPathComponentEmptyE reldirT "etc//pam.d/"
+      emptyCompCE = _FPathComponentE fPathComponentEmptyE reldirT "etc//pam.d/"
       _parseRelDirP ∷ MonadError FPathError η ⇒ Text → η RelDir
       _parseRelDirP = parseRelDirP'
    in testGroup "parseRelDirP"
@@ -506,9 +507,9 @@ parseRelDirPTests =
                 , testCase "r3" $ Right r3 @=? _parseRelDirP "p/q/r/"
                 , testCase "r3" $ Right r3 @=? _parseRelDirP "p/q/r"
                 , testCase "empty" $
-                      Left (FPathEmptyE reldirT)  @=? _parseRelDirP ""
+                      Left (fPathEmptyE reldirT)  @=? _parseRelDirP ""
                 , testCase "no leading /" $
-                      Left (FPathAbsE reldirT "/etc/") @=? _parseRelDirP "/etc/"
+                      Left (fPathAbsE reldirT "/etc/") @=? _parseRelDirP "/etc/"
                 , testCase "bad component" $
                       Left illegalCE @=? _parseRelDirP pamNUL
                 , testCase "empty component" $
@@ -559,7 +560,7 @@ tests ∷ TestTree
 tests = testGroup "FPath.RelDir"
                   [ constructionTests, basenameTests, dirnameTests
                   , parentsTests, ancestors'Tests ]
-                
+
 ----------------------------------------
 
 _test ∷ IO ExitCode

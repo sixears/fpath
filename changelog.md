@@ -1,3 +1,7 @@
+1.1.4.0 2021-05-15
+==================
+- add HasCallstack to Errors
+
 1.1.3.0 2021-04-26
 ==================
 - add FileTypeC, RelAs, FileAs instance of RelFile

@@ -16,7 +16,9 @@ module FPath.Error.FPathError
   , __FPathAbsE__, __FPathComponentE__ , __FPathEmptyE__, __FPathNonAbsE__
   , __FPathNotADirE__, __FPathNotAFileE__, __FPathNotAPrefixError__
   , __FPathRootDirE__
-  , fpathIOErrorEither, mapTypeRepE, tmap, mapTextE
+  , fPathAbsE, fPathEmptyE, fpathIOErrorEither, fPathNonAbsE, fPathNotADirE
+  , fPathNotAFileE, fPathNotAPrefixError, fPathRootDirE
+  , mapTypeRepE, tmap, mapTextE
   )
 where
 
@@ -24,23 +26,31 @@ where
 
 import Control.Exception  ( Exception )
 import Control.Monad      ( return )
+import Data.Bool          ( Bool( False ) )
 import Data.Either        ( Either( Left, Right ), either )
-import Data.Eq            ( Eq )
-import Data.Function      ( ($), id )
+import Data.Eq            ( Eq( (==) ) )
+import Data.Function      ( ($), (&), id )
 import Data.Maybe         ( Maybe( Just, Nothing ) )
 import Data.Typeable      ( TypeRep )
+import GHC.Stack          ( CallStack, HasCallStack, callStack )
 import Text.Show          ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
+import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ) )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
 
@@ -51,6 +61,10 @@ import MonadError.IO.Error  ( AsIOError( _IOError ), IOError )
 -- mono-traversable --------------------
 
 import Data.MonoTraversable( Element, MonoFunctor( omap ) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⊣), (⊢) )
 
 -- mtl ---------------------------------
 
@@ -82,10 +96,19 @@ class TMap α where
 
 ------------------------------------------------------------
 
-data FPathNotAPrefixError = FPathNotAPrefixError TypeRep Text Text
-  deriving (Eq, Show)
+data FPathNotAPrefixError = FPathNotAPrefixError TypeRep Text Text CallStack
+  deriving Show
 
 instance Exception FPathNotAPrefixError
+
+instance Eq FPathNotAPrefixError where
+  FPathNotAPrefixError r t u _ == FPathNotAPrefixError r' t' u' _ =
+    (r,t,u) == (r',t',u')
+
+instance HasCallstack FPathNotAPrefixError where
+  callstack = lens (\ (FPathNotAPrefixError _ _ _ cs) → cs)
+                   (\ (FPathNotAPrefixError r t u _) cs →
+                      (FPathNotAPrefixError r t u cs))
 
 class AsFPathNotAPrefixError ε where
   _FPathNotAPrefixError ∷ Prism' ε FPathNotAPrefixError
@@ -94,34 +117,77 @@ instance AsFPathNotAPrefixError FPathNotAPrefixError where
   _FPathNotAPrefixError = id
 
 instance Printable FPathNotAPrefixError where
-  print (FPathNotAPrefixError r t t') =
-    P.text $ [fmt|%t is not a prefix of %t (%w)|] t t' r
+  print (FPathNotAPrefixError r t u _) =
+    P.text $ [fmt|%t is not a prefix of %t (%w)|] t u r
 
 type instance Element FPathNotAPrefixError = TypeRep
 instance MonoFunctor FPathNotAPrefixError where
-  omap f (FPathNotAPrefixError r t t') = FPathNotAPrefixError (f r) t t'
+  omap f (FPathNotAPrefixError r t u cs) = FPathNotAPrefixError (f r) t u cs
 
 instance TMap FPathNotAPrefixError where
-  tmap f (FPathNotAPrefixError r t t') = FPathNotAPrefixError r (f t) (f t')
+  tmap f (FPathNotAPrefixError r t u cs) = FPathNotAPrefixError r (f t) (f u) cs
 
-__FPathNotAPrefixError__ ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+fPathNotAPrefixError ∷ HasCallStack ⇒
+                       TypeRep → Text → Text → FPathNotAPrefixError
+fPathNotAPrefixError r t u = FPathNotAPrefixError r t u callStack
+
+__FPathNotAPrefixError__ ∷ (AsFPathNotAPrefixError ε,
+                            MonadError ε η, HasCallStack) ⇒
                            TypeRep → Text → Text → η α
-__FPathNotAPrefixError__ r t t' =
-  throwError ∘ (_FPathNotAPrefixError #) $ FPathNotAPrefixError r t t'
+__FPathNotAPrefixError__ r t u =
+  throwError ∘ (_FPathNotAPrefixError #) $ FPathNotAPrefixError r t u callStack
 
 ------------------------------------------------------------
 
-data FPathError = FPathEmptyE       TypeRep
-                | FPathAbsE         TypeRep Text
-                | FPathNonAbsE      TypeRep Text
-                | FPathNotADirE     TypeRep Text
-                | FPathNotAFileE    TypeRep Text
+data FPathError = FPathEmptyE       TypeRep CallStack
+                | FPathAbsE         TypeRep Text CallStack
+                | FPathNonAbsE      TypeRep Text CallStack
+                | FPathNotADirE     TypeRep Text CallStack
+                | FPathNotAFileE    TypeRep Text CallStack
                 | FPathComponentE   FPathComponentError TypeRep Text
-                | FPathRootDirE     TypeRep
+                | FPathRootDirE     TypeRep CallStack
                 | FPathNotAPrefixE  FPathNotAPrefixError
-  deriving (Eq, Show)
+  deriving Show
 
 instance Exception FPathError
+
+instance Eq FPathError where
+  (FPathEmptyE r _) == (FPathEmptyE r' _) = r ≡ r'
+  (FPathAbsE r t _) == (FPathAbsE r' t' _) = (r,t) ≡ (r',t')
+  (FPathNonAbsE r t _) == (FPathNonAbsE r' t' _) = (r,t) ≡ (r',t')
+  (FPathNotADirE r t _) == (FPathNotADirE r' t' _) = (r,t) ≡ (r',t')
+  (FPathNotAFileE r t _) == (FPathNotAFileE r' t' _) = (r,t) ≡ (r',t')
+  (FPathComponentE fpce r t) == (FPathComponentE fpce' r' t') =
+    (fpce,r,t) ≡ (fpce',r',t')
+  (FPathRootDirE r _) == (FPathRootDirE r' _) = r ≡ r'
+  (FPathNotAPrefixE fpnape) == (FPathNotAPrefixE fpnape') = fpnape ≡ fpnape'
+  _ == _ = False
+
+instance HasCallstack FPathError where
+  callstack = lens (\ case (FPathEmptyE    _   cs) → cs
+                           (FPathAbsE      _ _ cs) → cs
+                           (FPathNonAbsE   _ _ cs) → cs
+                           (FPathNotADirE  _ _ cs) → cs
+                           (FPathNotAFileE _ _ cs) → cs
+                           (FPathComponentE fpce _ _) → fpce ⊣ callstack
+                           (FPathRootDirE  _   cs) → cs
+                           (FPathNotAPrefixE fpnape)  → fpnape ⊣ callstack
+                   )
+                   (\ fpe cs →
+                      case fpe of
+                        (FPathEmptyE    r _)   → FPathEmptyE r cs
+                        (FPathAbsE      r t _) → FPathAbsE r t cs
+                        (FPathNonAbsE   r t _) → FPathNonAbsE r t cs
+                        (FPathNotADirE  r t _) → FPathNotADirE r t cs
+                        (FPathNotAFileE r t _) → FPathNotAFileE r t cs
+                        (FPathRootDirE  r _)   → FPathRootDirE r cs
+                        (FPathComponentE fpce r t) →
+                          FPathComponentE (fpce & callstack ⊢ cs) r t
+                        (FPathNotAPrefixE fpnape) →
+                          FPathNotAPrefixE $ fpnape & callstack ⊢ cs
+                   )
+
+--------------------
 
 class AsFPathError ε where
   _FPathError ∷ Prism' ε FPathError
@@ -131,66 +197,85 @@ instance AsFPathError FPathError where
 
 instance AsFPathNotAPrefixError FPathError where
   _FPathNotAPrefixError = prism' FPathNotAPrefixE
-                                 (\ case FPathNotAPrefixE e → Just e
+                                 (\ case (FPathNotAPrefixE e) → Just e
                                          _                  → Nothing)
 
 instance Printable FPathError where
-  print (FPathEmptyE    ty)   = P.text $ [fmt|empty %w|] ty
-  print (FPathNonAbsE   ty t) = P.text $ [fmt|non-absolute %w: '%T'|] ty t
-  print (FPathAbsE      ty t) = P.text $ [fmt|absolute %w: '%T'|] ty t
-  print (FPathNotADirE  ty t) = P.text $ [fmt|%w lacks trailing /: '%T'|]  ty t
-  print (FPathNotAFileE ty t) = P.text $ [fmt|%w has trailing /: '%T'|]  ty t
+  print (FPathEmptyE    ty _)   = P.text $ [fmt|empty %w|] ty
+  print (FPathNonAbsE   ty t _) = P.text $ [fmt|non-absolute %w: '%T'|] ty t
+  print (FPathAbsE      ty t _) = P.text $ [fmt|absolute %w: '%T'|] ty t
+  print (FPathNotADirE  ty t _) = P.text $ [fmt|%w lacks trailing /: '%T'|]  ty t
+  print (FPathNotAFileE ty t _) = P.text $ [fmt|%w has trailing /: '%T'|]  ty t
   print (FPathComponentE ce ty t) =
     P.text $ [fmt|component error %T in %w '%T'|] ce ty t
-  print (FPathRootDirE ty)    = P.text $ [fmt|is root dir: %w|] ty
-  print (FPathNotAPrefixE e)  = print e
+  print (FPathRootDirE ty _)    = P.text $ [fmt|is root dir: %w|] ty
+  print (FPathNotAPrefixE e)    = print e
 
 ------------------------------------------------------------
 
-_FPathEmptyE ∷ AsFPathError ε ⇒ TypeRep → ε
-_FPathEmptyE = (_FPathError #) ∘ FPathEmptyE
+fPathEmptyE ∷ HasCallStack ⇒ TypeRep → FPathError
+fPathEmptyE r = FPathEmptyE r callStack
+
+_FPathEmptyE ∷ (AsFPathError ε, HasCallStack) ⇒ TypeRep → ε
+_FPathEmptyE r = (_FPathError #) $ fPathEmptyE r
 
 __FPathEmptyE__ ∷ (AsFPathError ε, MonadError ε η) ⇒ TypeRep → η α
 __FPathEmptyE__ = throwError ∘ _FPathEmptyE
 
-_FPathNonAbsE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathNonAbsE r t = _FPathError # FPathNonAbsE r t
+fPathNonAbsE ∷ HasCallStack ⇒ TypeRep → Text → FPathError
+fPathNonAbsE r t = FPathNonAbsE r t callStack
+
+_FPathNonAbsE ∷ (AsFPathError ε, HasCallStack) ⇒ TypeRep → Text → ε
+_FPathNonAbsE r t = _FPathError # fPathNonAbsE r t
 
 __FPathNonAbsE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathNonAbsE__ r t = throwError $ _FPathNonAbsE r t
 
-_FPathAbsE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathAbsE r t = _FPathError # FPathAbsE r t
+fPathAbsE ∷ HasCallStack ⇒ TypeRep → Text → FPathError
+fPathAbsE r t = FPathAbsE r t callStack
+
+_FPathAbsE ∷ (AsFPathError ε, HasCallStack) ⇒ TypeRep → Text → ε
+_FPathAbsE r t = _FPathError # fPathAbsE r t
 
 __FPathAbsE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathAbsE__ r t = throwError $ _FPathAbsE r t
 
-_FPathNotADirE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathNotADirE r t = _FPathError # FPathNotADirE r t
+fPathNotADirE ∷ HasCallStack ⇒ TypeRep → Text → FPathError
+fPathNotADirE r t = FPathNotADirE r t callStack
+
+_FPathNotADirE ∷ (AsFPathError ε, HasCallStack) ⇒ TypeRep → Text → ε
+_FPathNotADirE r t = _FPathError # fPathNotADirE r t
 
 __FPathNotADirE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathNotADirE__ r t = throwError $ _FPathNotADirE r t
 
-_FPathNotAFileE ∷ AsFPathError ε ⇒ TypeRep → Text → ε
-_FPathNotAFileE r t = _FPathError # FPathNotAFileE r t
+fPathNotAFileE ∷ HasCallStack ⇒ TypeRep → Text → FPathError
+fPathNotAFileE r t = FPathNotAFileE r t callStack
+
+_FPathNotAFileE ∷ (AsFPathError ε, HasCallStack) ⇒ TypeRep → Text → ε
+_FPathNotAFileE r t = _FPathError # fPathNotAFileE r t
 
 __FPathNotAFileE__ ∷ (AsFPathError ε,MonadError ε η) ⇒ TypeRep → Text → η α
 __FPathNotAFileE__ r t = throwError $ _FPathNotAFileE r t
 
-_FPathComponentE ∷ AsFPathError ε ⇒ FPathComponentError → TypeRep → Text → ε
+_FPathComponentE ∷ (AsFPathError ε, HasCallStack) ⇒
+                   FPathComponentError → TypeRep → Text → ε
 _FPathComponentE ce r t = _FPathError # FPathComponentE ce r t
 
 __FPathComponentE__ ∷ (AsFPathError ε,MonadError ε η) ⇒
                       FPathComponentError → TypeRep → Text → η α
 __FPathComponentE__ ce r t = throwError $ _FPathComponentE ce r t
 
-_FPathRootDirE ∷ AsFPathError ε ⇒ TypeRep → ε
-_FPathRootDirE = (_FPathError #) ∘ FPathRootDirE
+fPathRootDirE ∷ HasCallStack ⇒ TypeRep → FPathError
+fPathRootDirE r = FPathRootDirE r callStack
+
+_FPathRootDirE ∷ (AsFPathError ε, HasCallStack) ⇒ TypeRep → ε
+_FPathRootDirE r = (_FPathError #) $ fPathRootDirE r
 
 __FPathRootDirE__ ∷ (AsFPathError ε, MonadError ε η) ⇒ TypeRep → η α
 __FPathRootDirE__ = throwError ∘ _FPathRootDirE
 
-_FPathNotAPrefixE ∷ AsFPathError ε ⇒ FPathNotAPrefixError → ε
+_FPathNotAPrefixE ∷ (AsFPathError ε) ⇒ FPathNotAPrefixError → ε
 _FPathNotAPrefixE nape = _FPathError # FPathNotAPrefixE nape
 
 __FPathNotAPrefixE__ ∷ (AsFPathError ε,MonadError ε η) ⇒
@@ -201,26 +286,26 @@ __FPathNotAPrefixE__ nape = throwError $ _FPathNotAPrefixE nape
 
 type instance Element FPathError = TypeRep
 instance MonoFunctor FPathError where
-  omap f (FPathEmptyE        r  ) = FPathEmptyE       (f r)
-  omap f (FPathRootDirE      r  ) = FPathRootDirE     (f r)
-  omap f (FPathAbsE          r t) = FPathAbsE         (f r) t
-  omap f (FPathNonAbsE       r t) = FPathNonAbsE      (f r) t
-  omap f (FPathNotADirE      r t) = FPathNotADirE     (f r) t
-  omap f (FPathNotAFileE     r t) = FPathNotAFileE    (f r) t
-  omap f (FPathComponentE  e r t) = FPathComponentE e (f r) t
-  omap f (FPathNotAPrefixE e    ) = FPathNotAPrefixE (omap f e)
+  omap f (FPathEmptyE        r   cs) = FPathEmptyE       (f r)   cs
+  omap f (FPathRootDirE      r   cs) = FPathRootDirE     (f r)   cs
+  omap f (FPathAbsE          r t cs) = FPathAbsE         (f r) t cs
+  omap f (FPathNonAbsE       r t cs) = FPathNonAbsE      (f r) t cs
+  omap f (FPathNotADirE      r t cs) = FPathNotADirE     (f r) t cs
+  omap f (FPathNotAFileE     r t cs) = FPathNotAFileE    (f r) t cs
+  omap f (FPathComponentE  e r t   ) = FPathComponentE e (f r) t
+  omap f (FPathNotAPrefixE e       ) = FPathNotAPrefixE (omap f e)
 
 instance TMap FPathError where
   -- | fmap the Text bit of an FPathError
   tmap ∷ (Text → Text) → FPathError → FPathError
-  tmap _ e@(FPathEmptyE     _)   = e
-  tmap _ e@(FPathRootDirE   _)   = e
-  tmap f (FPathAbsE          r t) = FPathAbsE         r (f t)
-  tmap f (FPathNonAbsE       r t) = FPathNonAbsE      r (f t)
-  tmap f (FPathNotADirE      r t) = FPathNotADirE     r (f t)
-  tmap f (FPathNotAFileE     r t) = FPathNotAFileE    r (f t)
-  tmap f (FPathComponentE  e r t) = FPathComponentE e r (f t)
-  tmap f (FPathNotAPrefixE e    ) = FPathNotAPrefixE (tmap f e)
+  tmap _ e@(FPathEmptyE      _ _) = e
+  tmap _ e@(FPathRootDirE    _ _) = e
+  tmap f (FPathAbsE          r t cs) = FPathAbsE         r (f t) cs
+  tmap f (FPathNonAbsE       r t cs) = FPathNonAbsE      r (f t) cs
+  tmap f (FPathNotADirE      r t cs) = FPathNotADirE     r (f t) cs
+  tmap f (FPathNotAFileE     r t cs) = FPathNotAFileE    r (f t) cs
+  tmap f (FPathComponentE  e r t   ) = FPathComponentE e r (f t)
+  tmap f (FPathNotAPrefixE e       ) = FPathNotAPrefixE  (tmap f e)
 
 mapTypeRepE ∷ (MonadError ε η, AsFPathError ε) ⇒
               (TypeRep → TypeRep) → Either FPathError α → η α
@@ -238,7 +323,16 @@ data FPathIOError = FPIO_PATH_ERROR  FPathError
 
 instance Exception FPathIOError
 
--- $( makePrisms ''FPathIOError )
+instance HasCallstack FPathIOError where
+  callstack = lens (\ case (FPIO_PATH_ERROR fpe) → fpe ⊣ callstack
+                           (FPIO_IO_ERROR   ioe) → ioe ⊣ callstack )
+                   (\ fpioe cs →
+                       case fpioe of
+                         (FPIO_PATH_ERROR fpe) →
+                           FPIO_PATH_ERROR $ fpe & callstack ⊢ cs
+                         (FPIO_IO_ERROR ioe) →
+                           FPIO_IO_ERROR $ ioe & callstack ⊢ cs
+                   )
 
 _FPIO_PATH_ERROR ∷ Prism' FPathIOError FPathError
 _FPIO_PATH_ERROR = prism' (\ e → FPIO_PATH_ERROR e)
