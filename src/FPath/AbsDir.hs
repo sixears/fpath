@@ -185,6 +185,8 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
+import FPath.AsFilePath'       ( AsFilePath'( filepath' )
+                               , exterminate, terminate )
 import FPath.Basename          ( Basename( basename, updateBasename ) )
 import FPath.Dirname           ( Ancestors( ancestors )
                                , HasDirname( ancestors', dirname ) )
@@ -571,6 +573,13 @@ instance AsFilePath AbsDir where
 instance AsFilePath NonRootAbsDir where
   filepath = prism' toString fromString
 
+instance AsFilePath' AbsDir where
+  filepath' = prism' (exterminate ∘ toString)
+                     (fromString ∘ terminate)
+
+instance AsFilePath' NonRootAbsDir where
+  filepath' = prism' (exterminate ∘ toString)
+                     (fromString ∘ terminate)
 
 filepathTests ∷ TestTree
 filepathTests =
@@ -592,6 +601,7 @@ filepathTests =
             , fail "etc\0"
             , fail "e\0c"
             ]
+
 ----------------------------------------
 
 instance Textual AbsDir where

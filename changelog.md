@@ -1,3 +1,7 @@
+1.1.4.1 2021-05-20
+==================
+- make PathComponent Parseable, AsFilePath*; add HasCallStack to parse*
+
 1.1.4.0 2021-05-15
 ==================
 - add HasCallstack to Errors

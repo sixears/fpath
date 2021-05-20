@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE UnicodeSyntax    #-}
 
 {- | A Parsecable class, plus some extra helpful utilities.  Base version, so
@@ -15,6 +16,7 @@ import Data.Bifunctor  ( first )
 import Data.Either     ( Either, either )
 import Data.Function   ( id )
 import Data.String     ( String )
+import GHC.Stack       ( HasCallStack )
 
 -- base-unicode-symbols ----------------
 
@@ -45,12 +47,14 @@ __right__ x = either (error ∘ toString) id x
 
 class Parseable χ where
   {- | Parse a value -}
-  parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η χ
+  parse ∷ ∀ ε τ η . (AsFPathError ε, MonadError ε η, HasCallStack, Printable τ)⇒
+          τ → η χ
 
   ------------------
 
   {- | Like `parse`, with error type reified to `FPathError`. -}
-  parse' ∷ (MonadError FPathError μ, Printable τ) ⇒ τ → μ χ
+  parse' ∷ ∀ τ η . (MonadError FPathError η, HasCallStack, Printable τ) ⇒
+           τ → η χ
   parse' = parse
 
   ------------------

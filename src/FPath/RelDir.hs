@@ -150,6 +150,7 @@ import qualified  Text.Printer  as  P
 ------------------------------------------------------------
 
 import FPath.AsFilePath   ( AsFilePath( filepath ) )
+import FPath.AsFilePath'  ( AsFilePath'( filepath' ), exterminate, terminate )
 import FPath.Basename     ( Basename( basename, updateBasename ) )
 import FPath.Dirname      ( HasDirname( ancestors', dirname ) )
 import FPath.DirType      ( DirTypeC( DirType ) )
@@ -272,6 +273,12 @@ instance Printable RelDir where
 
 instance AsFilePath RelDir where
   filepath = prism' toString fromString
+
+--------------------
+
+instance AsFilePath' RelDir where
+  filepath' = prism' (exterminate ∘ toString)
+                     (fromString ∘ terminate)
 
 ----------------------------------------
 

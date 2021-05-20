@@ -16,28 +16,16 @@ import System.IO   ( FilePath )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode        ( (≡) )
-import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
-
--- data-textual ------------------------
-
-import Data.Textual  ( fromString, toString )
+import Data.Eq.Unicode      ( (≡) )
+import Data.Monoid.Unicode  ( (⊕) )
 
 -- lens --------------------------------
 
-import Control.Lens.Prism  ( Prism', prism' )
+import Control.Lens.Prism  ( Prism' )
 
 -- safe --------------------------------
 
 import Safe  ( lastDef )
-
-------------------------------------------------------------
---                     local imports                      --
-------------------------------------------------------------
-
-import FPath.AbsDir   ( AbsDir )
-import FPath.RelDir   ( RelDir )
 
 --------------------------------------------------------------------------------
 
@@ -51,14 +39,6 @@ import FPath.RelDir   ( RelDir )
 -- test this for stat
 class AsFilePath' α where
   filepath' ∷ Prism' FilePath α
-
-instance AsFilePath' AbsDir where
-  filepath' = prism' (exterminate ∘ toString)
-                     (fromString ∘ terminate)
-
-instance AsFilePath' RelDir where
-  filepath' = prism' (exterminate ∘ toString)
-                     (fromString ∘ terminate)
 
 {- | Ensure a filepath ends with a trailing slash: add one iff it does not
      already end with one. -}

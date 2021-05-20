@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -34,7 +35,7 @@ import Control.Monad        ( return )
 import Data.Bool            ( otherwise )
 import Data.Char            ( Char, chr )
 import Data.Data            ( Data )
-import Data.Either          ( either )
+import Data.Either          ( Either( Left, Right ), either )
 import Data.Eq              ( Eq )
 import Data.Function        ( ($), (&), id )
 import Data.Functor         ( (<$>), fmap )
@@ -44,6 +45,7 @@ import Data.Monoid          ( mconcat )
 import Data.Semigroup       ( Semigroup )
 import Data.String          ( String )
 import Data.Tuple           ( fst, snd )
+import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import Data.Word            ( Word8 )
 import GHC.Generics         ( Generic )
 import System.Exit          ( ExitCode )
@@ -63,7 +65,8 @@ import Data.Default  ( def )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual ), toString )
+import Data.Textual  ( Printable( print ), Textual( textual )
+                     , fromString, toString, toText )
 
 -- genvalidity -------------------------
 
@@ -78,16 +81,23 @@ import Data.GenValidity.ByteString  ( )
 
 import Data.GenValidity.Text  ( )
 
+-- lens --------------------------------
+
+import Control.Lens.Prism   ( prism' )
+import Control.Lens.Review  ( (#) )
+
 -- monaderror-io -----------------------
 
-import MonadError  ( ѭ )
+import MonadError  ( ѭ, mapMError )
 
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
+import Data.MoreUnicode.Char         ( ℂ )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens         ( (⊩) )
+import Data.MoreUnicode.Lens         ( (⊩), (⫥), (⩼) )
 import Data.MoreUnicode.Natural      ( ℕ )
+import Data.MoreUnicode.Text         ( 𝕋 )
 
 -- mtl ---------------------------------
 
@@ -112,7 +122,7 @@ import Test.Tasty  ( TestTree, testGroup )
 
 -- tasty-hunit -------------------------
 
-import Test.Tasty.HUnit  ( testCase )
+import Test.Tasty.HUnit  ( (@=?), testCase )
 
 -- tasty-plus --------------------------
 
@@ -126,7 +136,7 @@ import Language.Haskell.TH.Syntax  ( Lift )
 -- text --------------------------------
 
 import qualified  Data.Text  as  Text
-import Data.Text  ( Text, break, init, pack, unpack )
+import Data.Text  ( break, init, pack, unpack )
 
 -- text-printer ------------------------
 
@@ -144,15 +154,24 @@ import Data.Validity  ( Validity( validate ), declare )
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.AsFilePath         ( AsFilePath( filepath ) )
+import FPath.AsFilePath'        ( AsFilePath'( filepath' ) )
 import FPath.DirType            ( DirTypeC( DirType ) )
+import FPath.Error.FPathError   ( AsFPathError( _FPathError )
+                                , FPathError ( FPathComponentE ) )
 import FPath.Error.FPathComponentError
                                 ( AsFPathComponentError, FPathComponentError
                                 , __FPathCEmptyE__, __FPathCIllegalE__
                                 , __FPathCIllegalCharE__
+                                , fPathComponentIllegalCharE, fPathIllegalE
                                 )
+import FPath.Parseable          ( Parseable( parse, parse' ) )
 import FPath.Util               ( __ERROR'__, mkVisS )
 
 --------------------------------------------------------------------------------
+
+pathComponentT ∷ TypeRep
+pathComponentT = typeRep (Proxy ∷ Proxy PathComponent)
 
 {-| file name components may contain any character 'cept NUL and SLASH -}
 badChars :: [Char]
@@ -161,7 +180,7 @@ badChars = (chr ∘ fromIntegral @Word8) ⊳ [0,47] -- '\0', '/'
 {- | A single component in a Path, that is, a directory or file ---
      notably no slashes are allowed (or nul chars); must not be empty
  -}
-newtype PathComponent = PathComponent Text
+newtype PathComponent = PathComponent 𝕋
   deriving (Eq, Data, Generic, GenUnchecked, Lift, Semigroup, Show)
 
 instance Printable PathComponent where
@@ -174,7 +193,7 @@ instance Validity PathComponent where
         nonEmpty = declare "is not empty" $ "" ≢ toString p
         nonDotties = declare "is not \".\" or \"..\"" $
                        "." ≢ toString p ∧ ".." ≢ toString p
-          
+
      in mconcat [ badCs, nonEmpty, nonDotties ]
 
 instance GenValid PathComponent where
@@ -189,12 +208,59 @@ instance Textual PathComponent where
         matches =   ((:) ⊳ parseNoDotsNorBads ⊵ many parseChars)
                   ∤ ((⊕) ⊳ string ".." ⊵ some parseChars)
                   ∤ (jjoin ⊳ char '.' ⊵ parseNoDotsNorBads ⊵ many parseChars)
-                  
+
      in PathComponent ∘ pack ⊳ matches
 
 instance DirTypeC PathComponent where
   -- needed for `FileLike`
   type DirType PathComponent = ()
+
+----------------------------------------
+
+instance AsFilePath PathComponent where
+  filepath = prism' toString fromString
+
+----------
+
+filepathTests ∷ TestTree
+filepathTests =
+  let fail s  = testCase s $ Nothing @PathComponent @=? s ⩼ filepath
+      foo     = PathComponent "foo"
+      foo_bar = PathComponent "foo.bar"
+   in testGroup "filepath"
+            [ testCase "foo"     $ "foo"     ≟ foo ⫥ filepath
+            , testCase "foo.bar" $ "foo.bar" ≟ foo_bar ⫥ filepath
+            , testCase "..." $ "..." ≟ (PathComponent "...") ⫥ filepath
+            , fail ""
+            , fail "/foo"
+            , fail "f/oo"
+            , fail "foo/"
+            , fail "/foo"
+            , fail "f/oo"
+            , fail "."
+            , fail ".."
+            ]
+
+--------------------
+
+instance AsFilePath' PathComponent where
+  filepath' = filepath
+
+filepath'Tests ∷ TestTree
+filepath'Tests =
+  let fail s  = testCase s $ Nothing @PathComponent @=? s ⩼ filepath'
+      foo     = PathComponent "foo"
+      foo_bar = PathComponent "foo.bar"
+   in testGroup "filepath'"
+            [ testCase "foo"     $ "foo"     ≟ foo ⫥ filepath'
+            , testCase "foo.bar" $ "foo.bar" ≟ foo_bar ⫥ filepath'
+            , fail ""
+            , fail "/foo"
+            , fail "f/oo"
+            , fail "foo/"
+            ]
+
+--------------------
 
 instance Arbitrary PathComponent where
   arbitrary = genValid
@@ -213,7 +279,7 @@ instance Arbitrary PathComponent where
 
 ----------------------------------------
 
-parsePathC ∷ (Printable τ, AsFPathComponentError ε, MonadError ε η) ⇒
+parsePathC ∷ ∀ ε τ η . (Printable τ, AsFPathComponentError ε, MonadError ε η) ⇒
              τ → η PathComponent
 parsePathC (toString → "")                 = __FPathCEmptyE__
 parsePathC (toString → ".")                = __FPathCIllegalE__ "."
@@ -221,6 +287,52 @@ parsePathC (toString → "..")               = __FPathCIllegalE__ ".."
 parsePathC (toString → t) | any (≡ '\0') t = __FPathCIllegalCharE__ '\0' t
                           | any (≡ '/')  t = __FPathCIllegalCharE__ '/' t
                           | otherwise      = return $ PathComponent (pack t)
+
+----------------------------------------
+
+instance Parseable PathComponent where
+  parse (toText → t) =
+    mapMError (\ e → _FPathError # FPathComponentE e pathComponentT t) $
+      parsePathC t
+
+----------
+
+parseTests ∷ TestTree
+parseTests =
+  let parsePathComponent_ ∷ MonadError FPathError η ⇒ 𝕋 → η PathComponent
+      parsePathComponent_ = parse'
+
+      illegalCE ∷ 𝕋 → ℂ → TestTree
+      illegalCE t c = let fpcice = fPathComponentIllegalCharE c (unpack t)
+                          fpcice' = FPathComponentE fpcice pathComponentT t
+                       in testCase ("illegal character: " ⊕ [c] ⊕ "'") $
+                            Left fpcice' @=? parsePathComponent_ t
+
+      illegalPC t = let s = toString t
+                        fpie e = fPathIllegalE e
+                        fpie' e f = FPathComponentE (fpie e) pathComponentT f
+                     in testCase ("illegal path component '" ⊕ s ⊕ "'") $
+                          Left (fpie' s t) @=? parsePathComponent_ t
+
+      pc1 = PathComponent "r.e"
+      pc2 = PathComponent ".e"
+      pc3 = PathComponent "r."
+      pc4 = PathComponent "r"
+      pc5 = PathComponent "..."
+      pc6 = PathComponent "…"
+   in testGroup "parsePathComponent"
+                [ testCase "pc1" $ Right pc1 @=? parse' @_ @𝕋 "r.e"
+                , testCase "pc2" $ Right pc2 @=? parse' @_ @𝕋 ".e"
+                , testCase "pc3" $ Right pc3 @=? parse' @_ @𝕋 "r."
+                , testCase "pc4" $ Right pc4 @=? parse' @_ @𝕋 "r"
+                , testCase "pc5" $ Right pc5 @=? parse' @_ @𝕋 "..."
+                , testCase "pc6" $ Right pc6 @=? parse' @_ @𝕋 "…"
+                , illegalCE "bob/" '/'
+                , illegalPC "."
+                , illegalPC ".."
+                ]
+
+----------------------------------------
 
 parsePathC' ∷ (Printable τ, MonadError FPathComponentError η) ⇒
               τ → η PathComponent
@@ -253,17 +365,17 @@ pc = pathComponent
 type instance Element PathComponent = PathCInner
 
 instance MonoFunctor PathComponent where
-  omap = _  
+  omap = _
 -}
 
 -- don't export this, it wouldn't be safe... it must only be used with functions
 -- that map a Valid PathComponent to a Valid PathComponent
-pcmap ∷ (Text → Text) → PathComponent → PathComponent
+pcmap ∷ (𝕋 → 𝕋) → PathComponent → PathComponent
 pcmap f (PathComponent p) = PathComponent (f p)
 
 toUpper ∷ PathComponent → PathComponent
 toUpper = pcmap Text.toUpper
-  
+
 toLower ∷ PathComponent → PathComponent
 toLower = pcmap Text.toLower
 
@@ -318,8 +430,9 @@ updateExt f p@(splitExt → (s, x)) = case x of
 
 tests ∷ TestTree
 tests =
-  testGroup "PathComponent" [ stubTests ]
-                
+  testGroup "PathComponent" [ filepathTests, filepath'Tests, parseTests
+                            , stubTests ]
+
 --------------------
 
 _test ∷ IO ExitCode
