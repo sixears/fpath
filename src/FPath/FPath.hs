@@ -63,7 +63,7 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqConversions  ( ToSeq( toSeq ) )
 
 -- parsers -----------------------------
 
@@ -719,7 +719,7 @@ instance MonoFoldable FPath where
   ofoldr1Ex g (FAbsD d) = ofoldr1Ex g d
   ofoldr1Ex g (FRelF f) = ofoldr1Ex g f
   ofoldr1Ex g (FRelD d) = ofoldr1Ex g d
-  
+
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → FPath
              → PathComponent
   ofoldl1Ex' g (FAbsF f) = ofoldl1Ex' g f
@@ -729,7 +729,7 @@ instance MonoFoldable FPath where
 
 ----------------------------------------
 
-instance ToMonoSeq FPath where
+instance ToSeq FPath where
   toSeq (FAbsF f) = toSeq f
   toSeq (FAbsD d) = toSeq d
   toSeq (FRelF f) = toSeq f

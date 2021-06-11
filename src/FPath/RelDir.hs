@@ -101,11 +101,11 @@ import Control.Monad.Except  ( MonadError )
 
 import qualified  NonEmptyContainers.SeqNE  as  SeqNE
 
-import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
-                                            , IsMonoSeq( seq )
-                                            , ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqConversions    ( FromSeq( fromSeq )
+                                            , IsSeq( seq )
+                                            , ToSeq( toSeq ) )
 import NonEmptyContainers.SeqNE             ( pattern(:⪭), (⪫), (⋖) )
-import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE ) )
+import NonEmptyContainers.SeqNEConversions  ( FromSeqNonEmpty( fromSeqNE ) )
 
 -- parsers -----------------------------
 
@@ -231,22 +231,22 @@ instance MonoFoldable RelDir where
 
 ----------------------------------------
 
-instance FromMonoSeqNonEmpty RelDir where
+instance FromSeqNonEmpty RelDir where
   fromSeqNE = RelDir ∘ SeqNE.toSeq
 
 ----------------------------------------
 
-instance FromMonoSeq RelDir where
+instance FromSeq RelDir where
   fromSeq = RelDir
 
 ----------------------------------------
 
-instance ToMonoSeq RelDir where
+instance ToSeq RelDir where
   toSeq (RelDir ps) = ps
 
 ----------------------------------------
 
-instance IsMonoSeq RelDir where
+instance IsSeq RelDir where
   seq = iso toSeq fromSeq
 
 ----------------------------------------
@@ -261,8 +261,7 @@ instance IsList RelDir where
 {- | Convert a sequence of printable elements to strings by intercalating '/'
      characters; with a post-fact string transformation for extra bells (e.g.,
      a prefix '/' character -}
-pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
-       (String → String) → α → ρ
+pDir ∷ (P.Printer ρ, ToSeq α, Printable (Element α)) ⇒ (String → String) → α → ρ
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
 
 instance Printable RelDir where

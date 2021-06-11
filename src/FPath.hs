@@ -41,7 +41,7 @@ module FPath
   ( AbsDir, AbsFile, NonRootAbsDir, RelDir, RelFile
   , Abs, Rel, Dir, File
   , FPath
-  
+
   , AsFilePath( filepath )
 
   , AppendableFPath( (⫻) ), (</>)
@@ -97,9 +97,9 @@ import Control.Monad.Except  ( MonadError )
 import qualified  NonEmptyContainers.SeqNE           as  SeqNE
 import qualified  NonEmptyContainers.SeqConversions  as  SeqConversions
 
-import NonEmptyContainers.SeqConversions   ( FromMonoSeq( fromSeq )
-                                           , IsMonoSeq( seq ) )
-import NonEmptyContainers.SeqNEConversions ( IsMonoSeqNonEmpty( seqNE )
+import NonEmptyContainers.SeqConversions   ( FromSeq( fromSeq )
+                                           , IsSeq( seq ) )
+import NonEmptyContainers.SeqNEConversions ( IsSeqNonEmpty( seqNE )
                                            , fromSeqNE )
 
 -- tasty -------------------------------

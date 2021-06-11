@@ -93,13 +93,13 @@ import Control.Monad.Except  ( MonadError )
 import NonEmptyContainers.IsNonEmpty        ( FromMonoNonEmpty( fromNonEmpty )
                                             , IsMonoNonEmpty( nonEmpty )
                                             , ToMonoNonEmpty( toNonEmpty ) )
-import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
-                                            , ToMonoSeq( toSeq )
+import NonEmptyContainers.SeqConversions    ( FromSeq( fromSeq )
+                                            , ToSeq( toSeq )
                                             )
 import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭), (⋖) )
-import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
-                                            , IsMonoSeqNonEmpty( seqNE )
-                                            , ToMonoSeqNonEmpty( toSeqNE
+import NonEmptyContainers.SeqNEConversions  ( FromSeqNonEmpty( fromSeqNE )
+                                            , IsSeqNonEmpty( seqNE )
+                                            , ToSeqNonEmpty( toSeqNE
                                                                , toSeq_ )
                                             )
 
@@ -210,7 +210,7 @@ instance MonoFoldable AbsFile where
   otoList ∷ AbsFile → [PathComponent]
   otoList (AbsFile ps f) = otoList ps ⊕ [f]
 
-  ofoldl' ∷ (α → PathComponent → α) → α → AbsFile → α 
+  ofoldl' ∷ (α → PathComponent → α) → α → AbsFile → α
   ofoldl' f x r = foldl' f x (toNonEmpty r)
 
   ofoldr ∷ (PathComponent → α → α) → α → AbsFile → α
@@ -229,21 +229,21 @@ instance MonoFoldable AbsFile where
 
 ----------------------------------------
 
-instance FromMonoSeqNonEmpty AbsFile where
+instance FromSeqNonEmpty AbsFile where
   fromSeqNE (ps :⪭ f) = AbsFile (fromSeq ps) f
   fromSeqNE _         = error "AbsFile.fromSeqNE pattern match can't get here"
 
 ----------------------------------------
 
-instance ToMonoSeqNonEmpty AbsFile where
+instance ToSeqNonEmpty AbsFile where
   toSeqNE (AbsFile ps f) = toSeq ps ⪭ f
 
-instance ToMonoSeq AbsFile where
+instance ToSeq AbsFile where
   toSeq = toSeq_
 
 ----------------------------------------
 
-instance IsMonoSeqNonEmpty AbsFile where
+instance IsSeqNonEmpty AbsFile where
   seqNE = iso toSeqNE fromSeqNE
 
 ----------------------------------------
@@ -312,7 +312,7 @@ parentsTests =
         ]
 
 ----------------------------------------
-  
+
 instance Basename AbsFile where
   basename ∷ AbsFile → RelFile
   basename (AbsFile _ n) = fromNonEmpty (pure n)
@@ -453,7 +453,7 @@ af4 = fromSeqNE $ pure [pc|.x|]
 tests ∷ TestTree
 tests = testGroup "FPath.AbsFile" [ basenameTests, dirnameTests, parentsTests
                                   , ancestorsTests, ancestors'Tests ]
-                
+
 --------------------
 
 _test ∷ IO ExitCode

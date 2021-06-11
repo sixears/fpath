@@ -62,7 +62,7 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqConversions  ( ToSeq( toSeq ) )
 
 -- parsers -----------------------------
 
@@ -225,7 +225,7 @@ instance Basename Rel where
 basenameTests ∷ TestTree
 basenameTests =
   testGroup "basename"
-            [ 
+            [
               testCase "r0d" $ r0d                   ≟ basename r0d
             , testCase "r1d" $ r1d                   ≟ basename r1d
             , testCase "r2d" $ RelD [reldir|p/|]     ≟ basename r2d
@@ -375,7 +375,7 @@ instance MonoFoldable Rel where
             → PathComponent
   ofoldr1Ex g (RelF f) = ofoldr1Ex g f
   ofoldr1Ex g (RelD d) = ofoldr1Ex g d
-  
+
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → Rel
              → PathComponent
   ofoldl1Ex' g (RelF f) = ofoldl1Ex' g f
@@ -383,7 +383,7 @@ instance MonoFoldable Rel where
 
 ----------------------------------------
 
-instance ToMonoSeq Rel where
+instance ToSeq Rel where
   toSeq (RelF f) = toSeq f
   toSeq (RelD d) = toSeq d
 

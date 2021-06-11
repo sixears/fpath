@@ -127,13 +127,13 @@ import NonEmptyContainers.IsNonEmpty  ( FromMonoNonEmpty( fromNonEmpty )
                                       , defaultNonEmpty
                                       )
 import NonEmptyContainers.SeqConversions
-                                    ( FromMonoSeq( fromSeq ), IsMonoSeq( seq )
-                                    , ToMonoSeq( toSeq ) )
+                                    ( FromSeq( fromSeq ), IsSeq( seq )
+                                    , ToSeq( toSeq ) )
 import NonEmptyContainers.SeqNE     ( SeqNE( (:⫸) ), (⫸), (⪪) )
 import NonEmptyContainers.SeqNEConversions
-                                    ( FromMonoSeqNonEmpty( fromSeqNE )
-                                    , IsMonoSeqNonEmpty( seqNE )
-                                    , ToMonoSeqNonEmpty( toSeqNE, toSeq_ ) )
+                                    ( FromSeqNonEmpty( fromSeqNE )
+                                    , IsSeqNonEmpty( seqNE )
+                                    , ToSeqNonEmpty( toSeqNE, toSeq_ ) )
 
 -- parsers -----------------------------
 
@@ -435,42 +435,42 @@ monoFoldableTests =
 
 ----------------------------------------
 
-instance FromMonoSeqNonEmpty NonRootAbsDir where
+instance FromSeqNonEmpty NonRootAbsDir where
   fromSeqNE ∷ SeqNE PathComponent → NonRootAbsDir
   fromSeqNE = NonRootAbsDir
 
-instance FromMonoSeqNonEmpty AbsDir where
+instance FromSeqNonEmpty AbsDir where
   fromSeqNE = AbsNonRootDir ∘ fromSeqNE
 
 ----------------------------------------
 
-instance ToMonoSeqNonEmpty NonRootAbsDir where
+instance ToSeqNonEmpty NonRootAbsDir where
   toSeqNE (NonRootAbsDir ps) = ps
 
 ----------------------------------------
 
-instance IsMonoSeqNonEmpty NonRootAbsDir where
+instance IsSeqNonEmpty NonRootAbsDir where
   seqNE = iso toSeqNE fromSeqNE
 
 ----------------------------------------
 
-instance FromMonoSeq AbsDir where
+instance FromSeq AbsDir where
   fromSeq xs = case fromNullable xs of
                  Nothing → AbsRootDir
                  Just ps → fromSeqNE (toSeqNE ps)
 
 ----------------------------------------
 
-instance ToMonoSeq AbsDir where
+instance ToSeq AbsDir where
   toSeq AbsRootDir = (∅)
   toSeq (AbsNonRootDir n) = toSeq n
 
-instance ToMonoSeq NonRootAbsDir where
+instance ToSeq NonRootAbsDir where
   toSeq = toSeq_
 
 ----------------------------------------
 
-instance IsMonoSeq AbsDir where
+instance IsSeq AbsDir where
   seq = iso toSeq fromSeq
 
 isMonoSeqGetterTests ∷ TestTree
@@ -546,7 +546,7 @@ instance IsMonoNonEmpty NonRootAbsDir where
 {- | Convert a sequence of printable elements to strings by intercalating '/'
      characters; with a post-fact string transformation for extra bells (e.g.,
      a prefix '/' character -}
-pDir ∷ (P.Printer ρ, ToMonoSeq α, Printable (Element α)) ⇒
+pDir ∷ (P.Printer ρ, ToSeq α, Printable (Element α)) ⇒
        (String → String) → α → ρ
 pDir f =  P.string ∘ f ∘ concat ∘ fmap ((⊕ "/") ∘ toString) ∘ toSeq
 

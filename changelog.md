@@ -1,3 +1,7 @@
+1.1.4.2 2021-06-11
+==================
+- use non-empty-containers 1.4.1.0
+
 1.1.4.1 2021-05-20
 ==================
 - make PathComponent Parseable, AsFilePath*; add HasCallStack to parse*

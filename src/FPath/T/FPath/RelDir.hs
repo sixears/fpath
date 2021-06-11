@@ -63,7 +63,7 @@ import Data.MoreUnicode.Tasty            ( (≣) )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions ( IsMonoSeq( seq ) )
+import NonEmptyContainers.SeqConversions ( IsSeq( seq ) )
 
 -- tasty -------------------------------
 

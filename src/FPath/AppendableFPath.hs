@@ -20,9 +20,9 @@ import Data.MoreUnicode.Lens       ( (⊣) )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions   ( IsMonoSeq( seq ) )
+import NonEmptyContainers.SeqConversions   ( IsSeq( seq ) )
 import NonEmptyContainers.SeqNE            ( (⪡) )
-import NonEmptyContainers.SeqNEConversions ( IsMonoSeqNonEmpty( seqNE ) )
+import NonEmptyContainers.SeqNEConversions ( IsSeqNonEmpty( seqNE ) )
 
 ------------------------------------------------------------
 --                     local imports                      --

@@ -65,7 +65,7 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqConversions  ( ToSeq( toSeq ) )
 
 -- QuickCheck --------------------------
 
@@ -469,7 +469,7 @@ parentMaySetTests =
 
                 , testGroup "rel/rel"
                             [ setTest r0d (r0d ~~ r0d)
-                            , setTest r0d (r0d *~ Nothing) 
+                            , setTest r0d (r0d *~ Nothing)
                             , setTest r1d (r0d ~~ r1d)
                             , setTest r1d (r1d *~ Nothing)
                             , setTest r1d (r1d ~~ r0d)
@@ -578,7 +578,7 @@ instance MonoFoldable Dir where
             → PathComponent
   ofoldr1Ex f (DirA a) = ofoldr1Ex f a
   ofoldr1Ex f (DirR r) = ofoldr1Ex f r
-  
+
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → Dir
              → PathComponent
   ofoldl1Ex' f (DirA a) = ofoldl1Ex' f a
@@ -586,7 +586,7 @@ instance MonoFoldable Dir where
 
 ----------------------------------------
 
-instance ToMonoSeq Dir where
+instance ToSeq Dir where
   toSeq (DirA a) = toSeq a
   toSeq (DirR r) = toSeq r
 

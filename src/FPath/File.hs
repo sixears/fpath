@@ -79,9 +79,9 @@ import Control.Monad.Except  ( MonadError )
 -- non-empty-containers ----------------
 
 import NonEmptyContainers.IsNonEmpty        ( ToMonoNonEmpty( toNonEmpty ) )
-import NonEmptyContainers.SeqConversions    ( ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqConversions    ( ToSeq( toSeq ) )
 import NonEmptyContainers.SeqNE             ( SeqNE )
-import NonEmptyContainers.SeqNEConversions  ( ToMonoSeqNonEmpty( toSeqNE
+import NonEmptyContainers.SeqNEConversions  ( ToSeqNonEmpty( toSeqNE
                                                                , toSeq_ ) )
 
 -- QuickCheck --------------------------
@@ -772,7 +772,7 @@ instance MonoFoldable File where
             → PathComponent
   ofoldr1Ex f (FileA a) = ofoldr1Ex f a
   ofoldr1Ex f (FileR r) = ofoldr1Ex f r
-  
+
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → File
              → PathComponent
   ofoldl1Ex' f (FileA a) = ofoldl1Ex' f a
@@ -780,14 +780,14 @@ instance MonoFoldable File where
 
 ----------------------------------------
 
-instance ToMonoSeqNonEmpty File where
+instance ToSeqNonEmpty File where
   toSeqNE ∷ File → SeqNE PathComponent
   toSeqNE (FileA a) = toSeqNE a
   toSeqNE (FileR r) = toSeqNE r
 
 ----------------------------------------
 
-instance ToMonoSeq File where
+instance ToSeq File where
   toSeq ∷ File → Seq PathComponent
   toSeq = toSeq_
 

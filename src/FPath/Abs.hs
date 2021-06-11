@@ -66,7 +66,7 @@ import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
-import NonEmptyContainers.SeqConversions  ( ToMonoSeq( toSeq ) )
+import NonEmptyContainers.SeqConversions  ( ToSeq( toSeq ) )
 
 -- parsers -----------------------------
 
@@ -241,7 +241,7 @@ instance Basename Abs where
 basenameTests ∷ TestTree
 basenameTests =
   testGroup "basename"
-            [ 
+            [
               testCase "a0d" $ RelD [reldir|./|]     ≟ basename a0d
             , testCase "a1d" $ RelD [reldir|etc/|]   ≟ basename a1d
             , testCase "a2d" $ RelD [reldir|pam.d/|] ≟ basename a2d
@@ -390,7 +390,7 @@ instance MonoFoldable Abs where
             → PathComponent
   ofoldr1Ex g (AbsF f) = ofoldr1Ex g f
   ofoldr1Ex g (AbsD d) = ofoldr1Ex g d
-  
+
   ofoldl1Ex' ∷ (PathComponent → PathComponent → PathComponent) → Abs
              → PathComponent
   ofoldl1Ex' g (AbsF f) = ofoldl1Ex' g f
@@ -398,7 +398,7 @@ instance MonoFoldable Abs where
 
 ----------------------------------------
 
-instance ToMonoSeq Abs where
+instance ToSeq Abs where
   toSeq (AbsF f) = toSeq f
   toSeq (AbsD d) = toSeq d
 
@@ -440,7 +440,7 @@ a4f = AbsF af4
 tests ∷ TestTree
 tests = testGroup "Abs" [ basenameTests, dirnameTests, updateBasenameTests
                         , filepathTests, parseAbsTests ]
-                
+
 ----------------------------------------
 
 _test ∷ IO ExitCode

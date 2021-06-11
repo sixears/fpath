@@ -70,7 +70,7 @@ import Control.Monad.Except  ( MonadError )
 -- non-empty-containers ----------------
 
 import NonEmptyContainers.IsNonEmpty        ( fromNonEmpty, toNonEmpty )
-import NonEmptyContainers.SeqConversions    ( IsMonoSeq( seq ) )
+import NonEmptyContainers.SeqConversions    ( IsSeq( seq ) )
 import NonEmptyContainers.SeqNEConversions  ( seqNE )
 
 -- tasty -------------------------------

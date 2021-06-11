@@ -92,13 +92,13 @@ import Control.Monad.Except  ( MonadError )
 import NonEmptyContainers.IsNonEmpty        ( FromMonoNonEmpty( fromNonEmpty )
                                             , IsMonoNonEmpty( nonEmpty )
                                             , ToMonoNonEmpty( toNonEmpty ) )
-import NonEmptyContainers.SeqConversions    ( FromMonoSeq( fromSeq )
-                                            , ToMonoSeq( toSeq )
+import NonEmptyContainers.SeqConversions    ( FromSeq( fromSeq )
+                                            , ToSeq( toSeq )
                                             )
 import NonEmptyContainers.SeqNE             ( pattern (:⪭), (⪭), (⋖) )
-import NonEmptyContainers.SeqNEConversions  ( FromMonoSeqNonEmpty( fromSeqNE )
-                                            , IsMonoSeqNonEmpty( seqNE )
-                                            , ToMonoSeqNonEmpty( toSeqNE
+import NonEmptyContainers.SeqNEConversions  ( FromSeqNonEmpty( fromSeqNE )
+                                            , IsSeqNonEmpty( seqNE )
+                                            , ToSeqNonEmpty( toSeqNE
                                                                , toSeq_ )
                                             )
 
@@ -208,7 +208,7 @@ instance MonoFoldable RelFile where
   otoList ∷ RelFile → [PathComponent]
   otoList (RelFile ps f) = otoList ps ⊕ [f]
 
-  ofoldl' ∷ (α → PathComponent → α) → α → RelFile → α 
+  ofoldl' ∷ (α → PathComponent → α) → α → RelFile → α
   ofoldl' f x r = foldl' f x (toNonEmpty r)
 
   ofoldr ∷ (PathComponent → α → α) → α → RelFile → α
@@ -227,21 +227,21 @@ instance MonoFoldable RelFile where
 
 ----------------------------------------
 
-instance FromMonoSeqNonEmpty RelFile where
+instance FromSeqNonEmpty RelFile where
   fromSeqNE (ps :⪭ f) = RelFile (fromSeq ps) f
   fromSeqNE _         = error "RelFile.fromSeqNE pattern match can't get here"
 
 ----------------------------------------
 
-instance ToMonoSeqNonEmpty RelFile where
+instance ToSeqNonEmpty RelFile where
   toSeqNE (RelFile ps f) = toSeq ps ⪭ f
 
-instance ToMonoSeq RelFile where
+instance ToSeq RelFile where
   toSeq = toSeq_
 
 ----------------------------------------
 
-instance IsMonoSeqNonEmpty RelFile where
+instance IsSeqNonEmpty RelFile where
   seqNE = iso toSeqNE fromSeqNE
 
 ----------------------------------------
@@ -310,7 +310,7 @@ parentsTests =
         ]
 
 ----------------------------------------
-  
+
 instance Basename RelFile where
   basename ∷ RelFile → RelFile
   basename (RelFile _ n) = fromNonEmpty (pure n)
@@ -397,7 +397,7 @@ relfileT ∷ TypeRep
 relfileT = typeRep (Proxy ∷ Proxy RelFile)
 
 instance Parseable RelFile where
-  parse (toText → t) = 
+  parse (toText → t) =
     let mkCompE    ∷ (AsFPathError ε', MonadError ε' η') ⇒
                      FPathComponentError → η' α
         mkCompE ce = __FPathComponentE__ ce relfileT t
@@ -450,7 +450,7 @@ rf4 = fromSeqNE $ pure [pc|.x|]
 tests ∷ TestTree
 tests = testGroup "FPath.RelFile" [ basenameTests, dirnameTests, parentsTests
                                   , ancestorsTests, ancestors'Tests ]
-                
+
 --------------------
 
 _test ∷ IO ExitCode
