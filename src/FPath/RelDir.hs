@@ -1,16 +1,5 @@
-{-# LANGUAGE DeriveLift                 #-}
-{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE QuasiQuotes                #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UnicodeSyntax              #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE DerivingStrategies         #-}
 
 module FPath.RelDir
   ( AsRelDir( _RelDir ), RelDir
@@ -42,7 +31,7 @@ import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
 import System.Exit          ( ExitCode )
 import System.IO            ( IO )
-import Text.Show            ( Show )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
@@ -135,7 +124,8 @@ import TastyPlus  ( (≟), assertListEq, runTestsP, runTestsReplay, runTestTree 
 -- template-haskell --------------------
 
 import Language.Haskell.TH         ( ExpQ )
-import Language.Haskell.TH.Syntax  ( Exp( AppE, ConE, VarE ), Lift( lift ) )
+import Language.Haskell.TH.Syntax  ( Exp( AppE, ConE, VarE )
+                                   , Lift( lift, liftTyped ), TExp( TExp ) )
 
 -- text --------------------------------
 
@@ -144,6 +134,10 @@ import Data.Text  ( Text, empty, last, splitOn )
 -- text-printer ------------------------
 
 import qualified  Text.Printer  as  P
+
+-- tfmt --------------------------------
+
+import Text.Fmt  ( fmt )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -177,12 +171,15 @@ import FPath.Util              ( __ERROR'__ )
 
 {- | a relative directory -}
 newtype RelDir = RelDir (Seq PathComponent)
-  deriving (Eq, Monoid, Semigroup, Show)
+  deriving newtype (Eq, Monoid, Semigroup)
+
+instance Show RelDir where
+  show r = [fmt|[reldir|%T%s]|] (toText r) "|"
 
 instance Lift RelDir where
-  lift (RelDir ps) = do
+  liftTyped (RelDir ps) = do
     xs ← lift $ toList ps
-    return $ AppE (ConE 'RelDir) (AppE (VarE 'fromList) xs)
+    return ∘ TExp $ AppE (ConE 'RelDir) (AppE (VarE 'fromList) xs)
 
 type instance Element RelDir = PathComponent
 

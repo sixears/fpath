@@ -40,7 +40,6 @@ import qualified  FPath
 import qualified  FPath.Abs
 import qualified  FPath.Dir
 import qualified  FPath.FPath
-import qualified  FPath.IO
 import qualified  FPath.Rel
 import qualified  FPath.T.FPath.AbsDir
 import qualified  FPath.T.FPath.AbsFile
@@ -213,7 +212,6 @@ tests = testGroup "fpath" [ FPath.T.FPath.PathComponent.tests
                           , FPath.T.FPath.RelFile.tests
                           , FPath.T.FPath.AbsFile.tests
                           , fpathTests
-                          , FPath.IO.tests
                           ]
 
 ----------------------------------------

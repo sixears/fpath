@@ -1,8 +1,3 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-
 module FPath.Error.FPathComponentError
   ( AsFPathComponentError(..), FPathComponentError(..)
   , __FPathCEmptyE__, __FPathCIllegalCharE__, __FPathCIllegalE__
@@ -18,6 +13,7 @@ import Data.Char          ( Char )
 import Data.Eq            ( Eq( (==) ) )
 import Data.Function      ( ($), id )
 import Data.String        ( String )
+import GHC.Generics       ( Generic )
 import GHC.Stack          ( CallStack, HasCallStack, callStack )
 import Text.Show          ( Show )
 
@@ -28,6 +24,10 @@ import Data.Eq.Unicode  ( (≡) )
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ) )
+
+-- deepseq -----------------------------
+
+import Control.DeepSeq  ( NFData )
 
 -- has-callstack -----------------------
 
@@ -56,7 +56,7 @@ import Text.Fmt  ( fmt )
 data FPathComponentError = FPathComponentEmptyE CallStack
                          | FPathComponentIllegalCharE Char String CallStack
                          | FPathComponentIllegalE     String CallStack
-  deriving Show
+  deriving (Generic,NFData,Show)
 
 instance Exception FPathComponentError
 

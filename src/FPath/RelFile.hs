@@ -40,7 +40,7 @@ import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ) )
 import System.Exit          ( ExitCode )
 import System.IO            ( IO )
-import Text.Show            ( Show )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
@@ -140,6 +140,10 @@ import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
 
 import qualified  Text.Printer  as  P
 
+-- tfmt --------------------------------
+
+import Text.Fmt  ( fmt )
+
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
@@ -169,9 +173,12 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 
 {- | a relative file -}
 data RelFile = RelFile RelDir PathComponent
-  deriving (Eq, Lift, Show)
+  deriving (Eq, Lift)
 
 type instance Element RelFile = PathComponent
+
+instance Show RelFile where
+  show r = [fmt|[relfile|%T%s]|] (toText r) "|"
 
 --------------------
 

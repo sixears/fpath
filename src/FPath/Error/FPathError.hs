@@ -1,10 +1,3 @@
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-
 module FPath.Error.FPathError
   ( AsFPathError( _FPathError ), FPathError(..)
   , AsFPathNotAPrefixError( _FPathNotAPrefixError ), FPathNotAPrefixError(..)
@@ -32,6 +25,7 @@ import Data.Eq            ( Eq( (==) ) )
 import Data.Function      ( ($), (&), id )
 import Data.Maybe         ( Maybe( Just, Nothing ) )
 import Data.Typeable      ( TypeRep )
+import GHC.Generics       ( Generic )
 import GHC.Stack          ( CallStack, HasCallStack, callStack )
 import Text.Show          ( Show( show ) )
 
@@ -43,6 +37,10 @@ import Data.Function.Unicode  ( (∘) )
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ) )
+
+-- deepseq -----------------------------
+
+import Control.DeepSeq  ( NFData )
 
 -- has-callstack -----------------------
 
@@ -97,7 +95,7 @@ class TMap α where
 ------------------------------------------------------------
 
 data FPathNotAPrefixError = FPathNotAPrefixError TypeRep Text Text CallStack
-  deriving Show
+  deriving (Generic,NFData,Show)
 
 instance Exception FPathNotAPrefixError
 
@@ -147,7 +145,7 @@ data FPathError = FPathEmptyE       TypeRep CallStack
                 | FPathComponentE   FPathComponentError TypeRep Text
                 | FPathRootDirE     TypeRep CallStack
                 | FPathNotAPrefixE  FPathNotAPrefixError
-  deriving Show
+  deriving (Generic,NFData,Show)
 
 instance Exception FPathError
 
@@ -319,7 +317,7 @@ mapTextE f = either (throwError ∘ (_FPathError #) ∘ tmap f) return
 
 data FPathIOError = FPIO_PATH_ERROR  FPathError
                   | FPIO_IO_ERROR    IOError
-  deriving Eq
+  deriving (Eq,Generic,NFData)
 
 instance Exception FPathIOError
 

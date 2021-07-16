@@ -1,16 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DeriveLift                 #-}
-{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UnicodeSyntax              #-}
-{-# LANGUAGE ViewPatterns               #-}
 
 {- | A permissable file name (excluding any directory part), thus a sequence of
      characters excluding the null character (`\0`) or the slash character (`/`)
@@ -68,6 +57,10 @@ import Data.Default  ( def )
 import Data.Textual  ( Printable( print ), Textual( textual )
                      , fromString, toString, toText )
 
+-- deepseq -----------------------------
+
+import Control.DeepSeq  ( NFData )
+
 -- genvalidity -------------------------
 
 import Data.GenValidity  ( GenUnchecked, GenValid( genValid, shrinkValid )
@@ -96,6 +89,7 @@ import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
 import Data.MoreUnicode.Char         ( ℂ )
 import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
 import Data.MoreUnicode.Lens         ( (⊩), (⫥), (⩼) )
+import Data.MoreUnicode.Monad        ( (≫) )
 import Data.MoreUnicode.Natural      ( ℕ )
 import Data.MoreUnicode.Text         ( 𝕋 )
 
@@ -130,8 +124,8 @@ import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 
 -- template-haskell --------------------
 
-import Language.Haskell.TH         ( ExpQ )
-import Language.Haskell.TH.Syntax  ( Lift )
+import Language.Haskell.TH         ( ExpQ, appE, conE )
+import Language.Haskell.TH.Syntax  ( Lift( liftTyped ), TExp( TExp ) )
 
 -- text --------------------------------
 
@@ -181,10 +175,15 @@ badChars = (chr ∘ fromIntegral @Word8) ⊳ [0,47] -- '\0', '/'
      notably no slashes are allowed (or nul chars); must not be empty
  -}
 newtype PathComponent = PathComponent 𝕋
-  deriving (Eq, Data, Generic, GenUnchecked, Lift, Semigroup, Show)
+  deriving newtype (GenUnchecked,NFData,Semigroup,Show)
+  deriving stock   (Eq,Data,Generic)
 
 instance Printable PathComponent where
   print (PathComponent t) = P.text t
+
+instance Lift PathComponent where
+  liftTyped (PathComponent t) =
+    appE (conE 'PathComponent) [| t |] ≫ return ∘ TExp
 
 instance Validity PathComponent where
   validate p =

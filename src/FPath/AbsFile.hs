@@ -1,16 +1,3 @@
-{-# LANGUAGE DeriveLift        #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
-
 module FPath.AbsFile
   ( AbsDir, AbsFile, AsAbsFile( _AbsFile )
 
@@ -38,9 +25,10 @@ import Data.Monoid          ( Monoid )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ) )
+import GHC.Generics         ( Generic )
 import System.Exit          ( ExitCode )
 import System.IO            ( IO )
-import Text.Show            ( Show )
+import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
@@ -55,6 +43,10 @@ import Data.Default  ( def )
 
 import Data.Textual  ( Printable( print ), Textual( textual )
                      , fromString, toString, toText )
+
+-- deepseq -----------------------------
+
+import Control.DeepSeq  ( NFData )
 
 -- lens --------------------------------
 
@@ -141,6 +133,10 @@ import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
 
 import qualified  Text.Printer  as  P
 
+-- tfmt --------------------------------
+
+import Text.Fmt  ( fmt )
+
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
@@ -171,9 +167,14 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 
 {- | an absolute file -}
 data AbsFile = AbsFile AbsDir PathComponent
-  deriving (Eq, Lift, Show)
+  deriving (Eq,Generic,Lift,NFData)
 
 type instance Element AbsFile = PathComponent
+
+--------------------
+
+instance Show AbsFile where
+  show r = [fmt|[absfile|%T%s]|] (toText r) "|"
 
 --------------------
 

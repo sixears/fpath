@@ -1,3 +1,10 @@
+1.1.5.0 2021-07-15
+==================
+- remove FPath.IO
+- implement liftTyped where needed
+- simpler show output for basic types using quasi-quotes
+- add NFData instances of FPathError*
+
 1.1.4.2 2021-06-11
 ==================
 - use non-empty-containers 1.4.1.0

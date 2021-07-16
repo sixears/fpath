@@ -213,20 +213,12 @@ relFileIsMonoSeqNESetterTests =
 
 relFileShowTests ∷ TestTree
 relFileShowTests =
-  let rf1Show = "RelFile (RelDir (fromList [])) (PathComponent \"r.e\")"
-      rf2Show = "RelFile (RelDir (fromList [PathComponent \"r\"])) "
-              ⊕ "(PathComponent \"p.x\")"
-      rf3Show = let pq = "[PathComponent \"p\",PathComponent \"q\"]"
-                    r  = "PathComponent \"r.mp3\""
-                 in "RelFile (RelDir (fromList "⊕ pq ⊕")) ("⊕ r ⊕")"
-      rf4Show = "RelFile (RelDir (fromList [])) (PathComponent \".x\")"
-
-   in testGroup "show"
-                [ testCase "rf1" $ rf1Show ≟ show rf1
-                , testCase "rf2" $ rf2Show ≟ show rf2
-                , testCase "rf3" $ rf3Show ≟ show rf3
-                , testCase "rf4" $ rf4Show ≟ show rf4
-                ]
+  testGroup "show"
+            [ testCase "rf1" $ "[relfile|r.e|]"       ≟ show rf1
+            , testCase "rf2" $ "[relfile|r/p.x|]"     ≟ show rf2
+            , testCase "rf3" $ "[relfile|p/q/r.mp3|]" ≟ show rf3
+            , testCase "rf4" $ "[relfile|.x|]"        ≟ show rf4
+            ]
 
 relFilePrintableTests ∷ TestTree
 relFilePrintableTests =

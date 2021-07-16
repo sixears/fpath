@@ -102,19 +102,10 @@ absdirNQQTests =
 
 absDirNShowTests ∷ TestTree
 absDirNShowTests =
-  let fromNonEmptyT = "NonEmptyContainers.IsNonEmpty.fromNonEmpty"
-      pcT t         = "PathComponent \"" ⊕ t ⊕ "\""
-      etcT          = pcT "etc"
-      pamdT         = pcT "pam.d"
-      nonRT         = "NonRootAbsDir "
-
-      etcNShow  = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ pcT "etc" ⊕ " :| [])"
-      pamdNShow = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ etcT ⊕ " :| [" ⊕ pamdT ⊕ "])"
-
-   in testGroup "show"
-                [ testCase "etc"   $ etcNShow  ≟ show etcN
-                , testCase "pam.d" $ pamdNShow ≟ show pamdN
-                ]
+  testGroup "show"
+            [ testCase "etc"   $ "[absdir|/etc/|]"       ≟ show etcN
+            , testCase "pam.d" $ "[absdir|/etc/pam.d/|]" ≟ show pamdN
+            ]
 
 absDirNIsMonoSeqNEGetterTests ∷ TestTree
 absDirNIsMonoSeqNEGetterTests =

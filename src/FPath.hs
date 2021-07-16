@@ -58,8 +58,6 @@ module FPath
   , root
   , stripDir, stripDir'
 
-  , getCwd, getCwd'
-
   , tests
   )
 where
@@ -132,7 +130,6 @@ import FPath.File              ( File )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
                                          , splitExt ) )
 import FPath.FPath             ( FPath )
-import FPath.IO                ( getCwd, getCwd' )
 import FPath.Parseable         ( Parseable( parse, parse'
                                           , __parse__, __parse'__ ) )
 import FPath.Rel               ( Rel )

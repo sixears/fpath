@@ -216,11 +216,10 @@ relDirIsMonoSeqSetterTests =
 
 relDirShowTests ∷ TestTree
 relDirShowTests =
-  let r0Show = "RelDir (fromList [])"
-      r1Show = "RelDir (fromList [PathComponent \"r\"])"
-      r2Show = "RelDir (fromList [PathComponent \"r\",PathComponent \"p\"])"
-      r3Show = "RelDir (fromList "
-             ⊕ "[PathComponent \"p\",PathComponent \"q\",PathComponent \"r\"])"
+  let r0Show = "[reldir|./|]"
+      r1Show = "[reldir|r/|]"
+      r2Show = "[reldir|r/p/|]"
+      r3Show = "[reldir|p/q/r/|]"
 
    in testGroup "show"
                 [ testCase "r0" $ r0Show ≟ show r0

@@ -1,17 +1,3 @@
-{-# LANGUAGE DeriveLift          #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE InstanceSigs        #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE UnicodeSyntax       #-}
-{-# LANGUAGE ViewPatterns        #-}
-
 module FPath.AbsDir
   ( AbsDir, AsAbsDir( _AbsDir ), AsNonRootAbsDir( _NonRootAbsDir )
   , NonRootAbsDir, ToAbsDir( toAbsDir )
@@ -50,6 +36,7 @@ import Data.Ord             ( Ordering( GT ), (<), comparing )
 import Data.String          ( String )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
 import GHC.Exts             ( IsList( fromList, toList ), Item )
+import GHC.Generics         ( Generic )
 import GHC.Stack            ( HasCallStack )
 import System.Exit          ( ExitCode )
 import System.IO            ( IO )
@@ -73,6 +60,10 @@ import Data.Default  ( def )
 
 import Data.Textual  ( Printable( print ), Parsed( Parsed ), Textual( textual )
                      , fromString, parseString, toString, toText )
+
+-- deepseq -----------------------------
+
+import Control.DeepSeq  ( NFData )
 
 -- lens --------------------------------
 
@@ -180,6 +171,10 @@ import Data.Text  ( Text, any, last, length, empty, splitOn )
 
 import qualified  Text.Printer  as  P
 
+-- tfmt --------------------------------
+
+import Text.Fmt  ( fmt )
+
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
@@ -220,26 +215,20 @@ import FPath.Util              ( __ERROR'__ )
 -- a non-root dir is a path component appended to a (possibly-root) absolute
 -- directory
 newtype NonRootAbsDir = NonRootAbsDir (SeqNE PathComponent)
-  deriving (Eq,Lift,Show)
+  deriving (Eq,Generic,NFData,Lift)
 
 type instance Element NonRootAbsDir = PathComponent
 
+instance Show NonRootAbsDir where
+  show r = [fmt|[absdir|%T%s]|] (toText r) "|"
+
 showTests ∷ TestTree
 showTests =
-  let fromNonEmptyT = "NonEmptyContainers.IsNonEmpty.fromNonEmpty"
-      pcT t         = "PathComponent \"" ⊕ t ⊕ "\""
-      etcT          = pcT "etc"
-      pamdT         = pcT "pam.d"
-      nonRT         = "AbsNonRootDir (NonRootAbsDir "
-      rootShow = "AbsRootDir"
-      etcShow  = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ pcT "etc" ⊕ " :| []))"
-      pamdShow = nonRT ⊕ fromNonEmptyT ⊕ " (" ⊕ etcT ⊕ " :| [" ⊕ pamdT ⊕ "]))"
-
-   in testGroup "show"
-                [ testCase "root"  $ rootShow ≟ show root
-                , testCase "etc"   $ etcShow  ≟ show etc
-                , testCase "pam.d" $ pamdShow ≟ show pamd
-                ]
+  testGroup "show"
+            [ testCase "root"  $ "[absdir|/|]"           ≟ show root
+            , testCase "etc"   $ "[absdir|/etc/|]"       ≟ show etc
+            , testCase "pam.d" $ "[absdir|/etc/pam.d/|]" ≟ show pamd
+            ]
 
 --------------------
 
@@ -261,12 +250,15 @@ instance RelTypeC NonRootAbsDir where
 {- | An absolute directory is either the root directory, or a non-root absolute
      directory -}
 data AbsDir = AbsRootDir | AbsNonRootDir NonRootAbsDir
-  deriving (Eq,Lift,Show)
+  deriving (Eq,Generic,NFData,Lift)
 
 absNonRootDir ∷ SeqNE PathComponent → AbsDir
 absNonRootDir = AbsNonRootDir ∘ NonRootAbsDir
 
 type instance Element AbsDir = PathComponent
+
+instance Show AbsDir where
+  show r = [fmt|[absdir|%T%s]|] (toText r) "|"
 
 ------------------------------------------------------------
 
