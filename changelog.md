@@ -1,3 +1,8 @@
+1.2.0.0 2021-08-11
+==================
+- change AppendableFPath to three-param typeclass; add Dir+(RelFile|RelDir)
+  instances of AppendableFPath
+
 1.1.5.0 2021-07-15
 ==================
 - remove FPath.IO

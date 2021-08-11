@@ -1,13 +1,3 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
-
 module FPath.Dir
   ( AsDir( _Dir ), Dir(..), DirAs( _Dir_ )
 
@@ -102,7 +92,7 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
 
                                , absdir
                                )
-import FPath.AppendableFPath   ( (⫻) )
+import FPath.AppendableFPath   ( AppendableFPath( (⫻) ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
@@ -622,6 +612,12 @@ parseDirTests =
                 , success [reldir|./|]    _RelDir "./"
                 , success [reldir|etc/|]  _RelDir "etc/"
                 ]
+
+----------------------------------------
+
+instance AppendableFPath Dir RelDir Dir where
+  (DirA d) ⫻ f = DirA $ (d ⫻ f)
+  (DirR d) ⫻ f = DirR $ (d ⫻ f)
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

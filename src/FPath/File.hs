@@ -1,13 +1,3 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
-
 module FPath.File
   ( AsFile( _File ), File(..), FileAs( _File_ )
 
@@ -115,7 +105,7 @@ import Data.Text  ( head, null )
 
 import FPath.AbsDir            ( absdir, root )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
-import FPath.AppendableFPath   ( (⫻) )
+import FPath.AppendableFPath   ( AppendableFPath( (⫻) ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
@@ -836,6 +826,12 @@ rf3f = FileR rf3
 
 rf4f ∷ File
 rf4f = FileR rf4
+
+----------------------------------------
+
+instance AppendableFPath Dir RelFile File where
+  (DirA d) ⫻ f = FileA $ (d ⫻ f)
+  (DirR d) ⫻ f = FileR $ (d ⫻ f)
 
 ----------------------------------------
 
