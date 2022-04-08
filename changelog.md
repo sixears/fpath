@@ -1,3 +1,7 @@
+1.2.0.1 2022-04-06
+==================
+- upgrade dependencies
+
 1.2.0.0 2021-08-11
 ==================
 - change AppendableFPath to three-param typeclass; add Dir+(RelFile|RelDir)
