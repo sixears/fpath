@@ -1,3 +1,7 @@
+1.2.1.0 2022-04-27
+==================
+- export FPath.FPath.FPathAs
+
 1.2.0.1 2022-04-06
 ==================
 - upgrade dependencies
