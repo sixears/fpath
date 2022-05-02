@@ -829,6 +829,7 @@ rf4f = FileR rf4
 
 ----------------------------------------
 
+-- We can't do this in any of the parent classes, as it causes circular imports
 instance AppendableFPath Dir RelFile File where
   (DirA d) ⫻ f = FileA $ (d ⫻ f)
   (DirR d) ⫻ f = FileR $ (d ⫻ f)

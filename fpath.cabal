@@ -7,7 +7,7 @@ name:                fpath
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             1.2.1.0
+version:             1.2.2.0
 
 -- A short (one-line) description of the package.
 synopsis:            Strongly-typed file paths
@@ -68,6 +68,7 @@ library
                  , FPath.RelDir, FPath.T.FPath.RelDir
                  , FPath.RelFile, FPath.T.FPath.RelFile
                  , FPath.RelType
+                 , FPath.ToDir
 
                  , FPath.Error.FPathComponentError
                  , FPath.Error.FPathError
@@ -114,6 +115,7 @@ library
                , temporary, text, text-printer, th-lift-instances, unix
                , validity
 
+               , base1t               >= 0.0.4.0
                , exited               >= 1.0.4.1
                , has-callstack        >= 1.0.1.0
                , monaderror-io        >= 1.2.2.0
@@ -121,7 +123,7 @@ library
                , non-empty-containers >= 1.4.3.1
                , quasiquoting         >= 1.0.1.1
                , tasty-plus           >= 1.5.1.1
-               , tfmt                 >= 0.2.5.0
+               , tfmt                 >= 0.2.6.0
   -- Directories containing source files.
   hs-source-dirs:      src
 
