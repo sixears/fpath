@@ -132,7 +132,12 @@ data File = FileA AbsFile | FileR RelFile
 
 --------------------
 
-class AsFile α where
+{-| Things that may convert to an `File` (but an `File` will always convert
+    to); e.g., @FPath@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable α, AsFilePath α) ⇒ AsFile α where
   _File ∷ Prism' α File
 
 instance AsFile File where
@@ -140,7 +145,12 @@ instance AsFile File where
 
 --------------------
 
-class FileAs γ where
+{-| Things that /may/ be converted from a `File` (but will always convert /to/ a
+    `File`), e.g., @AbsFile@, @RelFile@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable γ, AsFilePath γ) ⇒ FileAs γ where
   _File_ ∷ Prism' File γ
 
 instance FileAs File    where

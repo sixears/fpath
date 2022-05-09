@@ -6,9 +6,6 @@ License     : GPL-3
 Maintainer  : sample@email.com
 Stability   : stable
 Portability : POSIX
-
-Here is a longer description of this module, containing some
-commentary with @some markup@.
 -}
 
 module FPath.ToDir
@@ -25,21 +22,30 @@ import NonEmptyContainers.SeqConversions  ( FromSeq( fromSeq ), ToSeq( toSeq ) )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.Abs      ( Abs( AbsD, AbsF ) )
-import FPath.AbsFile  ( AbsFile )
-import FPath.AbsDir   ( AbsDir )
-import FPath.Dir      ( Dir( DirA, DirR ) )
-import FPath.DirType  ( DirType )
-import FPath.File     ( File( FileA, FileR ) )
-import FPath.FPath    ( FPath( FAbsD, FAbsF, FRelD, FRelF ) )
-import FPath.Rel      ( Rel( RelD, RelF ) )
-import FPath.RelDir   ( RelDir )
-import FPath.RelFile  ( RelFile )
+import FPath.Abs         ( Abs( AbsD, AbsF ) )
+import FPath.AbsFile     ( AbsFile )
+import FPath.AbsDir      ( AbsDir )
+import FPath.AsFilePath  ( AsFilePath )
+import FPath.Dir         ( Dir( DirA, DirR ) )
+import FPath.DirType     ( DirType )
+import FPath.File        ( File( FileA, FileR ) )
+import FPath.FPath       ( FPath( FAbsD, FAbsF, FRelD, FRelF ) )
+import FPath.Rel         ( Rel( RelD, RelF ) )
+import FPath.RelDir      ( RelDir )
+import FPath.RelFile     ( RelFile )
 
 --------------------------------------------------------------------------------
 
+{-| Convert fpath types to their directory equivalents.  Note that this is
+    different from `FPath.AsDir`; that is just pulling out the `Dir` from
+    things that really are files (e.g., FPath); whereas this is about
+    /converting/ things; e.g., file names, to directories.
+ -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
 {-| Convert fpath types to their directory equivalents. -}
-class ToDir ρ where
+class (Printable ρ, AsFilePath ρ) ⇒ ToDir ρ where
   {-| Convert an fpath type to its directory equivalent. -}
   toDir ∷ ρ → DirType ρ
 

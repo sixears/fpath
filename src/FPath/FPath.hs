@@ -38,8 +38,9 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 -- lens --------------------------------
 
-import Control.Lens.Lens   ( Lens', lens )
-import Control.Lens.Prism  ( Prism', prism' )
+import Control.Lens.Lens    ( Lens', lens )
+import Control.Lens.Prism   ( Prism', prism' )
+import Control.Lens.Review  ( review )
 
 -- mono-traversable --------------------
 
@@ -95,9 +96,10 @@ import Data.Text  ( head, last, null )
 ------------------------------------------------------------
 
 import FPath.Abs               ( AsAbs(_Abs ), Abs( AbsD, AbsF ) )
-import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
-                               , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
-                               , ToAbsDir( toAbsDir )
+import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir )
+                               , AbsDirAs( _AbsDir_ )
+                               , AsNonRootAbsDir( _NonRootAbsDir )
+                               , NonRootAbsDir
                                , absdir
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile )
@@ -140,7 +142,7 @@ instance AsAbsFile FPath where
 
 instance AsNonRootAbsDir FPath where
   _NonRootAbsDir ∷ Prism' FPath NonRootAbsDir
-  _NonRootAbsDir = prism' (FAbsD ∘ toAbsDir)
+  _NonRootAbsDir = prism' (FAbsD ∘ review _AbsDir_)
                           (\ case (FAbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
 
 ----------------------------------------

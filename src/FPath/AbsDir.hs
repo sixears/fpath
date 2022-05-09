@@ -1,6 +1,6 @@
 module FPath.AbsDir
-  ( AbsDir, AsAbsDir( _AbsDir ), AsNonRootAbsDir( _NonRootAbsDir )
-  , NonRootAbsDir, ToAbsDir( toAbsDir )
+  ( AbsDir, AbsDirAs( _AbsDir_ ), AsAbsDir( _AbsDir )
+  , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
 
   , absdirT
   -- quasi-quoters
@@ -15,51 +15,32 @@ module FPath.AbsDir
   )
 where
 
+import Base1T  hiding  ( toList )
 import Prelude  ( error )
 
 -- base --------------------------------
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
-import Control.Applicative  ( pure )
-import Control.Monad        ( mapM, return )
-import Data.Bool            ( Bool( False, True ), otherwise )
-import Data.Either          ( Either( Left, Right ), either )
-import Data.Eq              ( Eq )
-import Data.Foldable        ( concat, foldl', foldl1, foldMap, foldr, foldr1 )
-import Data.Function        ( ($), (&), const, id )
-import Data.Functor         ( fmap )
-import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
-import Data.Maybe           ( Maybe( Just, Nothing ), maybe )
+import Data.Foldable        ( concat, foldMap )
 import Data.Monoid          ( Monoid )
-import Data.Ord             ( Ordering( GT ), (<), comparing )
-import Data.String          ( String )
+import Data.Ord             ( Ordering( GT ), comparing )
 import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts             ( IsList( fromList, toList ), Item )
+import GHC.Exts             ( IsList( toList ) )
 import GHC.Generics         ( Generic )
-import GHC.Stack            ( HasCallStack )
-import System.Exit          ( ExitCode )
-import System.IO            ( IO )
-import Text.Show            ( Show( show ) )
 
 -- base-unicode-symbols ----------------
 
-import Data.Eq.Unicode        ( (≡) )
-import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (∅), (⊕) )
+import Data.Monoid.Unicode    ( (∅) )
 
 -- containers --------------------------
 
 import qualified  Data.Sequence  as  Seq
 
--- data-default ------------------------
-
-import Data.Default  ( def )
-
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Parsed( Parsed ), Textual( textual )
-                     , fromString, parseString, toString, toText )
+import Data.Textual  ( Parsed( Parsed ), Textual( textual )
+                     , fromString, parseString )
 
 -- deepseq -----------------------------
 
@@ -70,8 +51,6 @@ import Control.DeepSeq  ( NFData )
 import Control.Lens.Cons    ( unsnoc )
 import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( iso )
-import Control.Lens.Lens    ( Lens', lens )
-import Control.Lens.Prism   ( Prism', prism' )
 
 -- monaderror-io -----------------------
 
@@ -93,19 +72,9 @@ import Data.NonNull          ( fromNullable )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative      ( (⋫) )
 import Data.MoreUnicode.Function         ( (⅋) )
-import Data.MoreUnicode.Functor          ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens             ( (⊣), (⊢), (⊩), (⩼), (⫥), (⫣) )
-import Data.MoreUnicode.Monad            ( (≫) )
-import Data.MoreUnicode.Monoid           ( ф )
+import Data.MoreUnicode.Lens             ( (⊩), (⫣) )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
-import Data.MoreUnicode.Natural          ( ℕ )
-import Data.MoreUnicode.Semigroup        ( (◇) )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
 
 -- non-empty-containers ----------------
 
@@ -139,20 +108,10 @@ import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≣), (≟)
-                  , assertListEq, propInvertibleString, propInvertibleText
-                  , propInvertibleUtf8, runTestsP, runTestsReplay, runTestTree
-                  )
+import TastyPlus  ( (≣), (≟), assertListEq, propInvertibleString
+                  , propInvertibleText, propInvertibleUtf8 )
 
 -- tasty-quickcheck --------------------
 
@@ -165,15 +124,12 @@ import Language.Haskell.TH.Syntax  ( Lift )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, any, last, length, empty, splitOn )
+import qualified  Data.Text  as  Text
+import Data.Text  ( Text, any, length, empty, splitOn )
 
 -- text-printer ------------------------
 
 import qualified  Text.Printer  as  P
-
--- tfmt --------------------------------
-
-import Text.Fmt  ( fmt )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -279,6 +235,8 @@ instance DirTypeC NonRootAbsDir where
 
 --------------------
 
+{-| Things that may convert to an `AbsDir` (but an `AbsDir` will always convert
+    to); e.g., @Dir@, @Abs@, @FPath@. -}
 class AsAbsDir α where
   _AbsDir ∷ Prism' α AbsDir
 
@@ -287,20 +245,22 @@ instance AsAbsDir AbsDir where
 
 --------------------
 
-class ToAbsDir α where
-  toAbsDir ∷ α → AbsDir
+{-| Things that /may/ be converted from an `AbsDir` (but will always convert
+    /to/ an `AbsDir`). -}
+class AbsDirAs α where
+  _AbsDir_ ∷ Prism' AbsDir α
 
-instance ToAbsDir AbsDir where
-  toAbsDir = id
+instance AbsDirAs AbsDir where
+  _AbsDir_ = id
 
-instance ToAbsDir NonRootAbsDir where
-  toAbsDir = AbsNonRootDir -- \ x → x ⊣ re _NonRootAbsDir
+instance AbsDirAs NonRootAbsDir where
+  _AbsDir_ =
+    prism' AbsNonRootDir (\ case AbsRootDir → 𝕹; AbsNonRootDir d → 𝕵 d)
 
 ------------------------------------------------------------
 
 instance MonoFunctor NonRootAbsDir where
   omap ∷ (PathComponent → PathComponent) → NonRootAbsDir → NonRootAbsDir
---  omap f (NonRootAbsDir p a) = NonRootAbsDir (f p) (omap f a)
   omap f (NonRootAbsDir ps) = NonRootAbsDir (omap f ps)
 
 instance MonoFunctor AbsDir where
@@ -386,11 +346,11 @@ monoFoldableTests =
             , testCase "otoList" $
                 [ [pc|w|], [pc|g|], [pc|M|] ] @=? otoList wgm
             , testCase "oall (F)" $
-                False @=? oall (any (≡ 'r' ) ∘ toText) wgm
+                𝕱 @=? oall (any (≡ 'r' ) ∘ toText) wgm
             , testCase "oall (T)" $
-                True @=? oall ((< 6) ∘ length ∘ toText) wgm
+                𝕿 @=? oall ((< 6) ∘ length ∘ toText) wgm
             , testCase "oany (F)" $
-                False @=? oany (any (≡ 'x' ) ∘ toText) wgm
+                𝕱 @=? oany (any (≡ 'x' ) ∘ toText) wgm
             , testProperty "onull" (\ x → B (x ≡ root) ≣ B (onull x))
             , testCase "olength" $
                 3 ≟ olength wgm
@@ -416,13 +376,13 @@ monoFoldableTests =
             , testCase "minimumByEx" $
                 [pc|M|] ≟ minimumByEx (comparing toText) wgm
             , testCase "oelem (T)" $
-                True @=? oelem [pc|g|] wgm
+                𝕿 @=? oelem [pc|g|] wgm
             , testCase "oelem (F)" $
-                False @=? oelem [pc|x|] wgm
+                𝕱 @=? oelem [pc|x|] wgm
             , testCase "onotElem (T)" $
-                True @=? onotElem [pc|x|] wgm
+                𝕿 @=? onotElem [pc|x|] wgm
             , testCase "onotElem (F)" $
-                False @=? onotElem [pc|g|] wgm
+                𝕱 @=? onotElem [pc|g|] wgm
             ]
 
 ----------------------------------------
@@ -801,7 +761,7 @@ parseAbsDirP ∷ ∀ ε τ η . (AsFPathError ε, MonadError ε η, Printable τ
                τ → η AbsDir
 parseAbsDirP (toText → t) =
   let safeLast "" = Nothing
-      safeLast s  = Just $ last s
+      safeLast s  = Just $ Text.last s
    in case safeLast t of
         Nothing  → parse empty
         Just '/' → parse t
@@ -898,7 +858,7 @@ parseAbsDirNP ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒
                τ → η NonRootAbsDir
 parseAbsDirNP (toText → t) = do
   let safeLast "" = Nothing
-      safeLast s  = Just $ last s
+      safeLast s  = Just $ Text.last s
    in case safeLast t of
         Nothing  → parse empty
         Just '/' → parse t

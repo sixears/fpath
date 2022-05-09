@@ -111,7 +111,14 @@ import FPath.T.FPath.TestData  ( r0, r1, r2, r3, rf1, rf2, rf3, rf4 )
 data Rel = RelD RelDir | RelF RelFile
   deriving (Eq, Show)
 
-class AsRel α where
+--------------------
+
+{-| Things that may convert to a `Rel` (but a `Rel` will always convert to);
+    e.g., @FPath@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable α, AsFilePath α) ⇒ AsRel α where
   _Rel ∷ Prism' α Rel
 
 instance AsRel Rel where
@@ -398,7 +405,12 @@ instance Arbitrary Rel where
 
 ----------------------------------------
 
-class RelAs α where
+{-| Things that /may/ be converted from a `Rel` (but will always convert /to/ a
+    `Rel`), e.g., @RelFile@, @RelDir@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable α, AsFilePath α) ⇒ RelAs α where
   _Rel_ ∷ Prism' Rel α
 instance RelAs Rel where
   _Rel_ = id

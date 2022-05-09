@@ -1,3 +1,11 @@
+1.3.0.0 2022-05-08
+==================
+- add AbsAs class
+- factor out NonRootRelDir type
+- remove ToAbsDir (use AbsDirAs instead)
+- start using Base1T
+- add Printable, AsFilePath constraints for convenience to some classes
+
 1.2.2.0 2022-05-02
 ==================
 - add FPath.ToDir

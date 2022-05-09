@@ -41,8 +41,9 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 -- lens --------------------------------
 
-import Control.Lens.Lens   ( Lens', lens )
-import Control.Lens.Prism  ( Prism', prism' )
+import Control.Lens.Lens    ( Lens', lens )
+import Control.Lens.Prism   ( Prism', prism' )
+import Control.Lens.Review  ( review )
 
 -- mono-traversable --------------------
 
@@ -97,10 +98,11 @@ import Data.Text  ( last, null )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
+import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir )
+                               , AbsDirAs( _AbsDir_ )
                                , AsNonRootAbsDir( _NonRootAbsDir )
                                , NonRootAbsDir
-                               , absdir, toAbsDir
+                               , absdir
                                )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
@@ -121,7 +123,14 @@ import FPath.T.FPath.TestData  ( etc, pamd, af1, af2, af3, af4, root, wgm )
 data Abs = AbsD AbsDir | AbsF AbsFile
   deriving (Eq, Show)
 
-class AsAbs α where
+--------------------
+
+{-| Things that may convert to an `Abs` (but an `Abs` will always convert
+    to); e.g., @FPath@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable α, AsFilePath α) ⇒ AsAbs α where
   _Abs ∷ Prism' α Abs
 
 instance AsAbs Abs where
@@ -135,7 +144,7 @@ instance AsAbsDir Abs where
 
 instance AsNonRootAbsDir Abs where
   _NonRootAbsDir ∷ Prism' Abs NonRootAbsDir
-  _NonRootAbsDir = prism' (AbsD ∘ toAbsDir)
+  _NonRootAbsDir = prism' (AbsD ∘ review _AbsDir_)
                           (\ case (AbsD d) → d ⩼ _NonRootAbsDir; _ → Nothing)
 
 instance AsAbsFile Abs where
@@ -410,6 +419,22 @@ instance Arbitrary Abs where
   shrink ∷ Abs → [Abs]
   shrink (AbsF f) = AbsF ⊳ shrink f
   shrink (AbsD d) = AbsD ⊳ shrink d
+
+----------------------------------------
+
+{-| Things that /may/ be converted from an `Abs` (but will always convert /to/
+    an `Abs`), e.g., @AbsFile@, @AbsDir@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable α, AsFilePath α) ⇒ AbsAs α where
+  _Abs_ ∷ Prism' Abs α
+instance AbsAs Abs where
+  _Abs_ = id
+instance AbsAs AbsFile where
+  _Abs_ = _AbsFile
+instance AbsAs AbsDir where
+  _Abs_ = _AbsDir
 
 --------------------------------------------------------------------------------
 --                                   tests                                    --

@@ -32,6 +32,7 @@ import Data.Textual  ( Printable( print ), Textual( textual )
 
 import Control.Lens.Lens    ( Lens', lens )
 import Control.Lens.Prism   ( Prism', prism' )
+import Control.Lens.Review  ( review )
 
 -- mono-traversable --------------------
 
@@ -87,8 +88,9 @@ import Data.Text  ( head, null )
 ------------------------------------------------------------
 
 import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
-                               , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
-                               , ToAbsDir( toAbsDir )
+                               , AbsDirAs( _AbsDir_ )
+                               , AsNonRootAbsDir( _NonRootAbsDir )
+                               , NonRootAbsDir
 
                                , absdir
                                )
@@ -114,6 +116,24 @@ data Dir = DirA AbsDir | DirR RelDir
 
 --------------------
 
+{-| Things that may convert to a `Dir` (but a `Dir` will always convert
+    to); e.g., @FPath@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
+class (Printable α, AsFilePath α) ⇒ AsDir α where
+  _Dir ∷ Prism' α Dir
+
+instance AsDir Dir where
+  _Dir = id
+
+--------------------
+
+{-| Things that /may/ be converted from a `Dir` (but will always convert /to/ a
+    `Dir`), e.g., @AbsDir@, @RelDir@. -}
+-- we don't really need the Printable, AsFilePath requirements here; rather,
+-- they should be true of all fpathish things, and including them here makes
+-- many function type signatures simpler
 class (Printable α, AsFilePath α) ⇒ DirAs α where
   _Dir_ ∷ Prism' Dir α
 instance DirAs Dir where
@@ -122,14 +142,6 @@ instance DirAs AbsDir where
   _Dir_ = _AbsDir
 instance DirAs RelDir where
   _Dir_ = _RelDir
-
---------------------
-
-class AsDir α where
-  _Dir ∷ Prism' α Dir
-
-instance AsDir Dir where
-  _Dir = id
 
 --------------------
 
@@ -151,7 +163,7 @@ instance AsAbsDir Dir where
 
 instance AsNonRootAbsDir Dir where
   _NonRootAbsDir ∷ Prism' Dir NonRootAbsDir
-  _NonRootAbsDir = prism' (DirA ∘ toAbsDir)
+  _NonRootAbsDir = prism' (DirA ∘ review _AbsDir_)
                           (\ case (DirA d) → d ⩼ _NonRootAbsDir; _ → Nothing)
 
 --------------------
