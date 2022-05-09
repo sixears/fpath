@@ -1,3 +1,7 @@
+1.3.1.0 2022-05-09
+=================
+- add FileTypeC,ToFile instances of NonRootRelDir
+
 1.3.0.0 2022-05-08
 ==================
 - add AbsAs class

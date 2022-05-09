@@ -60,10 +60,8 @@ instance ToFile NonRootAbsDir where
 instance ToFile RelFile where
   toFile = id
 
-{-
 instance ToFile NonRootRelDir where
   toFile = fromSeqNE ∘ toSeqNE
--}
 
 instance ToFile File where
   toFile = id

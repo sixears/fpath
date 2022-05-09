@@ -17,7 +17,7 @@ import FPath.Dir      ( Dir )
 import FPath.File     ( File )
 import FPath.FPath    ( FPath )
 import FPath.Rel      ( Rel )
-import FPath.RelDir   ( RelDir )
+import FPath.RelDir   ( NonRootRelDir, RelDir )
 import FPath.RelFile  ( RelFile )
 
 --------------------------------------------------------------------------------
@@ -37,6 +37,9 @@ instance FileTypeC AbsFile where
 
 instance FileTypeC RelDir where
   type FileType RelDir = RelFile
+
+instance FileTypeC NonRootRelDir where
+  type FileType NonRootRelDir = RelFile
 
 instance FileTypeC RelFile where
   type FileType RelFile = RelFile
