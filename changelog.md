@@ -1,3 +1,7 @@
+1.3.2.0 2022-06-03
+==================
+- add Ord instances for {Abs,Rel}{Dir,File},Dir,Rel,Abs,File,FPath
+
 1.3.1.0 2022-05-09
 =================
 - add FileTypeC,ToFile instances of NonRootRelDir

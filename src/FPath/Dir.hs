@@ -5,34 +5,16 @@ module FPath.Dir
   )
 where
 
+import Base1T  hiding  ( head )
+
 -- base --------------------------------
 
-import Data.Bool        ( Bool( False, True ) )
-import Data.Either      ( Either( Right ) )
-import Data.Eq          ( Eq )
-import Data.Function    ( ($), (&), id )
-import Data.Maybe       ( Maybe( Just, Nothing ) )
-import Data.Monoid      ( Monoid )
-import Data.String      ( String )
-import Data.Typeable    ( Proxy( Proxy ), TypeRep, typeRep )
-import System.Exit      ( ExitCode )
-import System.IO        ( IO )
-import Text.Show        ( Show )
-
--- base-unicode-symbols ----------------
-
-import Data.Function.Unicode  ( (∘) )
+import Data.Monoid    ( Monoid )
+import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
-
--- lens --------------------------------
-
-import Control.Lens.Lens    ( Lens', lens )
-import Control.Lens.Prism   ( Prism', prism' )
-import Control.Lens.Review  ( review )
+import Data.Textual  ( Textual( textual ), fromString )
 
 -- mono-traversable --------------------
 
@@ -44,15 +26,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode-symbols ----------------
 
-import Data.MoreUnicode.Applicative  ( (∤) )
-import Data.MoreUnicode.Function     ( (⅋) )
-import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⊣), (⊢), (⊩), (⫥), (⩼), (##) )
-import Data.MoreUnicode.Natural      ( ℕ )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Function  ( (⅋) )
+import Data.MoreUnicode.Lens      ( (⊩), (##) )
 
 -- non-empty-containers ----------------
 
@@ -67,17 +42,9 @@ import Test.QuickCheck.Gen        ( Gen, oneof )
 
 import Safe  ( headDef )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟) )
 
 -- text --------------------------------
 
@@ -113,6 +80,11 @@ import FPath.T.FPath.TestData  ( etc, pamd, a0, a1, a2, a3, r0, r1, r2, r3, root
 
 data Dir = DirA AbsDir | DirR RelDir
   deriving (Eq, Show)
+
+--------------------
+
+instance Ord Dir where
+  a <= b = toText a ≤ toText b
 
 --------------------
 
@@ -610,8 +582,8 @@ instance Parseable Dir where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Dir
   parse (toText → t) =
     case null t of
-      True → __FPathEmptyE__ dirT
-      False → case head t of
+      𝕿 → __FPathEmptyE__ dirT
+      𝕱 → case head t of
                 '/' → DirA ⊳ parse t
                 _   → DirR ⊳ parse t
 

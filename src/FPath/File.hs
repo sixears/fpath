@@ -5,26 +5,13 @@ module FPath.File
   )
 where
 
+import Base1T  hiding  ( head, toList )
+
 -- base --------------------------------
 
-import Data.Bifunctor      ( first )
-import Data.Bool           ( Bool( False, True ) )
-import Data.Either         ( Either( Left, Right ) )
-import Data.Eq             ( Eq )
-import Data.Function       ( ($), (&), const, id )
-import Data.Maybe          ( Maybe( Just, Nothing ) )
 import Data.Monoid         ( Monoid )
-import Data.List.NonEmpty  ( NonEmpty, toList )
-import Data.String         ( String )
+import Data.List.NonEmpty  ( toList )
 import Data.Typeable       ( Proxy( Proxy ), TypeRep, typeRep )
-import System.Exit         ( ExitCode )
-import System.IO           ( IO )
-import Text.Show           ( Show )
-
--- base-unicode-symbols ----------------
-
-import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
 
 -- containers --------------------------
 
@@ -32,14 +19,12 @@ import Data.Sequence  ( Seq )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
+import Data.Textual  ( Textual( textual ), fromString )
 
 -- lens --------------------------------
 
 import Control.Lens.Iso     ( Iso', iso )
-import Control.Lens.Lens    ( Lens', lens )
-import Control.Lens.Prism   ( Prism', prism, prism' )
+import Control.Lens.Prism   ( prism )
 
 -- mono-traversable --------------------
 
@@ -49,22 +34,10 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
                              , MonoFunctor( omap )
                              )
 
--- more-unicode-symbols ----------------
-
-import Data.MoreUnicode.Functor    ( (⊳) )
-import Data.MoreUnicode.Lens       ( (⊣), (⫣), (⊢), (⊩), (##) )
-import Data.MoreUnicode.Natural    ( ℕ )
-import Data.MoreUnicode.Semigroup  ( (◇) )
-
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (∤) )
-import Data.MoreUnicode.Function     ( (⅋) )
-import Data.MoreUnicode.Lens         ( (⫥), (⩼) )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Function  ( (⅋) )
+import Data.MoreUnicode.Lens      ( (⫣), (⊩), (##) )
 
 -- non-empty-containers ----------------
 
@@ -83,17 +56,9 @@ import Test.QuickCheck.Gen        ( Gen, oneof )
 
 import Safe  ( headDef )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟) )
 
 -- text --------------------------------
 
@@ -129,6 +94,11 @@ import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 
 data File = FileA AbsFile | FileR RelFile
   deriving (Eq, Show)
+
+--------------------
+
+instance Ord File where
+  a <= b = toText a ≤ toText b
 
 --------------------
 
@@ -725,10 +695,10 @@ instance Parseable File where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η File
   parse (toText → t) =
     case null t of
-      True → __FPathEmptyE__ fileT
-      False → case head t of
-                '/' → FileA ⊳ parse t
-                _   → FileR ⊳ parse t
+      𝕿 → __FPathEmptyE__ fileT
+      𝕱 → case head t of
+            '/' → FileA ⊳ parse t
+            _   → FileR ⊳ parse t
 
 parseFileTests ∷ TestTree
 parseFileTests =

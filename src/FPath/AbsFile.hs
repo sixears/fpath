@@ -7,42 +7,22 @@ module FPath.AbsFile
   )
 where
 
+import Base1T  hiding  ( toList )
 import Prelude  ( error )
 
 -- base --------------------------------
 
 import qualified  Data.List.NonEmpty  as  NonEmpty
 
-import Control.Applicative  ( pure )
-import Control.Monad        ( return )
-import Data.Either          ( Either, either )
-import Data.Eq              ( Eq )
-import Data.Foldable        ( foldMap, foldl1, foldl', foldr, foldr1 )
-import Data.Function        ( ($), (&), const, id )
-import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
-import Data.Maybe           ( Maybe( Just, Nothing ) )
-import Data.Monoid          ( Monoid )
-import Data.String          ( String )
-import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts             ( IsList( fromList, toList ) )
-import GHC.Generics         ( Generic )
-import System.Exit          ( ExitCode )
-import System.IO            ( IO )
-import Text.Show            ( Show( show ) )
-
--- base-unicode-symbols ----------------
-
-import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
-
--- data-default ------------------------
-
-import Data.Default  ( def )
+import Data.Foldable  ( foldMap )
+import Data.Monoid    ( Monoid )
+import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Exts       ( IsList( toList ) )
+import GHC.Generics   ( Generic )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
+import Data.Textual  ( Textual( textual ), fromString )
 
 -- deepseq -----------------------------
 
@@ -52,8 +32,6 @@ import Control.DeepSeq  ( NFData )
 
 import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Iso    ( iso )
-import Control.Lens.Lens   ( Lens', lens )
-import Control.Lens.Prism  ( Prism', prism' )
 
 -- monaderror-io -----------------------
 
@@ -69,16 +47,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⋫) )
 import Data.MoreUnicode.Function     ( (⅋) )
-import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens         ( (⊣), (⊩), (⊢) )
-import Data.MoreUnicode.Monoid       ( ф )
-import Data.MoreUnicode.Natural      ( ℕ )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Lens         ( (⊩) )
 
 -- non-empty-containers ----------------
 
@@ -108,17 +78,9 @@ import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
 
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), assertListEq, runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟), assertListEq )
 
 -- template-haskell --------------------
 
@@ -132,10 +94,6 @@ import Data.Text  ( Text, dropEnd, intercalate, length, splitOn )
 -- text-printer ------------------------
 
 import qualified  Text.Printer  as  P
-
--- tfmt --------------------------------
-
-import Text.Fmt  ( fmt )
 
 ------------------------------------------------------------
 --                     local imports                      --
@@ -175,6 +133,11 @@ type instance Element AbsFile = PathComponent
 
 instance Show AbsFile where
   show r = [fmt|[absfile|%T%s]|] (toText r) "|"
+
+--------------------
+
+instance Ord AbsFile where
+  a <= b = toText a ≤ toText b
 
 --------------------
 

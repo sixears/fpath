@@ -16,29 +16,16 @@ module FPath.Rel
   )
 where
 
+import Base1T  hiding  ( last )
+
 -- base --------------------------------
 
-import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Right ) )
-import Data.Eq        ( Eq )
-import Data.Function  ( ($), id )
-import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.Monoid    ( Monoid )
-import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
-import System.Exit    ( ExitCode )
-import System.IO      ( IO )
-import Text.Show      ( Show )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
-
--- lens --------------------------------
-
-import Control.Lens.Lens   ( Lens', lens )
-import Control.Lens.Prism  ( Prism', prism' )
+import Data.Textual  ( Textual( textual ), fromString )
 
 -- mono-traversable --------------------
 
@@ -50,15 +37,7 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (∤) )
-import Data.MoreUnicode.Function     ( (⅋) )
-import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⊣), (⫥), (⩼), (⊢) )
-import Data.MoreUnicode.Natural      ( ℕ )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Function  ( (⅋) )
 
 -- non-empty-containers ----------------
 
@@ -73,17 +52,9 @@ import Text.Parser.Combinators  ( try )
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 import Test.QuickCheck.Gen        ( Gen, oneof )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟) )
 
 -- text --------------------------------
 
@@ -110,6 +81,11 @@ import FPath.T.FPath.TestData  ( r0, r1, r2, r3, rf1, rf2, rf3, rf4 )
 
 data Rel = RelD RelDir | RelF RelFile
   deriving (Eq, Show)
+
+--------------------
+
+instance Ord Rel where
+  a <= b = toText a ≤ toText b
 
 --------------------
 
@@ -192,10 +168,10 @@ instance Parseable Rel where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Rel
   parse (toText → t) =
     case null t of
-      True → __FPathEmptyE__ relpathT
-      False → case last t of
-                '/' → RelD ⊳ parse  t
-                _   → RelF ⊳ parse t
+      𝕿 → __FPathEmptyE__ relpathT
+      𝕱 → case last t of
+            '/' → RelD ⊳ parse  t
+            _   → RelF ⊳ parse t
 
 parseRelTests ∷ TestTree
 parseRelTests =

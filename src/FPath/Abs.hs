@@ -16,34 +16,16 @@ module FPath.Abs
   )
 where
 
+import Base1T  hiding  ( last )
+
 -- base --------------------------------
 
-import Data.Bool      ( Bool( False, True ) )
-import Data.Either    ( Either( Right ) )
-import Data.Eq        ( Eq )
-import Data.Function  ( ($), id )
-import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.Monoid    ( Monoid )
-import Data.String    ( String )
 import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
-import System.Exit    ( ExitCode )
-import System.IO      ( IO )
-import Text.Show      ( Show )
-
--- base-unicode-symbols ----------------
-
-import Data.Function.Unicode  ( (∘) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
-
--- lens --------------------------------
-
-import Control.Lens.Lens    ( Lens', lens )
-import Control.Lens.Prism   ( Prism', prism' )
-import Control.Lens.Review  ( review )
+import Data.Textual  ( Textual( textual ), fromString )
 
 -- mono-traversable --------------------
 
@@ -55,15 +37,8 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (∤) )
-import Data.MoreUnicode.Function     ( (⅋) )
-import Data.MoreUnicode.Functor      ( (⊳) )
-import Data.MoreUnicode.Lens         ( (⊣), (⊢), (⩼), (##) )
-import Data.MoreUnicode.Natural      ( ℕ )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Function  ( (⅋) )
+import Data.MoreUnicode.Lens      ( (##) )
 
 -- non-empty-containers ----------------
 
@@ -78,17 +53,9 @@ import Text.Parser.Combinators  ( try )
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 import Test.QuickCheck.Gen        ( Gen, oneof )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟) )
 
 -- text --------------------------------
 
@@ -124,6 +91,11 @@ data Abs = AbsD AbsDir | AbsF AbsFile
   deriving (Eq, Show)
 
 --------------------
+
+instance Ord Abs where
+  a <= b = toText a ≤ toText b
+
+----------------------------------------
 
 {-| Things that may convert to an `Abs` (but an `Abs` will always convert
     to); e.g., @FPath@. -}
@@ -210,14 +182,14 @@ instance Parseable Abs where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Abs
   parse (toText → t) =
     case null t of
-      True → __FPathEmptyE__ absT
-      False → case last t of
-                '/' → AbsD ⊳ parse t
-                _   → AbsF ⊳ parse t
+      𝕿 → __FPathEmptyE__ absT
+      𝕱 → case last t of
+            '/' → AbsD ⊳ parse t
+            _   → AbsF ⊳ parse t
 
 parseAbsTests ∷ TestTree
 parseAbsTests =
-  let success d f t = testCase t $ Right (d ## f) @=? parse @Abs @FPathError t
+  let success d f t = testCase t $ 𝕽 (d ## f) @=? parse @Abs @FPathError t
    in testGroup "parseAbs"
                 [ success [absdir|/|]           _AbsDir "/"
                 , success [absdir|/etc/|]       _AbsDir "/etc/"

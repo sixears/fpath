@@ -160,6 +160,11 @@ instance Show NonRootRelDir where
 
 ----------------------------------------
 
+instance Ord NonRootRelDir where
+  a <= b = toText a ≤ toText b
+
+--------------------
+
 instance Printable NonRootRelDir where
   print (NonRootRelDir ps) = pDir id ps
 
@@ -312,6 +317,11 @@ showTests =
             , testCase "pam.d" $ "[reldir|p/|]" ≟ show r3p
             , testCase "pam.d" $ "[reldir|p/q/|]" ≟ show r3pq
             ]
+
+--------------------
+
+instance Ord RelDir where
+  a <= b = toText a ≤ toText b
 
 --------------------
 

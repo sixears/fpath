@@ -188,6 +188,11 @@ showTests =
 
 --------------------
 
+instance Ord NonRootAbsDir where
+  a <= b = toText a ≤ toText b
+
+--------------------
+
 instance DirTypeC AbsDir where
   type DirType AbsDir = AbsDir
 
@@ -217,6 +222,11 @@ instance Show AbsDir where
   show r = [fmt|[absdir|%T%s]|] (toText r) "|"
 
 ------------------------------------------------------------
+
+instance Ord AbsDir where
+  a <= b = toText a ≤ toText b
+
+--------------------
 
 class AsNonRootAbsDir α where
   _NonRootAbsDir ∷ Prism' α NonRootAbsDir
