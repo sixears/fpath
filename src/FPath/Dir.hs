@@ -61,7 +61,8 @@ import FPath.AbsDir            ( AbsDir, AsAbsDir( _AbsDir)
 
                                , absdir
                                )
-import FPath.AppendableFPath   ( AppendableFPath( (⫻) ) )
+import FPath.AppendableFPath   ( AppendableFPath( AppendableFPathD
+                                                , AppendableFPathF, (⫻) ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
@@ -599,7 +600,9 @@ parseDirTests =
 
 ----------------------------------------
 
-instance AppendableFPath Dir RelDir Dir where
+instance AppendableFPath Dir where
+  type AppendableFPathD Dir = Dir
+  type AppendableFPathF Dir = RelDir
   (DirA d) ⫻ f = DirA $ (d ⫻ f)
   (DirR d) ⫻ f = DirR $ (d ⫻ f)
 

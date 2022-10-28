@@ -1,3 +1,11 @@
+1.3.2.1 2022-10-28
+==================
+- add flake
+- use ghc-8.10.7 for tfmt
+- use genvalidity >= 1; no more GenUnchecked
+- get change AppendableFPath from a fundep to a type family to get rid
+  of orphan instance in File
+
 1.3.2.0 2022-06-03
 ==================
 - add Ord instances for {Abs,Rel}{Dir,File},Dir,Rel,Abs,File,FPath

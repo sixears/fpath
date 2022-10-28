@@ -63,8 +63,7 @@ import Control.DeepSeq  ( NFData )
 
 -- genvalidity -------------------------
 
-import Data.GenValidity  ( GenUnchecked, GenValid( genValid, shrinkValid )
-                         , isValid )
+import Data.GenValidity  ( GenValid( genValid, shrinkValid ), isValid )
 
 -- genvalidity-bytestring --------------
 
@@ -175,7 +174,7 @@ badChars = (chr ∘ fromIntegral @Word8) ⊳ [0,47] -- '\0', '/'
      notably no slashes are allowed (or nul chars); must not be empty
  -}
 newtype PathComponent = PathComponent 𝕋
-  deriving newtype (GenUnchecked,NFData,Semigroup,Show)
+  deriving newtype (NFData,Semigroup,Show)
   deriving stock   (Eq,Data,Generic)
 
 instance Printable PathComponent where

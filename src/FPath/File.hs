@@ -70,7 +70,8 @@ import Data.Text  ( head, null )
 
 import FPath.AbsDir            ( absdir, root )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
-import FPath.AppendableFPath   ( AppendableFPath( (⫻) ) )
+import FPath.AppendableFPath   ( AppendableFPath( AppendableFPathD
+                                                , AppendableFPathF, (⫻) ) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename) )
@@ -809,8 +810,12 @@ rf4f = FileR rf4
 
 ----------------------------------------
 
--- We can't do this in any of the parent classes, as it causes circular imports
-instance AppendableFPath Dir RelFile File where
+-- We can't do this in any of the parent classes, as it would causes -- circular
+-- imports
+
+instance AppendableFPath File where
+  type AppendableFPathD File = Dir
+  type AppendableFPathF File = RelFile
   (DirA d) ⫻ f = FileA $ (d ⫻ f)
   (DirR d) ⫻ f = FileR $ (d ⫻ f)
 
