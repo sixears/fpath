@@ -16,7 +16,7 @@
     tfmt.url                 = "github:sixears/tfmt/r0.2.7.8";
   };
 
-  outputs = { self, nixpkgs, flake-utils, build-utils
+  outputs = { self, nixpkgs, build-utils
             , base1t, exited, has-callstack, monaderror-io, more-unicode
             , non-empty-containers, quasiquoting, tasty-plus, tfmt
             }:
