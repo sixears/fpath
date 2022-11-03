@@ -8,7 +8,7 @@
     base1t.url               = "github:sixears/base1t/r0.0.5.9";
     exited.url               = "github:sixears/exited/r1.0.4.9";
     has-callstack.url        = "github:sixears/has-callstack/r1.0.1.9";
-    monaderror-io.url        = "github:sixears/monaderror-io/r1.2.5.9";
+    monaderror-io.url        = "github:sixears/monaderror-io/r1.2.5.8";
     more-unicode.url         = "github:sixears/more-unicode/r0.0.17.6";
     non-empty-containers.url = "github:sixears/non-empty-containers/r1.4.3.10";
     quasiquoting.url         = "github:sixears/quasiquoting/r1.0.1.10";
