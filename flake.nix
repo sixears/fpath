@@ -3,17 +3,17 @@
 
   inputs = {
     nixpkgs.url      = "github:nixos/nixpkgs/be44bf67"; # nixos-22.05 2022-10-15
-    build-utils.url  = "github:sixears/flake-build-utils/r1.0.0.6";
+    build-utils.url  = "github:sixears/flake-build-utils/r1.0.0.10";
 
-    base1t.url               = "github:sixears/base1t/r0.0.5.10";
-    exited.url               = "github:sixears/exited/r1.0.4.10";
-    has-callstack.url        = "github:sixears/has-callstack/r1.0.1.9";
-    monaderror-io.url        = "github:sixears/monaderror-io/r1.2.5.8";
-    more-unicode.url         = "github:sixears/more-unicode/r0.0.17.6";
-    non-empty-containers.url = "github:sixears/non-empty-containers/r1.4.3.11";
-    quasiquoting.url         = "github:sixears/quasiquoting/r1.0.1.11";
-    tasty-plus.url           = "github:sixears/tasty-plus/r1.5.2.9";
-    tfmt.url                 = "github:sixears/tfmt/r0.2.7.9";
+    base1t.url               = "github:sixears/base1t/r0.0.5.11";
+    exited.url               = "github:sixears/exited/r1.0.4.11";
+    has-callstack.url        = "github:sixears/has-callstack/r1.0.1.10";
+    monaderror-io.url        = "github:sixears/monaderror-io/r1.2.5.9";
+    more-unicode.url         = "github:sixears/more-unicode/r0.0.17.7";
+    non-empty-containers.url = "github:sixears/non-empty-containers/r1.4.3.12";
+    quasiquoting.url         = "github:sixears/quasiquoting/r1.0.1.12";
+    tasty-plus.url           = "github:sixears/tasty-plus/r1.5.2.10";
+    tfmt.url                 = "github:sixears/tfmt/r0.2.7.10";
   };
 
   outputs = { self, nixpkgs, build-utils
