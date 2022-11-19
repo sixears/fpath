@@ -10,7 +10,7 @@
     has-callstack.url        = github:sixears/has-callstack/r1.0.1.17;
     monaderror-io.url        = github:sixears/monaderror-io/r1.2.5.18;
     more-unicode.url         = github:sixears/more-unicode/r0.0.17.11;
-    non-empty-containers.url = github:sixears/non-empty-containers/r1.4.3.32;
+    non-empty-containers.url = github:sixears/non-empty-containers/r1.4.3.33;
     quasiquoting.url         = github:sixears/quasiquoting/r1.0.1.30;
     tasty-plus.url           = github:sixears/tasty-plus/r1.5.2.21;
     tfmt.url                 = github:sixears/tfmt/r0.2.7.23;
