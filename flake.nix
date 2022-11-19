@@ -40,7 +40,7 @@
         in
           mkDerivation {
             pname = "fpath";
-            version = "1.3.2.21";
+            version = "1.3.2.36";
             src = ./.;
             libraryHaskellDepends = [
               base base-unicode-symbols containers data-default data-textual
