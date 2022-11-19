@@ -27,7 +27,7 @@
 #      };
       ghc = p: p.ghc8107; # for tfmt
 
-      callPackage = { mkDerivation, lib, system
+      callPackage = { mkDerivation, lib, mapPkg, system
                     , base, base-unicode-symbols, containers, data-default
                     , data-textual, deepseq, directory, exceptions, filepath
                     , genvalidity, genvalidity-bytestring, genvalidity-property
