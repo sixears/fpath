@@ -5,15 +5,15 @@
     nixpkgs.url      = github:nixos/nixpkgs/be44bf67; # nixos-22.05 2022-10-15
     build-utils.url  = github:sixears/flake-build-utils/r1.0.0.13;
 
-    base1t.url               = github:sixears/base1t/r0.0.5.30;
-    exited.url               = github:sixears/exited/r1.0.4.20;
-    has-callstack.url        = github:sixears/has-callstack/r1.0.1.16;
-    monaderror-io.url        = github:sixears/monaderror-io/r1.2.5.17;
+    base1t.url               = github:sixears/base1t/r0.0.5.31;
+    exited.url               = github:sixears/exited/r1.0.4.21;
+    has-callstack.url        = github:sixears/has-callstack/r1.0.1.17;
+    monaderror-io.url        = github:sixears/monaderror-io/r1.2.5.18;
     more-unicode.url         = github:sixears/more-unicode/r0.0.17.11;
-    non-empty-containers.url = github:sixears/non-empty-containers/r1.4.3.29;
-    quasiquoting.url         = github:sixears/quasiquoting/r1.0.1.26;
-    tasty-plus.url           = github:sixears/tasty-plus/r1.5.2.20;
-    tfmt.url                 = github:sixears/tfmt/r0.2.7.21;
+    non-empty-containers.url = github:sixears/non-empty-containers/r1.4.3.30;
+    quasiquoting.url         = github:sixears/quasiquoting/r1.0.1.27;
+    tasty-plus.url           = github:sixears/tasty-plus/r1.5.2.21;
+    tfmt.url                 = github:sixears/tfmt/r0.2.7.22;
   };
 
   outputs = { self, nixpkgs, build-utils
