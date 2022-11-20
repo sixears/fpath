@@ -5,15 +5,15 @@
     nixpkgs.url      = github:nixos/nixpkgs/be44bf67; # nixos-22.05 2022-10-15
     build-utils.url  = github:sixears/flake-build-utils/r1.0.0.13;
 
-    base1t.url               = github:sixears/base1t/r0.0.5.34;
-    exited.url               = github:sixears/exited/r1.0.4.21;
-    has-callstack.url        = github:sixears/has-callstack/r1.0.1.17;
-    monaderror-io.url        = github:sixears/monaderror-io/r1.2.5.18;
-    more-unicode.url         = github:sixears/more-unicode/r0.0.17.11;
-    non-empty-containers.url = github:sixears/non-empty-containers/r1.4.3.34;
-    quasiquoting.url         = github:sixears/quasiquoting/r1.0.1.30;
-    tasty-plus.url           = github:sixears/tasty-plus/r1.5.2.22;
-    tfmt.url                 = github:sixears/tfmt/r0.2.7.23;
+    base1t.url               = github:sixears/base1t/r0.0.5.35;
+    exited.url               = github:sixears/exited/r1.0.4.22;
+    has-callstack.url        = github:sixears/has-callstack/r1.0.1.18;
+    monaderror-io.url        = github:sixears/monaderror-io/r1.2.5.19;
+    more-unicode.url         = github:sixears/more-unicode/r0.0.17.12;
+    non-empty-containers.url = github:sixears/non-empty-containers/r1.4.3.35;
+    quasiquoting.url         = github:sixears/quasiquoting/r1.0.1.31;
+    tasty-plus.url           = github:sixears/tasty-plus/r1.5.2.23;
+    tfmt.url                 = github:sixears/tfmt/r0.2.7.24;
   };
 
   outputs = { self, nixpkgs, build-utils
@@ -40,7 +40,7 @@
         in
           mkDerivation {
             pname = "fpath";
-            version = "1.3.2.37";
+            version = "1.3.2.38";
             src = ./.;
             libraryHaskellDepends = [
               base base-unicode-symbols containers data-default data-textual
