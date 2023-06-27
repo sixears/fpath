@@ -5,42 +5,35 @@
 {- | A Parsecable class, plus some extra helpful utilities.  Base version, so
      fpath can use it, and ParsecPlus proper can use that (for file parsing). -}
 module FPath.Parseable
-  ( Parseable(..) )
+  ( Parseable(..), parseT )
 where
 
+import Base1T
 import Prelude  ( error )
 
 -- base --------------------------------
 
-import Data.Bifunctor  ( first )
-import Data.Either     ( Either, either )
-import Data.Function   ( id )
-import Data.String     ( String )
-import GHC.Stack       ( HasCallStack )
-
--- base-unicode-symbols ----------------
-
-import Data.Function.Unicode  ( (∘) )
-
--- data-textual ------------------------
-
-import Data.Textual  ( Printable, toString )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 
 -- optparse-applicative ----------------
 
 import Options.Applicative  ( ReadM, eitherReader )
 
+-- text --------------------------------
+
+import Data.Text  ( unsnoc )
+
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.Error.FPathError  ( AsFPathError, FPathError )
+import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
 
 --------------------------------------------------------------------------------
+
+data Parse -- uninhabited
+parseT ∷ TypeRep
+parseT = typeRep (Proxy ∷ Proxy Parse)
 
 __right__ ∷ Printable ε ⇒ Either ε β → β
 __right__ x = either (error ∘ toString) id x
@@ -56,6 +49,19 @@ class Parseable χ where
   parse' ∷ ∀ τ η . (MonadError FPathError η, HasCallStack, Printable τ) ⇒
            τ → η χ
   parse' = parse
+
+  ------------------
+
+  {- | Parse a value; the value will have a "/" appended to it if it does not
+       already have a trailing "/". -}
+  parseDir ∷ ∀ ε τ η .
+             (AsFPathError ε, MonadError ε η, HasCallStack, Printable τ) ⇒
+             τ → η χ
+  parseDir (toText → t) =
+    case unsnoc t of
+      𝕹          → __FPathEmptyE__ parseT
+      𝕵 (_, '/') → parse t
+      𝕵 _        → parse (t ⊕ "/")
 
   ------------------
 
