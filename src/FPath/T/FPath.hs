@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 
+{-| more unit tests for `FPath.FPath` -}
 module FPath.T.FPath
   ( tests )
 where
@@ -19,6 +20,10 @@ import System.IO      ( IO )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Natural  ( ℕ )
+
+-- mtl ---------------------------------
+
+import Control.Monad.Except  ( MonadError )
 
 -- tasty -------------------------------
 
@@ -48,14 +53,15 @@ import qualified  FPath.T.FPath.PathComponent
 import qualified  FPath.T.FPath.RelDir
 import qualified  FPath.T.FPath.RelFile
 
-import FPath           ( (⫻), stripDir' )
+import FPath           ( Strippable, (⫻), stripDir )
 import FPath.AbsDir    ( AbsDir, absdir, absdirT, root )
 import FPath.AbsFile   ( AbsFile, absfile, absfileT )
+import FPath.DirType   ( DirTypeC( DirType ) )
 import FPath.RelDir    ( RelDir, reldir, reldirT )
 import FPath.RelFile   ( RelFile, relfile, relfileT )
+import FPath.RelType   ( RelTypeC( RelType ) )
 
-import FPath.Error.FPathError  ( fPathNotAPrefixError )
-
+import FPath.Error.FPathError  ( FPathNotAPrefixError, fPathNotAPrefixError )
 
 --------------------------------------------------------------------------------
 
@@ -104,86 +110,106 @@ catenationTests =
 
 stripDirAbsFileTests ∷ TestTree
 stripDirAbsFileTests =
-  testGroup "absfile"
-   [ testCase "/"   $ Right [relfile|foo|] @=? stripDir' root [absfile|/foo|]
-   , testCase "pfx" $
-       Right [relfile|bar|] @=? stripDir' [absdir|/etc/|] [absfile|/etc/bar|]
-   , testCase "no pfx" $
-           Left (fPathNotAPrefixError absfileT "/dev/" "/etc/bar")
-       @=? stripDir' @AbsFile [absdir|/dev/|] [absfile|/etc/bar|]
-   , testCase "equal" $
-           Left (fPathNotAPrefixError absfileT "/etc/bar/" "/etc/bar")
-       @=? stripDir' @AbsFile [absdir|/etc/bar/|] [absfile|/etc/bar|]
-   , testCase "longer 1" $
-           Left (fPathNotAPrefixError absfileT "/etc/bar/" "/etc"
-                                      )
-       @=? stripDir' @AbsFile [absdir|/etc/bar/|] [absfile|/etc|]
-   , testCase "longer 2" $
-           Left (fPathNotAPrefixError absfileT "/etc/udev/bar/" "/etc/udev")
-       @=? stripDir' @AbsFile [absdir|/etc/udev/bar/|] [absfile|/etc/udev|]
-   ]
+  let
+    stripDir' ∷ ∀ π η . (MonadError FPathNotAPrefixError η, Strippable π) ⇒
+                DirType π → π → η (RelType π)
+    stripDir' = stripDir
+  in
+    testGroup "absfile"
+      [ testCase "/"   $ Right [relfile|foo|] @=? stripDir' root [absfile|/foo|]
+      , testCase "pfx" $
+          Right [relfile|bar|] @=? stripDir' [absdir|/etc/|] [absfile|/etc/bar|]
+      , testCase "no pfx" $
+              Left (fPathNotAPrefixError absfileT "/dev/" "/etc/bar")
+          @=? stripDir' @AbsFile [absdir|/dev/|] [absfile|/etc/bar|]
+      , testCase "equal" $
+              Left (fPathNotAPrefixError absfileT "/etc/bar/" "/etc/bar")
+          @=? stripDir' @AbsFile [absdir|/etc/bar/|] [absfile|/etc/bar|]
+      , testCase "longer 1" $
+              Left (fPathNotAPrefixError absfileT "/etc/bar/" "/etc"
+                                         )
+          @=? stripDir' @AbsFile [absdir|/etc/bar/|] [absfile|/etc|]
+      , testCase "longer 2" $
+              Left (fPathNotAPrefixError absfileT "/etc/udev/bar/" "/etc/udev")
+          @=? stripDir' @AbsFile [absdir|/etc/udev/bar/|] [absfile|/etc/udev|]
+      ]
 
 stripDirAbsDirTests ∷ TestTree
 stripDirAbsDirTests =
-  testGroup "absfile"
-   [ testCase "/"   $ Right [reldir|foo/|] @=? stripDir' root [absdir|/foo/|]
-   , testCase "pfx" $
-       Right [reldir|bar/|] @=? stripDir' [absdir|/etc/|] [absdir|/etc/bar/|]
-   , testCase "no pfx" $
-           Left (fPathNotAPrefixError absdirT "/dev/" "/etc/bar/")
-       @=? stripDir' @AbsDir [absdir|/dev/|] [absdir|/etc/bar/|]
-   , testCase "equal" $
-           Right [reldir|./|]
-       @=? stripDir' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/bar/|]
-   , testCase "longer 1" $
-           Left (fPathNotAPrefixError absdirT "/etc/bar/" "/etc/")
-       @=? stripDir' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/|]
-   , testCase "longer 2" $
-           Left (fPathNotAPrefixError absdirT "/etc/udev/bar/" "/etc/udev/")
-       @=? stripDir' @AbsDir [absdir|/etc/udev/bar/|] [absdir|/etc/udev/|]
-   ]
+  let
+    stripDir' ∷ ∀ π η . (MonadError FPathNotAPrefixError η, Strippable π) ⇒
+                DirType π → π → η (RelType π)
+    stripDir' = stripDir
+  in
+    testGroup "absfile"
+     [ testCase "/"   $ Right [reldir|foo/|] @=? stripDir' root [absdir|/foo/|]
+     , testCase "pfx" $
+         Right [reldir|bar/|] @=? stripDir' [absdir|/etc/|] [absdir|/etc/bar/|]
+     , testCase "no pfx" $
+             Left (fPathNotAPrefixError absdirT "/dev/" "/etc/bar/")
+         @=? stripDir' @AbsDir [absdir|/dev/|] [absdir|/etc/bar/|]
+     , testCase "equal" $
+             Right [reldir|./|]
+         @=? stripDir' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/bar/|]
+     , testCase "longer 1" $
+             Left (fPathNotAPrefixError absdirT "/etc/bar/" "/etc/")
+         @=? stripDir' @AbsDir [absdir|/etc/bar/|] [absdir|/etc/|]
+     , testCase "longer 2" $
+             Left (fPathNotAPrefixError absdirT "/etc/udev/bar/" "/etc/udev/")
+         @=? stripDir' @AbsDir [absdir|/etc/udev/bar/|] [absdir|/etc/udev/|]
+     ]
 
 stripDirRelFileTests ∷ TestTree
 stripDirRelFileTests =
-  testGroup "relfile"
-   [ testCase "/"   $
-       Right [relfile|foo|] @=? stripDir' [reldir|./|] [relfile|foo|]
-   , testCase "pfx" $
-       Right [relfile|bar|] @=? stripDir' [reldir|etc/|] [relfile|etc/bar|]
-   , testCase "no pfx" $
-           Left (fPathNotAPrefixError relfileT "dev/" "etc/bar")
-       @=? stripDir' @RelFile [reldir|dev/|] [relfile|etc/bar|]
-   , testCase "equal" $
-           Left (fPathNotAPrefixError relfileT "etc/bar/" "etc/bar")
-       @=? stripDir' @RelFile [reldir|etc/bar/|] [relfile|etc/bar|]
-   , testCase "longer 1" $
-           Left (fPathNotAPrefixError relfileT "etc/bar/" "etc")
-       @=? stripDir' @RelFile [reldir|etc/bar/|] [relfile|etc|]
-   , testCase "longer 2" $
-           Left (fPathNotAPrefixError relfileT "etc/udev/bar/" "etc/udev")
-       @=? stripDir' @RelFile [reldir|etc/udev/bar/|] [relfile|etc/udev|]
-   ]
+  let
+    stripDir' ∷ ∀ π η . (MonadError FPathNotAPrefixError η, Strippable π) ⇒
+                DirType π → π → η (RelType π)
+    stripDir' = stripDir
+  in
+   testGroup "relfile"
+    [ testCase "/"   $
+        Right [relfile|foo|] @=? stripDir' [reldir|./|] [relfile|foo|]
+    , testCase "pfx" $
+        Right [relfile|bar|] @=? stripDir' [reldir|etc/|] [relfile|etc/bar|]
+    , testCase "no pfx" $
+            Left (fPathNotAPrefixError relfileT "dev/" "etc/bar")
+        @=? stripDir' @RelFile [reldir|dev/|] [relfile|etc/bar|]
+    , testCase "equal" $
+            Left (fPathNotAPrefixError relfileT "etc/bar/" "etc/bar")
+        @=? stripDir' @RelFile [reldir|etc/bar/|] [relfile|etc/bar|]
+    , testCase "longer 1" $
+            Left (fPathNotAPrefixError relfileT "etc/bar/" "etc")
+        @=? stripDir' @RelFile [reldir|etc/bar/|] [relfile|etc|]
+    , testCase "longer 2" $
+            Left (fPathNotAPrefixError relfileT "etc/udev/bar/" "etc/udev")
+        @=? stripDir' @RelFile [reldir|etc/udev/bar/|] [relfile|etc/udev|]
+    ]
 
 stripDirRelDirTests ∷ TestTree
 stripDirRelDirTests =
-  testGroup "reldir"
-   [ testCase "/"   $
-       Right [reldir|foo/|] @=? stripDir' [reldir|./|] [reldir|foo/|]
-   , testCase "pfx" $
-       Right [reldir|bar/|] @=? stripDir' [reldir|etc/|] [reldir|etc/bar/|]
-   , testCase "no pfx" $
-           Left (fPathNotAPrefixError reldirT "dev/" "etc/bar/")
-       @=? stripDir' @RelDir [reldir|dev/|] [reldir|etc/bar/|]
-   , testCase "equal" $
-           Right [reldir|./|]
-       @=? stripDir' [reldir|etc/bar/|] [reldir|etc/bar/|]
-   , testCase "longer 1" $
-           Left (fPathNotAPrefixError reldirT "etc/bar/" "etc/")
-       @=? stripDir' @RelDir [reldir|etc/bar/|] [reldir|etc/|]
-   , testCase "longer 2" $
-           Left (fPathNotAPrefixError reldirT "etc/udev/bar/" "etc/udev/")
-       @=? stripDir' @RelDir [reldir|etc/udev/bar/|] [reldir|etc/udev/|]
-   ]
+  let
+    stripDir' ∷ ∀ π η . (Strippable π, MonadError FPathNotAPrefixError η) ⇒
+                DirType π → π → η (RelType π)
+    stripDir' = stripDir
+  in
+   testGroup "reldir"
+    [ testCase "/"   $
+        Right [reldir|foo/|] @=? stripDir' [reldir|./|] [reldir|foo/|]
+    , testCase "pfx" $
+        Right [reldir|bar/|] @=? stripDir' [reldir|etc/|] [reldir|etc/bar/|]
+    , testCase "no pfx" $
+            Left (fPathNotAPrefixError reldirT "dev/" "etc/bar/")
+        @=? stripDir' @RelDir [reldir|dev/|] [reldir|etc/bar/|]
+    , testCase "equal" $
+            Right [reldir|./|]
+        @=? stripDir' [reldir|etc/bar/|] [reldir|etc/bar/|]
+    , testCase "longer 1" $
+            Left (fPathNotAPrefixError reldirT "etc/bar/" "etc/")
+        @=? stripDir' @RelDir [reldir|etc/bar/|] [reldir|etc/|]
+    , testCase "longer 2" $
+            Left (fPathNotAPrefixError reldirT "etc/udev/bar/" "etc/udev/")
+        @=? stripDir' @RelDir [reldir|etc/udev/bar/|] [reldir|etc/udev/|]
+    ]
 
 stripDirTests ∷ TestTree
 stripDirTests =
@@ -204,6 +230,7 @@ fpathTests = testGroup "FPath" [ catenationTests
                                , FPath.Rel.tests
                                ]
 
+{-| unit tests for all of FPath -}
 tests ∷ TestTree
 tests = testGroup "fpath" [ FPath.T.FPath.PathComponent.tests
                           , FPath.T.FPath.AbsDir.tests

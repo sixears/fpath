@@ -88,6 +88,7 @@ import FPath.Error.FPathComponentError ( FPathComponentError )
 
 --------------------------------------------------------------------------------
 
+{-| fmap the Text bit of an FPathError -}
 class TMap α where
   -- | fmap the Text bit of an FPathError
   tmap ∷ (Text → Text) → α → α

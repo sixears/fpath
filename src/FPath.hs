@@ -46,6 +46,7 @@ module FPath
 
   , AppendableFPath( (⫻) ), (</>)
   , Parseable( parse, parse', __parse__, __parse'__ )
+  , Strippable
 
   -- file functions
   , (⊙), addExt, dir, dirfile, file, ext, splitExt
@@ -56,7 +57,7 @@ module FPath
   , nonRootAbsDir
 
   , root
-  , stripDir, stripDir'
+  , stripDir
 
   , tests
   )
@@ -124,7 +125,7 @@ import FPath.AppendableFPath   ( AppendableFPath( (⫻) ), (</>) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Dir               ( Dir )
 import FPath.DirType           ( DirTypeC( DirType ) )
-import FPath.Error.FPathError  ( AsFPathNotAPrefixError, FPathNotAPrefixError
+import FPath.Error.FPathError  ( AsFPathNotAPrefixError
                                , __FPathNotAPrefixError__ )
 import FPath.File              ( File )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
@@ -160,6 +161,7 @@ instance HasAbsify AbsDir where
 
 ------------------------------------------------------------
 
+{-| paths that are amenable to having e prefix removed -}
 class (DirTypeC π, RelTypeC π) ⇒ Strippable π where
   {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
        absolute (file|directory), then strip off that prefix to leave a relative
@@ -168,9 +170,6 @@ class (DirTypeC π, RelTypeC π) ⇒ Strippable π where
    -}
   stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
              DirType π → π → η (RelType π)
-
-  stripDir' ∷ MonadError FPathNotAPrefixError η ⇒ DirType π → π → η (RelType π)
-  stripDir' = stripDir
 
 instance Strippable AbsFile where
   stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒

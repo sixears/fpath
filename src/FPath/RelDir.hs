@@ -1,145 +1,142 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UnicodeSyntax              #-}
 
 module FPath.RelDir
-  ( AsRelDir( _RelDir ), RelDir --, AsNonRootRelDir( _NonRootRelDir )
+  ( AsRelDir(_RelDir) --, AsNonRootRelDir( _NonRootRelDir )
   , NonRootRelDir
-
-  , reldir, reldirN, reldirT
+  , RelDir
   , parseRelDirP
-
+  , reldir
+  , reldirN
+  , reldirT
   , tests
-  )
-where
+  ) where
 
 import Base1T  hiding ( toList )
-import Prelude  ( error )
+import Prelude ( error )
 
 -- base --------------------------------
 
-import Data.Foldable  ( concat, foldMap )
-import Data.Monoid    ( Monoid( mempty ) )
-import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
-import GHC.Exts       ( IsList( toList ) )
-import GHC.Generics   ( Generic )
+import Data.Foldable ( concat, foldMap )
+import Data.Monoid   ( Monoid(mempty) )
+import Data.Typeable ( Proxy(Proxy), TypeRep, typeRep )
+import GHC.Exts      ( IsList(toList) )
+import GHC.Generics  ( Generic )
 
 -- containers --------------------------
 
-import qualified  Data.Sequence  as  Seq
+import Data.Sequence qualified as Seq
 
-import Data.Sequence  ( (<|) )
+import Data.Sequence ( (<|) )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Parsed( Parsed ), Textual( textual )
-                     , fromString, parseString )
+import Data.Textual ( Parsed(Parsed), Textual(textual), fromString,
+                      parseString )
 
 -- deepseq -----------------------------
 
-import Control.DeepSeq  ( NFData )
+import Control.DeepSeq ( NFData )
 
 -- lens --------------------------------
 
-import Control.Lens.Cons    ( unsnoc )
-import Control.Lens.Getter  ( view )
-import Control.Lens.Iso     ( iso )
+import Control.Lens.Cons   ( unsnoc )
+import Control.Lens.Getter ( view )
+import Control.Lens.Iso    ( iso )
 
 -- monaderror-io -----------------------
 
-import MonadError  ( ѭ )
+import MonadError ( ѭ )
 
 -- mono-traversable --------------------
 
-import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
-                                                    , ofoldMap, ofoldr
-                                                    , ofoldr1Ex, otoList )
-                             , MonoFunctor( omap )
-                             )
+import Data.MonoTraversable ( Element,
+                              MonoFoldable(ofoldMap, ofoldl', ofoldl1Ex', ofoldr, ofoldr1Ex, otoList),
+                              MonoFunctor(omap) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Function  ( (⅋) )
-import Data.MoreUnicode.Lens      ( (⊩) )
+import Data.MoreUnicode.Function ( (⅋) )
+import Data.MoreUnicode.Lens     ( (⊩) )
 
 -- non-empty-containers ----------------
 
-import qualified  NonEmptyContainers.SeqNE  as  SeqNE
+import NonEmptyContainers.SeqNE qualified as SeqNE
 
-import NonEmptyContainers.IsNonEmpty        ( fromNonEmpty )
-import NonEmptyContainers.SeqConversions    ( FromSeq( fromSeq )
-                                            , IsSeq( seq )
-                                            , ToSeq( toSeq ) )
-import NonEmptyContainers.SeqNE             ( SeqNE( (:⫸) ) , pattern(:⪭)
-                                            , pattern(:⪬), (⋖) )
-import NonEmptyContainers.SeqNEConversions  ( FromSeqNonEmpty( fromSeqNE )
-                                            , ToSeqNonEmpty( toSeqNE ) )
+import NonEmptyContainers.IsNonEmpty       ( FromMonoNonEmpty(fromNonEmpty),
+                                             ToMonoNonEmpty(toNonEmpty) )
+import NonEmptyContainers.SeqConversions   ( FromSeq(fromSeq), IsSeq(seq),
+                                             ToSeq(toSeq) )
+import NonEmptyContainers.SeqNE            ( SeqNE((:⫸)), pattern (:⪬),
+                                             pattern (:⪭), (⋖) )
+import NonEmptyContainers.SeqNEConversions ( FromSeqNonEmpty(fromSeqNE),
+                                             ToSeqNonEmpty(toSeqNE) )
 
 -- parsers -----------------------------
 
-import Text.Parser.Char         ( char, string )
-import Text.Parser.Combinators  ( endBy, endByNonEmpty )
+import Text.Parser.Char        ( char, string )
+import Text.Parser.Combinators ( endBy, endByNonEmpty )
 
 -- quasiquoting ------------------------
 
-import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
+import QuasiQuoting ( QuasiQuoter, exp, mkQQ )
 
 -- QuickCheck --------------------------
 
-import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
+import Test.QuickCheck.Arbitrary ( Arbitrary(arbitrary, shrink) )
 
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), assertListEq, propInvertibleString, propInvertibleText
-                  , propInvertibleUtf8 )
+import TastyPlus ( assertListEq, propInvertibleString, propInvertibleText,
+                   propInvertibleUtf8, (≟) )
 
 -- tasty-quickcheck --------------------
 
-import Test.Tasty.QuickCheck  ( testProperty )
+import Test.Tasty.QuickCheck ( testProperty )
 
 -- template-haskell --------------------
 
-import Language.Haskell.TH         ( ExpQ )
-import Language.Haskell.TH.Syntax  ( Exp( AppE, ConE )
-                                   , Lift( lift, liftTyped ), TExp( TExp ) )
+import Language.Haskell.TH        ( ExpQ )
+import Language.Haskell.TH.Syntax ( Exp(AppE, ConE), Lift(lift, liftTyped),
+                                    TExp(TExp) )
 
 -- text --------------------------------
 
-import qualified  Data.Text  as  Text
-import Data.Text  ( Text, empty, splitOn )
+import Data.Text ( Text, empty, splitOn )
+import Data.Text qualified as Text
 
 -- text-printer ------------------------
 
-import qualified  Text.Printer  as  P
+import Text.Printer qualified as P
 
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AsFilePath   ( AsFilePath( filepath ) )
-import FPath.AsFilePath'  ( AsFilePath'( filepath' ), exterminate, terminate )
-import FPath.Basename     ( Basename( basename, updateBasename ) )
-import FPath.Dirname      ( HasDirname( ancestors', dirname ) )
-import FPath.DirType      ( DirTypeC( DirType ) )
+import FPath.AsFilePath  ( AsFilePath(filepath) )
+import FPath.AsFilePath' ( AsFilePath'(filepath'), exterminate, terminate )
+import FPath.Basename    ( Basename(basename, updateBasename) )
+import FPath.Dirname     ( HasDirname(ancestors', dirname) )
+import FPath.DirType     ( DirTypeC(DirType) )
 
-import FPath.Error.FPathComponentError
-                               ( FPathComponentError
-                               , fPathComponentEmptyE
-                               , fPathComponentIllegalCharE
-                               )
-import FPath.Error.FPathError  ( AsFPathError, FPathError( FPathComponentE )
-                               , __FPathComponentE__, __FPathEmptyE__
-                               , __FPathAbsE__, __FPathNotADirE__
-                               , __FPathRootDirE__
-                               , _FPathComponentE
-                               , fPathAbsE, fPathEmptyE
-                               , fPathNotADirE, mapTypeRepE
-                               )
-import FPath.Parent            ( HasParent( parent )
-                               , HasParentMay( parentMay, parents ) )
-import FPath.Parseable         ( Parseable( parse ) )
-import FPath.PathComponent     ( PathComponent, parsePathC, pc, toUpper )
-import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.Util              ( __ERROR'__ )
+import FPath.Error.FPathComponentError ( FPathComponentError,
+                                         fPathComponentEmptyE,
+                                         fPathComponentIllegalCharE )
+import FPath.Error.FPathError          ( AsFPathError,
+                                         FPathError(FPathComponentE),
+                                         _FPathComponentE, __FPathAbsE__,
+                                         __FPathComponentE__, __FPathEmptyE__,
+                                         __FPathNotADirE__, __FPathRootDirE__,
+                                         fPathAbsE, fPathEmptyE, fPathNotADirE,
+                                         mapTypeRepE )
+import FPath.Parent                    ( HasParent(parent),
+                                         HasParentMay(parentMay, parents) )
+import FPath.Parseable                 ( Parseable(parse) )
+import FPath.PathComponent             ( PathComponent, parsePathC, pc,
+                                         toUpper )
+import FPath.RelType                   ( RelTypeC(RelType) )
+import FPath.Util                      ( __ERROR'__ )
 
 -------------------------------------------------------------------------------
 
@@ -147,8 +144,8 @@ import FPath.Util              ( __ERROR'__ )
 -- a non-root dir is a path component appended to a (possibly-root) absolute
 -- directory
 newtype NonRootRelDir = NonRootRelDir (SeqNE PathComponent)
-  deriving (Eq,Generic,Lift)
-  deriving anyclass NFData
+  deriving (Eq, Generic, Lift)
+  deriving anyclass (NFData)
 
 nrreldirT ∷ TypeRep
 nrreldirT = typeRep (Proxy ∷ Proxy NonRootRelDir)
@@ -171,7 +168,7 @@ instance Printable NonRootRelDir where
 --------------------
 
 instance Textual NonRootRelDir where
-  textual = fromSeqNE ∘ fromNonEmpty ⊳ (endByNonEmpty textual (char '/'))
+  textual = fromSeqNE ∘ fromNonEmpty ⊳ endByNonEmpty textual (char '/')
 
 --------------------
 
@@ -206,8 +203,18 @@ instance FromSeqNonEmpty NonRootRelDir where
 
 ----------------------------------------
 
+instance FromMonoNonEmpty NonRootRelDir where
+  fromNonEmpty = fromSeqNE ∘ fromNonEmpty
+
+----------------------------------------
+
 instance ToSeqNonEmpty NonRootRelDir where
   toSeqNE (NonRootRelDir d) = d
+
+----------------------------------------
+
+instance ToMonoNonEmpty NonRootRelDir where
+  toNonEmpty = toNonEmpty ∘ toSeqNE
 
 ----------------------------------------
 
@@ -279,7 +286,7 @@ instance MonoFoldable NonRootRelDir where
 instance Parseable NonRootRelDir where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η NonRootRelDir
   parse t = do mapTypeRepE (const nrreldirT) $ parse t ≫ \ case
-                 RelRootDir → __FPathRootDirE__ nrreldirT
+                 RelRootDir       → __FPathRootDirE__ nrreldirT
                  RelNonRootDir d' → return d'
 
 ------------------------------------------------------------
@@ -295,8 +302,9 @@ reldirN = mkQQ "NonRootRelDir" $ def & exp ⊩ reldirNQQ
 ------------------------------------------------------------
 
 {- | a relative directory -}
-data RelDir = RelRootDir | RelNonRootDir NonRootRelDir
-  deriving Eq
+data RelDir = RelRootDir
+            | RelNonRootDir NonRootRelDir
+  deriving (Eq)
 
 --------------------
 
@@ -334,9 +342,9 @@ instance Lift RelDir where
 --------------------
 
 instance Semigroup RelDir where
-  RelRootDir <> RelRootDir = RelRootDir
-  RelRootDir <> r@(RelNonRootDir _) = r
-  r@(RelNonRootDir _) <> RelRootDir = r
+  RelRootDir <> RelRootDir                = RelRootDir
+  RelRootDir <> r@(RelNonRootDir _)       = r
+  r@(RelNonRootDir _) <> RelRootDir       = r
   (RelNonRootDir r) <> (RelNonRootDir r') = RelNonRootDir $ r ◇ r'
 
 --------------------
@@ -382,14 +390,14 @@ instance RelTypeC RelDir where
 
 instance MonoFunctor RelDir where
   omap ∷ (PathComponent → PathComponent) → RelDir → RelDir
-  omap _ RelRootDir = RelRootDir
+  omap _ RelRootDir         = RelRootDir
   omap f (RelNonRootDir ps) = RelNonRootDir (omap f ps)
 
 ----------------------------------------
 
 instance MonoFoldable RelDir where
   otoList ∷ RelDir → [PathComponent]
-  otoList RelRootDir = ф
+  otoList RelRootDir        = ф
   otoList (RelNonRootDir d) = otoList d
   ofoldl' ∷ (α → PathComponent → α) → α → RelDir → α
   ofoldl' f x r = foldl' f x (toList r)
@@ -409,6 +417,11 @@ instance MonoFoldable RelDir where
 
 instance FromSeqNonEmpty RelDir where
   fromSeqNE = RelNonRootDir ∘ fromSeqNE
+
+----------------------------------------
+
+instance FromMonoNonEmpty RelDir where
+  fromNonEmpty = fromSeqNE ∘ fromNonEmpty
 
 ----------------------------------------
 
@@ -508,7 +521,7 @@ instance Arbitrary RelDir where
 instance HasParentMay RelDir where
   parentMay = lens getParentMay setParentMay
               where getParentMay ∷ RelDir → Maybe RelDir
-                    getParentMay RelRootDir = 𝕹
+                    getParentMay RelRootDir        = 𝕹
                     getParentMay (RelNonRootDir d) = d ⊣ parentMay
 
                     setParentMay ∷ RelDir → Maybe RelDir → RelDir
@@ -535,11 +548,11 @@ parentsTests =
 instance Basename RelDir where
   basename ∷ RelDir → RelDir
   basename (RelNonRootDir d) = RelNonRootDir $ basename d
-  basename RelRootDir = RelRootDir
+  basename RelRootDir        = RelRootDir
 
   updateBasename ∷ (PathComponent → PathComponent) → RelDir → RelDir
   updateBasename f (RelNonRootDir d) = RelNonRootDir $ updateBasename f d
-  updateBasename _ RelRootDir = RelRootDir
+  updateBasename _ RelRootDir        = RelRootDir
 
 basenameTests ∷ TestTree
 basenameTests =
@@ -689,9 +702,9 @@ parseRelDirP (toText → t) =
   let safeLast "" = 𝕹
       safeLast s  = 𝕵 $ Text.last s
    in case safeLast t of
-        𝕹  → parse empty
+        𝕹     → parse empty
         𝕵 '/' → parse t
-        _        → parse (t ⊕ "/")
+        _     → parse (t ⊕ "/")
 
 parseRelDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
 parseRelDirP' = parseRelDirP

@@ -1,3 +1,4 @@
+{-| a file specified by absolute location in the filesystem -}
 module FPath.AbsFile
   ( AbsDir, AbsFile, AsAbsFile( _AbsFile )
 
@@ -414,6 +415,7 @@ af4 = fromSeqNE $ pure [pc|.x|]
 
 ----------------------------------------
 
+{-| unit tests for AbsFile -}
 tests ∷ TestTree
 tests = testGroup "FPath.AbsFile" [ basenameTests, dirnameTests, parentsTests
                                   , ancestorsTests, ancestors'Tests ]

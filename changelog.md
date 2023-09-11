@@ -1,3 +1,8 @@
+1.3.4.0 2023-09-11
+==================
+- +instances of FromMonoNonEmpty for RelDir, NonRootRelDir; ToMonoNonEmpty for
+  NonRootRelDir
+
 1.3.3.0 2023-06-26
 ==================
 - +parseDir
