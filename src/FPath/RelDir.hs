@@ -99,7 +99,7 @@ import Test.Tasty.QuickCheck ( testProperty )
 
 import Language.Haskell.TH        ( ExpQ )
 import Language.Haskell.TH.Syntax ( Exp(AppE, ConE), Lift(lift, liftTyped),
-                                    TExp(TExp) )
+                                    TExp(TExp), liftCode )
 
 -- text --------------------------------
 
@@ -334,8 +334,8 @@ instance Ord RelDir where
 --------------------
 
 instance Lift RelDir where
-  liftTyped RelRootDir = return ∘ TExp $ ConE 'RelRootDir
-  liftTyped (RelNonRootDir d) = do
+  liftTyped RelRootDir = liftCode $ return ∘ TExp $ ConE 'RelRootDir
+  liftTyped (RelNonRootDir d) = liftCode $ do
     x ← lift d
     return ∘ TExp $ AppE (ConE 'RelNonRootDir) x
 

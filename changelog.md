@@ -1,3 +1,7 @@
+1.3.5.0 2023-12-14
+==================
+- upgrade TH for ghc9 (and use TypeOperators in Parent.hs)
+
 1.3.4.0 2023-09-11
 ==================
 - +instances of FromMonoNonEmpty for RelDir, NonRootRelDir; ToMonoNonEmpty for

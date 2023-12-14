@@ -124,7 +124,7 @@ import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 -- template-haskell --------------------
 
 import Language.Haskell.TH         ( ExpQ, appE, conE )
-import Language.Haskell.TH.Syntax  ( Lift( liftTyped ), TExp( TExp ) )
+import Language.Haskell.TH.Syntax  ( Lift( liftTyped ), TExp( TExp ), liftCode )
 
 -- text --------------------------------
 
@@ -182,7 +182,7 @@ instance Printable PathComponent where
 
 instance Lift PathComponent where
   liftTyped (PathComponent t) =
-    appE (conE 'PathComponent) [| t |] ≫ return ∘ TExp
+    liftCode $ appE (conE 'PathComponent) [| t |] ≫ return ∘ TExp
 
 instance Validity PathComponent where
   validate p =

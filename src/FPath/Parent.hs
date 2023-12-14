@@ -3,6 +3,7 @@
 {-# LANGUAGE NoImplicitPrelude       #-}
 {-# LANGUAGE OverloadedStrings       #-}
 {-# LANGUAGE TypeFamilies            #-}
+{-# LANGUAGE TypeOperators           #-}
 {-# LANGUAGE UnicodeSyntax           #-}
 
 {- | Classes for methods common to most all FPath types , such as `dirname` -}

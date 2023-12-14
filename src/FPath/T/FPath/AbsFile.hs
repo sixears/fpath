@@ -290,12 +290,12 @@ absFileParentMaySetterTests =
       d ~~ d' = d & parentMay ?~ d'
    in testGroup "setter" [ testCase "af1 → a0" $ af1                 ≟ af1 ~~ a0
                          , testCase "af2 → a0" $ [absfile|/p.x|]     ≟ af2 ~~ a0
-                         , testCase "af1 → a3" $[absfile|/p/q/r/r.e|]≟ af1 ~~ a3
                          , testCase "af3 → a1" $ [absfile|/r/r.mp3|] ≟ af3 ~~ a1
                          , testCase "af3 → a0" $ [absfile|/r.mp3|]   ≟ af3 ~~ a0
                          , testCase "af2 → a1" $ af2                 ≟ af2 ~~ a1
                          , testCase "af1 → a2" $ [absfile|/r/p/r.e|] ≟ af1 ~~ a2
-
+                         , testCase "af1 → a3" $
+                             [absfile|/p/q/r/r.e|] ≟ af1 ~~ a3
                          , testCase "af2 → a0 (Nothing)" $
                             [absfile|/p.x|] ≟ (af2 & parentMay ⊢ Nothing)
                          ]
