@@ -46,7 +46,7 @@ import Data.Sequences        ( reverse )
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Function        ( (⅋) )
-import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼), (##) )
+import Data.MoreUnicode.Lens            ( (⊣), (⊢), (⊧), (⊩), (⩼), (⫥) )
 import Data.MoreUnicode.MonoTraversable ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural         ( ℕ )
 import Data.MoreUnicode.Semigroup       ( (◇) )
@@ -311,9 +311,9 @@ absDirNFilepathTests =
   let nothin' = Nothing ∷ Maybe NonRootAbsDir
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "etc"   $ "/etc/"       ≟ etcN     ## filepath
-            , testCase "pam.d" $ "/etc/pam.d/" ≟ pamdN    ## filepath
-            , testCase "wgm"   $ "/w/g/M/"     ≟ wgmN     ## filepath
+            [ testCase "etc"   $ "/etc/"       ≟ etcN     ⫥ filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ pamdN    ⫥ filepath
+            , testCase "wgm"   $ "/w/g/M/"     ≟ wgmN     ⫥ filepath
             , testCase "/etc/" $ Just etcN     @=? "/etc/" ⩼ filepath
             , fail "/etc"
             , fail "/etc/pam.d"

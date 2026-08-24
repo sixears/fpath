@@ -38,7 +38,6 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Function  ( (⅋) )
-import Data.MoreUnicode.Lens      ( (##) )
 
 -- non-empty-containers ----------------
 
@@ -142,16 +141,16 @@ filepathTests =
   let nothin' = Nothing ∷ Maybe Abs
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "root"  $ "/"             ≟ AbsD root    ## filepath
-            , testCase "etc"   $ "/etc/"         ≟ AbsD etc     ## filepath
-            , testCase "pam.d" $ "/etc/pam.d/"   ≟ AbsD pamd    ## filepath
-            , testCase "wgm"   $ "/w/g/M/"       ≟ AbsD wgm     ## filepath
+            [ testCase "root"  $ "/"             ≟ AbsD root    ⫥ filepath
+            , testCase "etc"   $ "/etc/"         ≟ AbsD etc     ⫥ filepath
+            , testCase "pam.d" $ "/etc/pam.d/"   ≟ AbsD pamd    ⫥ filepath
+            , testCase "wgm"   $ "/w/g/M/"       ≟ AbsD wgm     ⫥ filepath
             , testCase "/etc/" $ Just (AbsD etc) @=? "/etc/" ⩼ filepath
 
-            , testCase "af1" $ "/r.e"       ≟ AbsF af1 ## filepath
-            , testCase "af2" $ "/r/p.x"     ≟ AbsF af2 ## filepath
-            , testCase "af3" $ "/p/q/r.mp3" ≟ AbsF af3 ## filepath
-            , testCase "af4" $ "/.x"        ≟ AbsF af4 ## filepath
+            , testCase "af1" $ "/r.e"       ≟ AbsF af1 ⫥ filepath
+            , testCase "af2" $ "/r/p.x"     ≟ AbsF af2 ⫥ filepath
+            , testCase "af3" $ "/p/q/r.mp3" ≟ AbsF af3 ⫥ filepath
+            , testCase "af4" $ "/.x"        ≟ AbsF af4 ⫥ filepath
 
             , testCase "af1" $ Just (AbsF af1) @=? "/r.e"       ⩼ filepath
             , testCase "af2" $ Just (AbsF af2) @=? "/r/p.x"     ⩼ filepath
@@ -182,14 +181,14 @@ instance Parseable Abs where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Abs
   parse (toText → t) =
     case null t of
-      𝕿 → __FPathEmptyE__ absT
-      𝕱 → case last t of
+      𝓣 → __FPathEmptyE__ absT
+      𝓕 → case last t of
             '/' → AbsD ⊳ parse t
             _   → AbsF ⊳ parse t
 
 parseAbsTests ∷ TestTree
 parseAbsTests =
-  let success d f t = testCase t $ 𝕽 (d ## f) @=? parse @Abs @FPathError t
+  let success d f t = testCase t $ 𝓡 (d ⫥ f) @=? parse @Abs @FPathError t
    in testGroup "parseAbs"
                 [ success [absdir|/|]           _AbsDir "/"
                 , success [absdir|/etc/|]       _AbsDir "/etc/"

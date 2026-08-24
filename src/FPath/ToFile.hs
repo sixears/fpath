@@ -80,33 +80,33 @@ instance ToFileY AbsDir where
   toFileY = fromSeqNE ⩺ SeqNE.fromSeq ∘ toSeq
 
 instance ToFileY AbsFile where
-  toFileY = 𝕵
+  toFileY = 𝓙
 
 instance ToFileY RelDir where
   toFileY = fromSeqNE ⩺ SeqNE.fromSeq ∘ toSeq
 
 instance ToFileY RelFile where
-  toFileY = 𝕵
+  toFileY = 𝓙
 
 instance ToFileY Abs where
   toFileY (AbsD d) = toFileY d
-  toFileY (AbsF f) = 𝕵 f
+  toFileY (AbsF f) = 𝓙 f
 
 instance ToFileY Rel where
   toFileY (RelD d) = toFileY d
-  toFileY (RelF f) = 𝕵 f
+  toFileY (RelF f) = 𝓙 f
 
 instance ToFileY Dir where
   toFileY (DirA f) = FileA ⊳ toFileY f
   toFileY (DirR f) = FileR ⊳ toFileY f
 
 instance ToFileY File where
-  toFileY = 𝕵
+  toFileY = 𝓙
 
 instance ToFileY FPath where
   toFileY (FAbsD d) = FileA ⊳ toFileY d
   toFileY (FRelD d) = FileR ⊳ toFileY d
-  toFileY (FAbsF f) = 𝕵 $ FileA f
-  toFileY (FRelF f) = 𝕵 $ FileR f
+  toFileY (FAbsF f) = 𝓙 $ FileA f
+  toFileY (FRelF f) = 𝓙 $ FileR f
 
 -- that's all, folks! ----------------------------------------------------------

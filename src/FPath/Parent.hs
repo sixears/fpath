@@ -14,9 +14,10 @@ where
 
 -- base --------------------------------
 
-import Data.Function  ( ($) )
-import Data.List      ( reverse )
-import Data.Maybe     ( Maybe( Nothing, Just ) )
+import Data.Function       ( ($) )
+import Data.List           ( reverse )
+import Data.Maybe          ( Maybe( Nothing, Just ) )
+import Data.Type.Equality  ( type (~) )
 
 -- lens --------------------------------
 

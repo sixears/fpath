@@ -158,7 +158,7 @@ import FPath.Error.FPathComponentError
                                 , __FPathCIllegalCharE__
                                 , fPathComponentIllegalCharE, fPathIllegalE
                                 )
-import FPath.Parseable          ( Parseable( parse, parse' ) )
+import FPath.Parseable          ( Parseable( parse, parseFPE ) )
 import FPath.Util               ( __ERROR'__, mkVisS )
 
 --------------------------------------------------------------------------------
@@ -298,7 +298,7 @@ instance Parseable PathComponent where
 parseTests ∷ TestTree
 parseTests =
   let parsePathComponent_ ∷ MonadError FPathError η ⇒ 𝕋 → η PathComponent
-      parsePathComponent_ = parse'
+      parsePathComponent_ = parseFPE
 
       illegalCE ∷ 𝕋 → ℂ → TestTree
       illegalCE t c = let fpcice = fPathComponentIllegalCharE c (unpack t)
@@ -319,12 +319,12 @@ parseTests =
       pc5 = PathComponent "..."
       pc6 = PathComponent "…"
    in testGroup "parsePathComponent"
-                [ testCase "pc1" $ Right pc1 @=? parse' @_ @𝕋 "r.e"
-                , testCase "pc2" $ Right pc2 @=? parse' @_ @𝕋 ".e"
-                , testCase "pc3" $ Right pc3 @=? parse' @_ @𝕋 "r."
-                , testCase "pc4" $ Right pc4 @=? parse' @_ @𝕋 "r"
-                , testCase "pc5" $ Right pc5 @=? parse' @_ @𝕋 "..."
-                , testCase "pc6" $ Right pc6 @=? parse' @_ @𝕋 "…"
+                [ testCase "pc1" $ Right pc1 @=? parseFPE @_ @𝕋 "r.e"
+                , testCase "pc2" $ Right pc2 @=? parseFPE @_ @𝕋 ".e"
+                , testCase "pc3" $ Right pc3 @=? parseFPE @_ @𝕋 "r."
+                , testCase "pc4" $ Right pc4 @=? parseFPE @_ @𝕋 "r"
+                , testCase "pc5" $ Right pc5 @=? parseFPE @_ @𝕋 "..."
+                , testCase "pc6" $ Right pc6 @=? parseFPE @_ @𝕋 "…"
                 , illegalCE "bob/" '/'
                 , illegalPC "."
                 , illegalPC ".."

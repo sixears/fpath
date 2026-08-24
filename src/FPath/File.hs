@@ -37,7 +37,7 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 -- more-unicode ------------------------
 
 import Data.MoreUnicode.Function  ( (⅋) )
-import Data.MoreUnicode.Lens      ( (⫣), (⊩), (##) )
+import Data.MoreUnicode.Lens      ( (⫣), (⊩) )
 
 -- non-empty-containers ----------------
 
@@ -531,20 +531,20 @@ filepathTests =
   let nothin' = Nothing ∷ Maybe File
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "af1" $ "/r.e"       ≟ af1f ## filepath
-            , testCase "af2" $ "/r/p.x"     ≟ af2f ## filepath
-            , testCase "af3" $ "/p/q/r.mp3" ≟ af3f ## filepath
-            , testCase "af4" $ "/.x"        ≟ af4f ## filepath
+            [ testCase "af1" $ "/r.e"       ≟ af1f ⫥ filepath
+            , testCase "af2" $ "/r/p.x"     ≟ af2f ⫥ filepath
+            , testCase "af3" $ "/p/q/r.mp3" ≟ af3f ⫥ filepath
+            , testCase "af4" $ "/.x"        ≟ af4f ⫥ filepath
 
             , testCase "af1" $ Just af1f @=? "/r.e"       ⩼ filepath
             , testCase "af2" $ Just af2f @=? "/r/p.x"     ⩼ filepath
             , testCase "af3" $ Just af3f @=? "/p/q/r.mp3" ⩼ filepath
             , testCase "af4" $ Just af4f @=? "/.x"        ⩼ filepath
 
-            , testCase "rf1" $ "r.e"       ≟ rf1f ## filepath
-            , testCase "rf2" $ "r/p.x"     ≟ rf2f ## filepath
-            , testCase "rf3" $ "p/q/r.mp3" ≟ rf3f ## filepath
-            , testCase "rf4" $ ".x"        ≟ rf4f ## filepath
+            , testCase "rf1" $ "r.e"       ≟ rf1f ⫥ filepath
+            , testCase "rf2" $ "r/p.x"     ≟ rf2f ⫥ filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ rf3f ⫥ filepath
+            , testCase "rf4" $ ".x"        ≟ rf4f ⫥ filepath
 
             , testCase "rf1" $ Just rf1f @=? "r.e"       ⩼ filepath
             , testCase "rf2" $ Just rf2f @=? "r/p.x"     ⩼ filepath
@@ -696,14 +696,14 @@ instance Parseable File where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η File
   parse (toText → t) =
     case null t of
-      𝕿 → __FPathEmptyE__ fileT
-      𝕱 → case head t of
+      𝓣 → __FPathEmptyE__ fileT
+      𝓕 → case head t of
             '/' → FileA ⊳ parse t
             _   → FileR ⊳ parse t
 
 parseFileTests ∷ TestTree
 parseFileTests =
-  let success d f t = testCase t $ Right (d ## f) @=? parse @File @FPathError t
+  let success d f t = testCase t $ Right (d ⫥ f) @=? parse @File @FPathError t
    in testGroup "parseFile"
                 [ success [absfile|/etc|]  _AbsFile "/etc"
                 , success [relfile|etc|]   _RelFile "etc"

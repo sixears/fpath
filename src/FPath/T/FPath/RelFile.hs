@@ -55,7 +55,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (⫥) )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
 import Data.MoreUnicode.Semigroup        ( (◇) )
@@ -110,7 +110,7 @@ import FPath.Error.FPathComponentError
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, ext, file, splitExt
                                          , updateExt ) )
 import FPath.Parent            ( parent, parentMay )
-import FPath.Parseable         ( parse' )
+import FPath.Parseable         ( parseFPE )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
 import FPath.RelDir            ( RelDir, reldir )
 import FPath.RelFile           ( RelFile, relfile )
@@ -138,7 +138,7 @@ parseRelFileTests =
       notAFile t = testCase ("not a file: '" ⊕ toString t ⊕ "'") $
                       Left (fPathNotAFileE relfileT t) @=? parseRelFile_ t
       parseRelFile_ ∷ MonadError FPathError η ⇒ Text → η RelFile
-      parseRelFile_ = parse'
+      parseRelFile_ = parseFPE
    in testGroup "parseRelFile"
                 [ testCase "rf1" $ Right rf1 @=? parseRelFile_ "r.e"
                 , testCase "rf1" $ Right rf1 @=? parseRelFile_ "./r.e"
@@ -340,10 +340,10 @@ relFileFilepathTests =
   let nothin' = Nothing ∷ Maybe RelFile
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "rf1" $ "r.e"       ≟ rf1 ## filepath
-            , testCase "rf2" $ "r/p.x"     ≟ rf2 ## filepath
-            , testCase "rf3" $ "p/q/r.mp3" ≟ rf3 ## filepath
-            , testCase "rf4" $ ".x"        ≟ rf4 ## filepath
+            [ testCase "rf1" $ "r.e"       ≟ rf1 ⫥ filepath
+            , testCase "rf2" $ "r/p.x"     ≟ rf2 ⫥ filepath
+            , testCase "rf3" $ "p/q/r.mp3" ≟ rf3 ⫥ filepath
+            , testCase "rf4" $ ".x"        ≟ rf4 ⫥ filepath
 
             , testCase "rf1" $ Just rf1 @=? "r.e"       ⩼ filepath
             , testCase "rf2" $ Just rf2 @=? "r/p.x"     ⩼ filepath

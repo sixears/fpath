@@ -54,7 +54,7 @@ import Data.MonoTraversable  ( maximumByEx, minimumByEx, oall, oany
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (##) )
+import Data.MoreUnicode.Lens             ( (⊣), (⊥), (⊢), (⊧), (⩼), (⫥) )
 import Data.MoreUnicode.Monoid           ( ю, ф )
 import Data.MoreUnicode.MonoTraversable  ( (⪦), (⪧) )
 import Data.MoreUnicode.Natural          ( ℕ )
@@ -332,10 +332,10 @@ relDirFilepathTests =
   let nothin' = Nothing ∷ Maybe RelDir
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "r0" $ "./"     ≟ r0 ## filepath
-            , testCase "r1" $ "r/"     ≟ r1 ## filepath
-            , testCase "r2" $ "r/p/"   ≟ r2 ## filepath
-            , testCase "r3" $ "p/q/r/" ≟ r3 ## filepath
+            [ testCase "r0" $ "./"     ≟ r0 ⫥ filepath
+            , testCase "r1" $ "r/"     ≟ r1 ⫥ filepath
+            , testCase "r2" $ "r/p/"   ≟ r2 ⫥ filepath
+            , testCase "r3" $ "p/q/r/" ≟ r3 ⫥ filepath
 
             , testCase "r0" $ Just r0 @=? "./"     ⩼ filepath
             , testCase "r1" $ Just r1 @=? "r/"     ⩼ filepath

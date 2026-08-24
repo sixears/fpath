@@ -249,7 +249,7 @@ instance HasDirname NonRootRelDir where
 ----------------------------------------
 
 nonRootGetParentMay ∷ NonRootRelDir → Maybe RelDir
-nonRootGetParentMay = 𝕵 ∘ view parent
+nonRootGetParentMay = 𝓙 ∘ view parent
 
 nonRootSetParentMay ∷ NonRootRelDir → Maybe RelDir → NonRootRelDir
 nonRootSetParentMay (NonRootRelDir ps) d =
@@ -374,7 +374,7 @@ instance RelDirAs RelDir where
 
 instance RelDirAs NonRootRelDir where
   _RelDir_ =
-    prism' RelNonRootDir (\ case RelRootDir → 𝕹; RelNonRootDir d → 𝕵 d)
+    prism' RelNonRootDir (\ case RelRootDir → 𝓝; RelNonRootDir d → 𝓙 d)
 
 --------------------
 
@@ -483,8 +483,8 @@ instance Textual RelDir where
 textualTests ∷ TestTree
 textualTests =
   let success e s = testCase s $ Parsed e                @=? parseString s
-      fail s      = testCase s $ (𝕹 ∷ 𝕄 RelDir)        @=? fromString s
-      failN s     = testCase s $ (𝕹 ∷ 𝕄 NonRootRelDir) @=? fromString s
+      fail s      = testCase s $ (𝓝 ∷ 𝕄 RelDir)        @=? fromString s
+      failN s     = testCase s $ (𝓝 ∷ 𝕄 NonRootRelDir) @=? fromString s
    in testGroup "Textual"
                 [ success r0 "./"
                 , success r1 "r/"
@@ -521,12 +521,12 @@ instance Arbitrary RelDir where
 instance HasParentMay RelDir where
   parentMay = lens getParentMay setParentMay
               where getParentMay ∷ RelDir → Maybe RelDir
-                    getParentMay RelRootDir        = 𝕹
+                    getParentMay RelRootDir        = 𝓝
                     getParentMay (RelNonRootDir d) = d ⊣ parentMay
 
                     setParentMay ∷ RelDir → Maybe RelDir → RelDir
-                    setParentMay RelRootDir (𝕵 r) = r
-                    setParentMay RelRootDir 𝕹    = RelRootDir
+                    setParentMay RelRootDir (𝓙 r) = r
+                    setParentMay RelRootDir 𝓝    = RelRootDir
                     setParentMay (RelNonRootDir d) r =
                       RelNonRootDir $ d & parentMay ⊢ r
 
@@ -647,11 +647,11 @@ instance Parseable RelDir where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
   parse (toText → t) =
     case unsnoc $ splitOn "/" t of
-      𝕹           → error "cannot happen: splitOn always returns something"
-      𝕵 (("":_), _)  → __FPathAbsE__ reldirT t
-      𝕵 ([],"")      → __FPathEmptyE__ reldirT
-      𝕵 (["."],"")   → return RelRootDir
-      𝕵 ((x:xs), "") → do
+      𝓝           → error "cannot happen: splitOn always returns something"
+      𝓙 (("":_), _)  → __FPathAbsE__ reldirT t
+      𝓙 ([],"")      → __FPathEmptyE__ reldirT
+      𝓙 (["."],"")   → return RelRootDir
+      𝓙 ((x:xs), "") → do
         let mkCompE ∷ (AsFPathError ε', MonadError ε' η') ⇒
                       FPathComponentError → η' α
             mkCompE ce = __FPathComponentE__ ce reldirT t
@@ -672,24 +672,24 @@ parseRelDirTests =
       illegalCE s t = let fpcice = fPathComponentIllegalCharE '\0' t
                        in FPathComponentE fpcice reldirT s
       badChar s p = testCase ("bad component " ⊕ toString s) $
-                        𝕷 (illegalCE s p) @=? parseRelDir_ s
+                        𝓛 (illegalCE s p) @=? parseRelDir_ s
       emptyCompCE t = FPathComponentE fPathComponentEmptyE reldirT t
       parseRelDir_ ∷ MonadError FPathError η ⇒ Text → η RelDir
       parseRelDir_ = parse
    in testGroup "parseRelDir"
-                [ testCase "r0 (./)" $ 𝕽 r0 @=? parseRelDir_ "./"
-                , testCase "r1" $ 𝕽 r1 @=? parseRelDir_ "r/"
-                , testCase "r2" $ 𝕽 r2 @=? parseRelDir_ "r/p/"
-                , testCase "r3" $ 𝕽 r3 @=? parseRelDir_ "p/q/r/"
+                [ testCase "r0 (./)" $ 𝓡 r0 @=? parseRelDir_ "./"
+                , testCase "r1" $ 𝓡 r1 @=? parseRelDir_ "r/"
+                , testCase "r2" $ 𝓡 r2 @=? parseRelDir_ "r/p/"
+                , testCase "r3" $ 𝓡 r3 @=? parseRelDir_ "p/q/r/"
                 , testCase "no trailing /" $
-                      𝕷 (fPathNotADirE reldirT pamF) @=? parseRelDir_ pamF
+                      𝓛 (fPathNotADirE reldirT pamF) @=? parseRelDir_ pamF
                 , testCase "leading /" $
-                      𝕷 (fPathAbsE reldirT "/r/") @=? parseRelDir_ "/r/"
+                      𝓛 (fPathAbsE reldirT "/r/") @=? parseRelDir_ "/r/"
                 , badChar "x/\0/y/" "\0"
                 , badChar "r/p\0/" "p\0"
                 , badChar "\0r/p/" "\0r"
                 , testCase "empty component" $
-                      𝕷 (emptyCompCE "r//p/") @=? parseRelDir_ "r//p/"
+                      𝓛 (emptyCompCE "r//p/") @=? parseRelDir_ "r//p/"
                 ]
 
 ----------------------------------------
@@ -699,11 +699,11 @@ parseRelDirTests =
      `parseRelDir`" -}
 parseRelDirP ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η RelDir
 parseRelDirP (toText → t) =
-  let safeLast "" = 𝕹
-      safeLast s  = 𝕵 $ Text.last s
+  let safeLast "" = 𝓝
+      safeLast s  = 𝓙 $ Text.last s
    in case safeLast t of
-        𝕹     → parse empty
-        𝕵 '/' → parse t
+        𝓝     → parse empty
+        𝓙 '/' → parse t
         _     → parse (t ⊕ "/")
 
 parseRelDirP' ∷ (Printable τ, MonadError FPathError η) ⇒ τ → η RelDir
@@ -726,21 +726,21 @@ parseRelDirPTests =
       _parseRelDirP ∷ MonadError FPathError η ⇒ Text → η RelDir
       _parseRelDirP = parseRelDirP'
    in testGroup "parseRelDirP"
-                [ testCase "r0" $ 𝕽 r0 @=? _parseRelDirP "."
-                , testCase "r1" $ 𝕽 r1 @=? _parseRelDirP "r/"
-                , testCase "r1" $ 𝕽 r1 @=? _parseRelDirP "r"
-                , testCase "r2" $ 𝕽 r2 @=? _parseRelDirP "r/p/"
-                , testCase "r2" $ 𝕽 r2 @=? _parseRelDirP "r/p"
-                , testCase "r3" $ 𝕽 r3 @=? _parseRelDirP "p/q/r/"
-                , testCase "r3" $ 𝕽 r3 @=? _parseRelDirP "p/q/r"
+                [ testCase "r0" $ 𝓡 r0 @=? _parseRelDirP "."
+                , testCase "r1" $ 𝓡 r1 @=? _parseRelDirP "r/"
+                , testCase "r1" $ 𝓡 r1 @=? _parseRelDirP "r"
+                , testCase "r2" $ 𝓡 r2 @=? _parseRelDirP "r/p/"
+                , testCase "r2" $ 𝓡 r2 @=? _parseRelDirP "r/p"
+                , testCase "r3" $ 𝓡 r3 @=? _parseRelDirP "p/q/r/"
+                , testCase "r3" $ 𝓡 r3 @=? _parseRelDirP "p/q/r"
                 , testCase "empty" $
-                      𝕷 (fPathEmptyE reldirT)  @=? _parseRelDirP ""
+                      𝓛 (fPathEmptyE reldirT)  @=? _parseRelDirP ""
                 , testCase "no leading /" $
-                      𝕷 (fPathAbsE reldirT "/etc/") @=? _parseRelDirP "/etc/"
+                      𝓛 (fPathAbsE reldirT "/etc/") @=? _parseRelDirP "/etc/"
                 , testCase "bad component" $
-                      𝕷 illegalCE @=? _parseRelDirP pamNUL
+                      𝓛 illegalCE @=? _parseRelDirP pamNUL
                 , testCase "empty component" $
-                      𝕷 emptyCompCE @=? _parseRelDirP "etc//pam.d/"
+                      𝓛 emptyCompCE @=? _parseRelDirP "etc//pam.d/"
                 ]
 
 ----------------------------------------

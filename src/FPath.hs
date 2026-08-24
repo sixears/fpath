@@ -45,8 +45,8 @@ module FPath
   , AsFilePath( filepath )
 
   , AppendableFPath( (⫻) ), (</>)
-  , Parseable( parse, parse', __parse__, __parse'__ )
-  , Strippable
+  , Parseable( parse, parseFPE, __parse__, __parseS__ )
+  , Strippable( isPrefixOf, stripDir, stripDirFPE )
 
   -- file functions
   , (⊙), addExt, dir, dirfile, file, ext, splitExt
@@ -57,8 +57,6 @@ module FPath
   , nonRootAbsDir
 
   , root
-  , stripDir
-
   , tests
   )
 where
@@ -83,8 +81,10 @@ import Data.Textual  ( toText )
 
 import Control.Lens.Getter  ( view )
 
--- more-unicode-symbols ----------------
+-- more-unicode ------------------------
 
+import Data.MoreUnicode.Bool     ( 𝔹, pattern 𝓕, pattern 𝓣 )
+import Data.MoreUnicode.Either   ( pattern 𝓛, pattern 𝓡 )
 import Data.MoreUnicode.Natural  ( ℕ )
 
 -- mtl ---------------------------------
@@ -114,25 +114,25 @@ import TastyPlus  ( runTestsP, runTestsReplay, runTestTree )
 ------------------------------------------------------------
 
 import FPath.Abs               ( Abs )
-import FPath.AbsDir            ( AbsDir, NonRootAbsDir
+import FPath.AbsDir            ( AbsDir, NonRootAbsDir,
 
-                               , absdir, absdirN, absdirT, nonRootAbsDir, root
+                                 absdir, absdirN, absdirT, nonRootAbsDir, root
                                )
-import FPath.AbsFile           ( AbsFile
-                               , absfile, absfileT
+import FPath.AbsFile           ( AbsFile,
+                                 absfile, absfileT
                                )
 import FPath.AppendableFPath   ( AppendableFPath( (⫻) ), (</>) )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.Dir               ( Dir )
 import FPath.DirType           ( DirTypeC( DirType ) )
-import FPath.Error.FPathError  ( AsFPathNotAPrefixError
-                               , __FPathNotAPrefixError__ )
+import FPath.Error.FPathError  ( AsFPathNotAPrefixError, FPathError,
+                                 __FPathNotAPrefixError__ )
 import FPath.File              ( File )
 import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
                                          , splitExt ) )
 import FPath.FPath             ( FPath )
-import FPath.Parseable         ( Parseable( parse, parse'
-                                          , __parse__, __parse'__ ) )
+import FPath.Parseable         ( Parseable( parse, parseFPE,
+                                            __parse__, __parseS__ ) )
 import FPath.Rel               ( Rel )
 import FPath.RelDir            ( RelDir, reldir, reldirT )
 import FPath.RelFile           ( RelFile, relfile, relfileT )
@@ -162,17 +162,21 @@ instance HasAbsify AbsDir where
 ------------------------------------------------------------
 
 {-| paths that are amenable to having e prefix removed -}
-class (DirTypeC π, RelTypeC π) ⇒ Strippable π where
+class (DirTypeC π, RelTypeC π) => Strippable π where
   {- | "unresolve" a path; that is, if an absolute directory is a prefix of an
        absolute (file|directory), then strip off that prefix to leave a relative
        (file|directory).  Note that a file will always keep its filename; but a
        directory might result in a relative dir of './'.
    -}
-  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ ∀ ε η . (AsFPathNotAPrefixError ε, MonadError ε η) =>
              DirType π → π → η (RelType π)
+  stripDirFPE ∷ ∀ η . MonadError FPathError η => DirType π → π → η (RelType π)
+  stripDirFPE = stripDir
+  isPrefixOf ∷ DirType π → π → 𝔹
+  isPrefixOf p f = case stripDirFPE p f of { 𝓡 _ → 𝓣; 𝓛 _ → 𝓕 }
 
 instance Strippable AbsFile where
-  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) =>
              AbsDir → AbsFile → η RelFile
   stripDir d'@(view seq → d) f'@(view seqNE → f) =
     maybe (__FPathNotAPrefixError__ absfileT (toText d') (toText f'))
@@ -180,7 +184,7 @@ instance Strippable AbsFile where
           (SeqNE.stripProperPrefix d f)
 
 instance Strippable AbsDir where
-  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) =>
                 AbsDir → AbsDir → η RelDir
   stripDir d'@(view seq → d) f'@(view seq → f) =
     maybe (__FPathNotAPrefixError__ absdirT (toText d') (toText f'))
@@ -188,7 +192,7 @@ instance Strippable AbsDir where
           (SeqConversions.stripPrefix d f)
 
 instance Strippable RelFile where
-  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) =>
                 RelDir → RelFile → η RelFile
   stripDir d'@(view seq → d) f'@(view seqNE → f) =
     maybe (__FPathNotAPrefixError__ relfileT (toText d') (toText f'))
@@ -196,7 +200,7 @@ instance Strippable RelFile where
           (SeqNE.stripProperPrefix d f)
 
 instance Strippable RelDir where
-  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) ⇒
+  stripDir ∷ (AsFPathNotAPrefixError ε, MonadError ε η) =>
                 RelDir → RelDir → η RelDir
   stripDir d'@(view seq → d) f'@(view seq → f) =
     maybe (__FPathNotAPrefixError__ reldirT (toText d') (toText f'))

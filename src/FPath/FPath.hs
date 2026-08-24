@@ -246,8 +246,8 @@ instance Parseable FPath where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η FPath
   parse (toText → t) =
     case null t of
-      𝕿 → __FPathEmptyE__ fpathT
-      𝕱 → case (head t, last t) of
+      𝓣 → __FPathEmptyE__ fpathT
+      𝓕 → case (head t, last t) of
             ('/','/') → FAbsD ⊳ parse t
             ('/',_  ) → FAbsF ⊳ parse t
             (_  ,'/') → FRelD ⊳ parse t
@@ -256,7 +256,7 @@ instance Parseable FPath where
 parseFPathTests ∷ TestTree
 parseFPathTests =
   let success d f t =
-        testCase t $ 𝕽 (d ⫥ f) @=? parse @FPath @FPathError t
+        testCase t $ 𝓡 (d ⫥ f) @=? parse @FPath @FPathError t
    in testGroup "parseFPath"
                 [ success [absdir|/|]      _AbsDir  "/"
                 , success [absdir|/etc/|]  _AbsDir  "/etc/"

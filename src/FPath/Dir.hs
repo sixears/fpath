@@ -27,7 +27,7 @@ import Data.MonoTraversable  ( Element, MonoFoldable( ofoldl', ofoldl1Ex'
 -- more-unicode-symbols ----------------
 
 import Data.MoreUnicode.Function  ( (⅋) )
-import Data.MoreUnicode.Lens      ( (⊩), (##) )
+import Data.MoreUnicode.Lens      ( (⊩) )
 
 -- non-empty-containers ----------------
 
@@ -166,17 +166,17 @@ filepathTests =
   let nothin' = Nothing ∷ Maybe Dir
       fail s  = testCase s $ nothin' @=? s ⩼ filepath
    in testGroup "filepath"
-            [ testCase "root"  $ "/"           ≟ DirA root    ## filepath
-            , testCase "etc"   $ "/etc/"       ≟ DirA etc     ## filepath
-            , testCase "pam.d" $ "/etc/pam.d/" ≟ DirA pamd    ## filepath
-            , testCase "wgm"   $ "/w/g/M/"     ≟ DirA wgm     ## filepath
+            [ testCase "root"  $ "/"           ≟ DirA root    ⫥ filepath
+            , testCase "etc"   $ "/etc/"       ≟ DirA etc     ⫥ filepath
+            , testCase "pam.d" $ "/etc/pam.d/" ≟ DirA pamd    ⫥ filepath
+            , testCase "wgm"   $ "/w/g/M/"     ≟ DirA wgm     ⫥ filepath
 
             , testCase "/etc/" $ Just etc      @=? "/etc/" ⩼ filepath
 
-            , testCase "r0" $ "./"     ≟ DirR r0 ## filepath
-            , testCase "r1" $ "r/"     ≟ DirR r1 ## filepath
-            , testCase "r2" $ "r/p/"   ≟ DirR r2 ## filepath
-            , testCase "r3" $ "p/q/r/" ≟ DirR r3 ## filepath
+            , testCase "r0" $ "./"     ≟ DirR r0 ⫥ filepath
+            , testCase "r1" $ "r/"     ≟ DirR r1 ⫥ filepath
+            , testCase "r2" $ "r/p/"   ≟ DirR r2 ⫥ filepath
+            , testCase "r3" $ "p/q/r/" ≟ DirR r3 ⫥ filepath
 
             , testCase "r0" $ Just (DirR r0) @=? "./"     ⩼ filepath
             , testCase "r1" $ Just (DirR r1) @=? "r/"     ⩼ filepath
@@ -583,14 +583,14 @@ instance Parseable Dir where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Dir
   parse (toText → t) =
     case null t of
-      𝕿 → __FPathEmptyE__ dirT
-      𝕱 → case head t of
+      𝓣 → __FPathEmptyE__ dirT
+      𝓕 → case head t of
                 '/' → DirA ⊳ parse t
                 _   → DirR ⊳ parse t
 
 parseDirTests ∷ TestTree
 parseDirTests =
-  let success d f t = testCase t $ Right (d ## f) @=? parse @Dir @FPathError t
+  let success d f t = testCase t $ Right (d ⫥ f) @=? parse @Dir @FPathError t
    in testGroup "parseDir"
                 [ success [absdir|/|]     _AbsDir "/"
                 , success [absdir|/etc/|] _AbsDir "/etc/"

@@ -1,3 +1,10 @@
+1.3.6.0 2026-08-23
+==================
+- + FPath.Strippable.isPrefixOf
+- + FPath.Parseable.{__parseDir__,__parseS__,__parseT__,parseFPE}
+- deprecate FPath.Parseable.{__parse'__,parse'}
+- cleanup old deprecated uses from more-unicode
+
 1.3.5.0 2023-12-14
 ==================
 - upgrade TH for ghc9 (and use TypeOperators in Parent.hs)

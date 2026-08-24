@@ -168,8 +168,8 @@ instance Parseable Rel where
   parse ∷ (AsFPathError ε, MonadError ε η, Printable τ) ⇒ τ → η Rel
   parse (toText → t) =
     case null t of
-      𝕿 → __FPathEmptyE__ relpathT
-      𝕱 → case last t of
+      𝓣 → __FPathEmptyE__ relpathT
+      𝓕 → case last t of
             '/' → RelD ⊳ parse  t
             _   → RelF ⊳ parse t
 
