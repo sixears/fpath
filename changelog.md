@@ -1,3 +1,11 @@
+1.3.7.0 2026-08-28
+==================
+
+- + `FPath.AbsDirAs`
+- + `FPath.AbsFileAs`
+- + `FPath.RelDirAs`
+- + `FPath.RelFileAs`
+
 1.3.6.0 2026-08-23
 ==================
 - + FPath.Strippable.isPrefixOf

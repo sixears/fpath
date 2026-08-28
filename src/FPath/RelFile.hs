@@ -12,7 +12,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.RelFile
-  ( AsRelFile( _RelFile ), RelDir, RelFile
+  ( AsRelFile( _RelFile ), RelDir, RelFile, RelFileAs( _RelFile_ )
 
   , relfile, relfileT
 
@@ -125,7 +125,7 @@ import FPath.Parent            ( HasParent( parent )
                                , HasParentMay( parentMay, parents ) )
 import FPath.Parseable         ( Parseable( parse ) )
 import FPath.PathComponent     ( PathComponent, parsePathC, pc )
-import FPath.RelDir            ( RelDir, reldir )
+import FPath.RelDir            ( RelDir, curdir, reldir )
 import FPath.RelType           ( RelTypeC( RelType ) )
 
 -------------------------------------------------------------------------------
@@ -134,23 +134,44 @@ import FPath.RelType           ( RelTypeC( RelType ) )
 data RelFile = RelFile RelDir PathComponent
   deriving (Eq, Lift)
 
+----------
+
 type instance Element RelFile = PathComponent
 
-instance Show RelFile where
-  show r = [fmt|[relfile|%T%s]|] (toText r) "|"
+----------
 
---------------------
+instance Show RelFile where show r = [fmt|[relfile|%T%s]|] (toText r) "|"
 
-instance Ord RelFile where
-  a <= b = toText a ≤ toText b
+----------
+
+instance Ord RelFile where a <= b = toText a ≤ toText b
 
 --------------------
 
 class AsRelFile α where
   _RelFile ∷ Prism' α RelFile
 
+----------
+
 instance AsRelFile RelFile where
   _RelFile = id
+
+--------------------
+
+{-| things that a `RelFile` *may* be; and that a `RelFile` can *definitely*
+    be constructed from -}
+class RelFileAs α where
+  _RelFile_ ∷ Prism' RelFile α
+
+----------
+
+{-| we can always construct a `RelFile` from a `PathComponent`; and if a
+    `RelFile` is a simple file (no directory part), it can be directly decomposed
+    into a `PathComponent`. -}
+instance RelFileAs PathComponent where
+  _RelFile_ = prism' (RelFile curdir) (\ (RelFile d p) → if d ≡ curdir
+                                                         then 𝓙 p
+                                                         else 𝓝)
 
 --------------------
 

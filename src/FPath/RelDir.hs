@@ -7,6 +7,7 @@ module FPath.RelDir
   , NonRootRelDir
   , RelDir
   , parseRelDirP
+  , curdir
   , reldir
   , reldirN
   , reldirT
@@ -52,7 +53,8 @@ import MonadError ( ѭ )
 -- mono-traversable --------------------
 
 import Data.MonoTraversable ( Element,
-                              MonoFoldable(ofoldMap, ofoldl', ofoldl1Ex', ofoldr, ofoldr1Ex, otoList),
+                              MonoFoldable( ofoldMap, ofoldl', ofoldl1Ex', ofoldr
+                                          , ofoldr1Ex, otoList),
                               MonoFunctor(omap) )
 
 -- more-unicode ------------------------
@@ -364,17 +366,34 @@ instance AsRelDir RelDir where
 
 --------------------
 
-{-| Things that /may/ be converted from an `RelDir` (but will always convert
-    /to/ an `RelDir`). -}
+{-| Things that /may/ be converted from a `RelDir` (but will always convert
+    /to/ a `RelDir`). -}
 class RelDirAs α where
   _RelDir_ ∷ Prism' RelDir α
+
+----------
 
 instance RelDirAs RelDir where
   _RelDir_ = id
 
+----------
+
 instance RelDirAs NonRootRelDir where
   _RelDir_ =
     prism' RelNonRootDir (\ case RelRootDir → 𝓝; RelNonRootDir d → 𝓙 d)
+
+----------
+
+{-| we can always construct a `RelFile` from a `PathComponent`; and if a
+    `RelFile` is a simple file (no directory part), it can be directly decomposed
+    into a `PathComponent`. -}
+instance RelDirAs PathComponent where
+  _RelDir_ = let to_pc  RelRootDir = 𝓝
+                 to_pc (RelNonRootDir (NonRootRelDir pcs)) =
+                   case otoList pcs of
+                     [p] → 𝓙 p
+                     _   → 𝓝
+             in  prism' (RelNonRootDir ∘ NonRootRelDir ∘ pure) to_pc
 
 --------------------
 
@@ -635,6 +654,11 @@ ancestors'Tests =
             , testCase "r2" $ [r1,r0]       @=? ancestors' r2
             , testCase "r3" $ [r3pq,r3p,r0] @=? ancestors' r3
             ]
+
+----------------------------------------
+
+curdir ∷ RelDir
+curdir = RelRootDir
 
 ------------------------------------------------------------
 --                     Quasi-Quoting                      --

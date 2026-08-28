@@ -1,6 +1,6 @@
 {-| a file specified by absolute location in the filesystem -}
 module FPath.AbsFile
-  ( AbsDir, AbsFile, AsAbsFile( _AbsFile )
+  ( AbsDir, AbsFile, AbsFileAs( _AbsFile_ ), AsAbsFile( _AbsFile )
 
   , absfile, absfileT
 
@@ -100,7 +100,7 @@ import qualified  Text.Printer  as  P
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AbsDir            ( AbsDir, absdir, root )
+import FPath.AbsDir            ( AbsDir, absdir, rootdir )
 import FPath.AsFilePath        ( AsFilePath( filepath ) )
 import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
 import FPath.Basename          ( Basename( basename, updateBasename ) )
@@ -145,8 +145,27 @@ instance Ord AbsFile where
 class AsAbsFile α where
   _AbsFile ∷ Prism' α AbsFile
 
+----------
+
 instance AsAbsFile AbsFile where
   _AbsFile = id
+
+--------------------
+
+{-| things that a `RelFile` *may* be; and that a `RelFile` can *definitely*
+    be constructed from -}
+class AbsFileAs α where
+  _AbsFile_ ∷ Prism' AbsFile α
+
+----------
+
+{-| we can always construct a `AbsFile` from a `PathComponent`; and if a
+    `AbsFile` is a simple file (no directory part), it can be directly decomposed
+    into a `PathComponent`. -}
+instance AbsFileAs PathComponent where
+  _AbsFile_ = prism' (AbsFile rootdir) (\ (AbsFile d p) → if d ≡ rootdir
+                                                          then 𝓙 p
+                                                          else 𝓝)
 
 --------------------
 
@@ -261,7 +280,7 @@ instance HasParentMay AbsFile where
   parentMay = lens (\ (AbsFile p _) → Just p)
                    (\ (AbsFile _ f) md → case md of
                                            Just  d → AbsFile d f
-                                           Nothing → AbsFile root f
+                                           Nothing → AbsFile rootdir f
                    )
 
 ----------
@@ -270,10 +289,10 @@ parentsTests ∷ TestTree
 parentsTests =
   let check t d ps = assertListEq t ps (parents d)
    in testGroup "parents" $
-        [ check "/r.e"       af1 [root]
-        , check "/r/p.x"     af2 [root,fromSeq (pure [pc|r|])]
-        , check "/p/q/r.mp3" af3 [root,[absdir|/p/|], [absdir|/p/q/|]]
-        , check "/.x"        af4 [root]
+        [ check "/r.e"       af1 [rootdir]
+        , check "/r/p.x"     af2 [rootdir,fromSeq (pure [pc|r|])]
+        , check "/p/q/r.mp3" af3 [rootdir,[absdir|/p/|], [absdir|/p/q/|]]
+        , check "/.x"        af4 [rootdir]
         ]
 
 ----------------------------------------
@@ -312,12 +331,12 @@ instance Ancestors AbsFile where
 ancestorsTests ∷ TestTree
 ancestorsTests =
   testGroup "ancestors"
-            [ testCase "af1" $ pure root  @=? ancestors af1
+            [ testCase "af1" $ pure rootdir  @=? ancestors af1
             , testCase "af2"  $
-                ([absdir|/r/|] :| [root]) @=? ancestors af2
+                ([absdir|/r/|] :| [rootdir]) @=? ancestors af2
             , testCase "af3" $
-                ([absdir|/p/q/|] :| [[absdir|/p/|], root]) @=? ancestors af3
-            , testCase "af4"  $ pure root @=? ancestors af4
+                ([absdir|/p/q/|] :| [[absdir|/p/|], rootdir]) @=? ancestors af3
+            , testCase "af4"  $ pure rootdir @=? ancestors af4
             ]
 
 instance HasDirname AbsFile where
@@ -347,12 +366,12 @@ dirnameTests =
 ancestors'Tests ∷ TestTree
 ancestors'Tests =
   testGroup "ancestors'"
-            [ testCase "af1" $ [root]  @=? ancestors' af1
+            [ testCase "af1" $ [rootdir]  @=? ancestors' af1
             , testCase "af2"  $
-                [[absdir|/r/|],root] @=? ancestors' af2
+                [[absdir|/r/|],rootdir] @=? ancestors' af2
             , testCase "af3" $
-                [[absdir|/p/q/|],[absdir|/p/|],root]  @=? ancestors' af3
-            , testCase "af4"  $ [root] @=? ancestors' af4
+                [[absdir|/p/q/|],[absdir|/p/|],rootdir]  @=? ancestors' af3
+            , testCase "af4"  $ [rootdir] @=? ancestors' af4
             ]
 
 ------------------------------------------------------------

@@ -7,7 +7,7 @@ module FPath.AbsDir
   , absdir, absdirN
 
   , nonRootAbsDir
-  , root
+  , rootdir, root
 
   , parseAbsDirP , parseAbsDirP'  , __parseAbsDirP__
 
@@ -261,12 +261,29 @@ instance AsAbsDir AbsDir where
 class AbsDirAs α where
   _AbsDir_ ∷ Prism' AbsDir α
 
+----------
+
 instance AbsDirAs AbsDir where
   _AbsDir_ = id
+
+----------
 
 instance AbsDirAs NonRootAbsDir where
   _AbsDir_ =
     prism' AbsNonRootDir (\ case AbsRootDir → 𝓝; AbsNonRootDir d → 𝓙 d)
+
+----------
+
+{-| we can always construct a `AbsFile` from a `PathComponent`; and if a
+    `AbsFile` is a simple file (no directory part), it can be directly decomposed
+    into a `PathComponent`. -}
+instance AbsDirAs PathComponent where
+  _AbsDir_ = let to_pc  AbsRootDir = 𝓝
+                 to_pc (AbsNonRootDir (NonRootAbsDir pcs)) =
+                   case otoList pcs of
+                     [p] → 𝓙 p
+                     _   → 𝓝
+             in  prism' (AbsNonRootDir ∘ NonRootAbsDir ∘ pure) to_pc
 
 ------------------------------------------------------------
 
@@ -1142,6 +1159,10 @@ basenameTests =
 ----------------------------------------
 
 {-| the root directory -}
+rootdir ∷ AbsDir
+rootdir = AbsRootDir
+
+{-# DEPRECATED root "use rootdir instead" #-}
 root ∷ AbsDir
 root = AbsRootDir
 

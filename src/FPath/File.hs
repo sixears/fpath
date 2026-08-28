@@ -68,7 +68,7 @@ import Data.Text  ( head, null )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AbsDir            ( absdir, root )
+import FPath.AbsDir            ( absdir, rootdir )
 import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
 import FPath.AppendableFPath   ( AppendableFPath( AppendableFPathD
                                                 , AppendableFPathF, (⫻) ) )
@@ -347,7 +347,7 @@ parentTests =
       setTest expect got = testCase (toString expect) $ expect ≟ got
    in testGroup "parent"
                 [ testGroup "get"
-                            [ getTest (DirA root) af1f
+                            [ getTest (DirA rootdir) af1f
                             , getTest (DirA [absdir|/r/|]) af2f
                             , getTest (DirA [absdir|/r/|]) af2f
                             , getTest (DirA [absdir|/p/q/|]) af3f
@@ -362,7 +362,7 @@ parentTests =
                             [ setTest (FileA [absfile|/r/r.e|])
                                       (af1f ~~ DirA [absdir|/r/|])
                             , setTest (FileA [absfile|/p.x|])
-                                      (af2f ~~ DirA root)
+                                      (af2f ~~ DirA rootdir)
                             , setTest (FileR [relfile|r.mp3|])
                                       (af3f ~~ DirR [reldir|./|])
                             , setTest (FileR [relfile|q/p/.x|])
@@ -373,7 +373,8 @@ parentTests =
                                       (rf2f ~~ DirR [reldir|./|])
                             , setTest (FileA [absfile|/p/r.mp3|])
                                       (rf3f ~~ DirA [absdir|/p/|])
-                            , setTest (FileA [absfile|/.x|]) (rf4f ~~ DirA root)
+                            , setTest (FileA [absfile|/.x|])
+                                      (rf4f ~~ DirA rootdir)
                             ]
             ]
 
@@ -385,7 +386,7 @@ instance HasParentMay File where
                     get (FileA f) = Just (DirA $ f ⊣ parent)
                     get (FileR f) = Just (DirR $ f ⊣ parent)
                     set ∷ File → Maybe Dir → File
-                    set f@(FileA _) Nothing  = f & parent ⊢ DirA root
+                    set f@(FileA _) Nothing  = f & parent ⊢ DirA rootdir
                     set f@(FileA _) (Just d) = f & parent ⊢ d
                     set f@(FileR _) Nothing  = f & parent ⊢ DirR [reldir|./|]
                     set f@(FileR _) (Just d) = f & parent ⊢ d
@@ -397,7 +398,7 @@ parentMayGetTests =
   let getTest expect input =
         testCase (toString input) $ Just expect @=? input ⊣ parentMay
    in testGroup "get"
-                [ getTest (DirA root) af1f
+                [ getTest (DirA rootdir) af1f
                 , getTest (DirA [absdir|/r/|]) af2f
                 , getTest (DirA [absdir|/p/q/|]) af3f
                 , getTest (DirA [absdir|/|]) af4f
@@ -418,7 +419,7 @@ parentMaySetTests =
       d *~ d' = d & parentMay ⊢ d'
       setTest expect got = testCase (toString expect ⊕ " ~~ " ⊕ toString got) $
                              expect @=? got
-      ad0d  = DirA root
+      ad0d  = DirA rootdir
       adrd  = DirA [absdir|/r/|]
       adstd = DirA [absdir|/s/t/|]
       rd0d  = DirR [reldir|./|]
@@ -489,7 +490,7 @@ parentsTests ∷ TestTree
 parentsTests =
   let parentsTest expect input =
         testCase (toString input) $ expect @=? parents input
-      a0d  = DirA root
+      a0d  = DirA rootdir
       ard  = DirA [absdir|/r/|]
       apd  = DirA [absdir|/p/|]
       apqd = DirA [absdir|/p/q/|]

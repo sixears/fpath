@@ -54,7 +54,7 @@ import qualified  FPath.T.FPath.RelDir
 import qualified  FPath.T.FPath.RelFile
 
 import FPath           ( Strippable, (⫻), stripDir )
-import FPath.AbsDir    ( AbsDir, absdir, absdirT, root )
+import FPath.AbsDir    ( AbsDir, absdir, absdirT, rootdir )
 import FPath.AbsFile   ( AbsFile, absfile, absfileT )
 import FPath.DirType   ( DirTypeC( DirType ) )
 import FPath.RelDir    ( RelDir, reldir, reldirT )
@@ -116,7 +116,8 @@ stripDirAbsFileTests =
     stripDir' = stripDir
   in
     testGroup "absfile"
-      [ testCase "/"   $ Right [relfile|foo|] @=? stripDir' root [absfile|/foo|]
+      [ testCase "/"   $
+          Right [relfile|foo|] @=? stripDir' rootdir [absfile|/foo|]
       , testCase "pfx" $
           Right [relfile|bar|] @=? stripDir' [absdir|/etc/|] [absfile|/etc/bar|]
       , testCase "no pfx" $
@@ -142,7 +143,8 @@ stripDirAbsDirTests =
     stripDir' = stripDir
   in
     testGroup "absfile"
-     [ testCase "/"   $ Right [reldir|foo/|] @=? stripDir' root [absdir|/foo/|]
+     [ testCase "/"   $
+         Right [reldir|foo/|] @=? stripDir' rootdir [absdir|/foo/|]
      , testCase "pfx" $
          Right [reldir|bar/|] @=? stripDir' [absdir|/etc/|] [absdir|/etc/bar/|]
      , testCase "no pfx" $
