@@ -5,7 +5,7 @@
 {-| A Parsecable class, plus some extra helpful utilities.  Base version, so
     fpath can use it, and ParsecPlus proper can use that (for file parsing). -}
 module FPath.Parseable
-  ( Parseable(..), parseT )
+  ( Parseable(..), parseT, parse' )
 where
 
 import Base1T
