@@ -15,9 +15,10 @@ import Base1T
 
 -- base --------------------------------
 
-import Data.Data     ( Data )
-import Data.List     ( any )
-import GHC.Generics  ( Generic )
+import Data.Data      ( Data )
+import Data.List      ( any )
+import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Generics   ( Generic )
 
 -- base-plus ---------------------------
 
@@ -34,7 +35,7 @@ import Control.Lens.Iso     ( iso )
 
 -- monaderror-io -----------------------
 
-import MonadError  ( ѭ )
+import MonadError  ( ѭ, mapMError )
 
 -- more-unicode ------------------------
 
@@ -53,16 +54,25 @@ import TastyPlus  ( (≟), assertIsNothing, assertJust )
 import Language.Haskell.TH  ( ExpQ, appE, conE )
 import Language.Haskell.TH.Syntax  ( Lift( liftTyped ), TExp( TExp ), liftCode )
 
+-- text --------------------------------
+
+import qualified  Data.Text  as  T
+
 ------------------------------------------------------------
 --                     local imports                      --
 ------------------------------------------------------------
 
+import FPath.Error.FPathError
+                            ( AsFPathError( _FPathError )
+                            , FPathError ( FPathComponentE ) )
 import FPath.Error.FPathComponentError
                             ( AsFPathComponentError, FPathComponentError
                             , __FPathCEmptyE__, __FPathCIllegalE__
                             , __FPathCIllegalCharE__
+                            , fPathComponentIllegalCharE, fPathIllegalE
                             )
-import FPath.Parseable      ( __parse__ )
+import FPath.Parseable      ( Parseable( parse, parseFPE )
+                            , __parse__, __parseS__ )
 import FPath.PathComponent  ( HasPathComponent( pathComponent )
                             , IsPathComponent( pathComponent' )
                             , PathComponent
@@ -70,6 +80,11 @@ import FPath.PathComponent  ( HasPathComponent( pathComponent )
                             )
 
 --------------------------------------------------------------------------------
+
+filenameExtensionT ∷ TypeRep
+filenameExtensionT = typeRep (Proxy ∷ Proxy FilenameExtension)
+
+------------------------------------------------------------
 
 {-| filename extension, e.g., to be appended after a `.` character -}
 newtype FilenameExtension =
@@ -112,23 +127,65 @@ class HasFilenameExtension α where
 ------------------------------------------------------------
 
 {-| parse a `FilenameExtension` from a `Printable`-}
-parseFilenameExtension∷ ∀ ε τ η .
-                        (Printable τ,AsFPathComponentError ε,MonadError ε η) =>
-                        τ → η FilenameExtension
-parseFilenameExtension (toString → "")                 = __FPathCEmptyE__
-parseFilenameExtension (toString → s) | head s ≡ 𝓙 '.' = __FPathCIllegalE__ s
-parseFilenameExtension (toString → s) | any (≡ '\0') s =
-                                          __FPathCIllegalCharE__ '\0' s
-                                      | any (≡ '/')  s =
-                                          __FPathCIllegalCharE__ '/' s
-                                      | otherwise      =
-                                          return $
+parseFE ∷ ∀ ε τ η . (Printable τ,AsFPathComponentError ε,MonadError ε η) =>
+          τ → η FilenameExtension
+parseFE (toString → "")                 = __FPathCEmptyE__
+parseFE (toString → s) | head s ≡ 𝓙 '.' = __FPathCIllegalE__ s
+parseFE (toString → s) | any (≡ '\0') s = __FPathCIllegalCharE__ '\0' s
+                       | any (≡ '/')  s = __FPathCIllegalCharE__ '/' s
+                       | otherwise      = return $
                                             new @_ @PathComponent (__parse__ s)
 
-{-| template-haskellized `parseFilenameExtension` -}
+----------------------------------------
+
+instance Parseable FilenameExtension where
+  parse (toText → t) =
+    mapMError (\ e → _FPathError # FPathComponentE e filenameExtensionT t) $
+      parseFE t
+
+----------
+
+parseTests ∷ TestTree
+parseTests =
+  let parseFE_ ∷ MonadError FPathError η ⇒ 𝕋 → η FilenameExtension
+      parseFE_ = parseFPE
+
+      feFromString = FilenameExtension ∘ __parseS__
+
+      illegalCE ∷ 𝕋 → ℂ → TestTree
+      illegalCE t c = let fpcice = fPathComponentIllegalCharE c (T.unpack t)
+                          fpcice' = FPathComponentE fpcice filenameExtensionT t
+                       in testCase ("illegal character: " ⊕ [c] ⊕ "'") $
+                            Left fpcice' @=? parseFE_ t
+
+      illegalPC t = let s = toString t
+                        fpie e = fPathIllegalE e
+                        fpie' e f = FPathComponentE (fpie e) filenameExtensionT f
+                     in testCase ("illegal path component '" ⊕ s ⊕ "'") $
+                          Left (fpie' s t) @=? parseFE_ t
+
+      pc1 = feFromString "r.e"
+      pc3 = feFromString "r."
+      pc4 = feFromString "r"
+      pc6 = feFromString "…"
+   in testGroup "parseFE"
+                [ testCase "pc1" $ Right pc1 @=? parseFPE @_ @𝕋 "r.e"
+                , testCase "pc3" $ Right pc3 @=? parseFPE @_ @𝕋 "r."
+                , testCase "pc4" $ Right pc4 @=? parseFPE @_ @𝕋 "r"
+                , testCase "pc6" $ Right pc6 @=? parseFPE @_ @𝕋 "…"
+                , illegalCE "bob/" '/'
+                , illegalPC "."
+                , illegalPC ".e"
+                , illegalPC ".."
+                , illegalPC "..."
+                ]
+
+----------------------------------------
+
+{-| template-haskellized `parseFE` -}
 filenameExtensionQQ ∷ String → Maybe ExpQ
 filenameExtensionQQ =
-  (\ p → ⟦p⟧) ⩺ (ѭ ∘ parseFilenameExtension @FPathComponentError)
+  (\ p → ⟦p⟧) ⩺ (ѭ ∘ parseFE @FPathComponentError)
 
 {-| quasi-quoter for `FilenameExtension` -}
 filenameExtension_ ∷ QuasiQuoter
@@ -207,7 +264,7 @@ hasFilenameExtensionMayTests =
 {-| unit tests for this module -}
 tests ∷ TestTree
 tests =
-  testGroup "FilenameExtension" [ hasFilenameExtensionMayTests ]
+  testGroup "FilenameExtension" [ hasFilenameExtensionMayTests, parseTests ]
 
 --------------------
 

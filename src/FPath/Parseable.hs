@@ -58,7 +58,7 @@ class Parseable χ where
 
   --------------------
 
-  {-| *PARTIAL*: like `__parse__`, specialized to `String` -}
+  {-| *PARTIAL*: like `__parse__`, specialized to `Text` -}
   __parseT__ ∷ 𝕋 → χ
   __parseT__ = __parse__
 

@@ -1,3 +1,7 @@
+1.3.9.0 2026-10-20
+==================
+- `FilenameExtension` is now parseable
+
 1.3.8.0 2026-10-20
 ==================
 - +`FPath.FilenameExtension`; upgrade extension-handling functions to use this
