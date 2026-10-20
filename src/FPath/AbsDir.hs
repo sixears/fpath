@@ -1,5 +1,5 @@
 module FPath.AbsDir
-  ( AbsDir, AbsDirAs( _AbsDir_ ), AsAbsDir( _AbsDir )
+  ( AbsDir,AbsDirAs( _AbsDir_ ),AsAbsDir( _AbsDir ),HasAbsDir(..),IsAbsDir(..)
   , AsNonRootAbsDir( _NonRootAbsDir ), NonRootAbsDir
 
   , absdirT
@@ -50,7 +50,7 @@ import Control.DeepSeq  ( NFData )
 
 import Control.Lens.Cons    ( unsnoc )
 import Control.Lens.Getter  ( view )
-import Control.Lens.Iso     ( iso )
+import Control.Lens.Iso     ( Iso', iso )
 
 -- monaderror-io -----------------------
 
@@ -254,7 +254,7 @@ class AsAbsDir α where
 instance AsAbsDir AbsDir where
   _AbsDir = id
 
---------------------
+------------------------------------------------------------
 
 {-| Things that /may/ be converted from an `AbsDir` (but will always convert
     /to/ an `AbsDir`). -}
@@ -284,6 +284,16 @@ instance AbsDirAs PathComponent where
                      [p] → 𝓙 p
                      _   → 𝓝
              in  prism' (AbsNonRootDir ∘ NonRootAbsDir ∘ pure) to_pc
+
+------------------------------------------------------------
+
+class    IsAbsDir α      where absDir' ∷ Iso' α AbsDir
+instance IsAbsDir AbsDir where absDir' = iso id id
+
+------------------------------------------------------------
+
+class    HasAbsDir α      where absDir ∷ Lens' α AbsDir
+instance HasAbsDir AbsDir where absDir = lens id (const id)
 
 ------------------------------------------------------------
 

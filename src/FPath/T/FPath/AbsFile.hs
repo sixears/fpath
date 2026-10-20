@@ -110,6 +110,7 @@ import FPath.Error.FPathComponentError
                                )
 import FPath.FileLike          ( (⊙)
                                , addExt, dir, ext, file, splitExt, updateExt )
+import FPath.FilenameExtension ( fe )
 import FPath.Parent            ( parent, parentMay )
 import FPath.Parseable         ( parseFPE )
 import FPath.PathComponent     ( PathComponent, pc, toUpper )
@@ -463,9 +464,9 @@ absFileParentGroupTests =
 absFileAddExtTests ∷ TestTree
 absFileAddExtTests =
   testGroup "addExt"
-    [ testCase "foo.bar" $ [absfile|/foo.bar|] ≟ addExt [absfile|/foo|] [pc|bar|]
-    , testCase "r.e.bar" $ [absfile|/r.e.bar|] ≟ af1 ⊙ [pc|bar|]
-    , testCase "f.o.b.r" $ [absfile|/p/q/r.mp3.b.r|] ≟ af3 ⊙ [pc|b.r|]
+    [ testCase "foo.bar" $ [absfile|/foo.bar|] ≟ addExt [absfile|/foo|] [fe|bar|]
+    , testCase "r.e.bar" $ [absfile|/r.e.bar|] ≟ af1 ⊙ [fe|bar|]
+    , testCase "f.o.b.r" $ [absfile|/p/q/r.mp3.b.r|] ≟ af3 ⊙ [fe|b.r|]
     ]
 
 absFileSplitExtTests ∷ TestTree
@@ -474,9 +475,9 @@ absFileSplitExtTests =
     [ testCase "foo/bar" $
         ([absfile|/foo/bar|], Nothing) @=? splitExt [absfile|/foo/bar|]
     , testCase "r/p.x"   $
-        ([absfile|/r/p|],Just [pc|x|]) @=? splitExt af2
+        ([absfile|/r/p|],Just [fe|x|]) @=? splitExt af2
     , testCase "f.x/g.y" $
-        ([absfile|/f.x/g|], Just [pc|y|]) @=? splitExt [absfile|/f.x/g.y|]
+        ([absfile|/f.x/g|], Just [fe|y|]) @=? splitExt [absfile|/f.x/g.y|]
     , testCase "f.x/g"   $
         ([absfile|/f.x/g|], Nothing) @=? splitExt [absfile|/f.x/g|]
     ]
@@ -484,24 +485,24 @@ absFileSplitExtTests =
 absFileExtGetterTests ∷ TestTree
 absFileExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] @=? ext [absfile|/foo.z/bar.x|]
+                         Just [fe|x|] @=? ext [absfile|/foo.z/bar.x|]
                      , testCase "foo/bar" $
                          Nothing @=? ext [absfile|/foo/bar|]
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] @=? ext [absfile|/g/f.b.x.baz|]
+                         Just [fe|baz|] @=? ext [absfile|/g/f.b.x.baz|]
                      ]
 
 absFileExtSetterTests ∷ TestTree
 absFileExtSetterTests =
   testGroup "setter"
     [ testCase "foo.bar -> foo.baz" $
-          [absfile|/p/foo.baz|] ≟ updateExt (const [pc|baz|]) [absfile|/p/foo.bar|]
+          [absfile|/p/foo.baz|] ≟ updateExt (const [fe|baz|]) [absfile|/p/foo.bar|]
     , testCase "/foo.x/bar -> /foo.x/bar" $
-          [absfile|/foo.x/bar|] ≟ updateExt (const [pc|baz|]) [absfile|/foo.x/bar|]
+          [absfile|/foo.x/bar|] ≟ updateExt (const [fe|baz|]) [absfile|/foo.x/bar|]
     , testCase "foo -> foo" $
-          [absfile|/foo|] ≟ updateExt (const [pc|baz|]) [absfile|/foo|]
+          [absfile|/foo|] ≟ updateExt (const [fe|baz|]) [absfile|/foo|]
     , testCase "g/foo. -> g/foo." $
-          [absfile|/g/foo.|] ≟ updateExt (const [pc|baz|]) [absfile|/g/foo.|]
+          [absfile|/g/foo.|] ≟ updateExt (const [fe|baz|]) [absfile|/g/foo.|]
     ]
 
 absFileExtAdjusterTests ∷ TestTree
@@ -512,10 +513,9 @@ absFileExtAdjusterTests =
     , testCase ".x.b -> .x.B" $
         [absfile|/fo.x.B|]   ≟ updateExt toUpper [absfile|/fo.x.b|]
     , testCase ".x -> .xy"    $
-        [absfile|/fo.xy|]    ≟ updateExt (◇ [pc|y|]) [absfile|/fo.x|]
+        [absfile|/fo.xy|]    ≟ updateExt (◇ [fe|y|]) [absfile|/fo.x|]
     , testCase ".    -> ."    $
-        [absfile|/fo.|]      ≟ updateExt (◇ [pc|y|]) [absfile|/fo.|]
-
+        [absfile|/fo.|]      ≟ updateExt (◇ [fe|y|]) [absfile|/fo.|]
     ]
 
 absFileFileLikeTests ∷ TestTree

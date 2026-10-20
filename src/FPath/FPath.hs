@@ -10,7 +10,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.FPath
-  ( FPath(..), FPathAs(..), tests )
+  ( FPath(..), IsFPath(..), HasFPath(..), FPathAs(..), tests )
 where
 
 import Base1T  hiding  ( head, last )
@@ -23,6 +23,10 @@ import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 -- data-textual ------------------------
 
 import Data.Textual  ( Textual( textual ), fromString )
+
+-- lens --------------------------------
+
+import Control.Lens.Iso  ( Iso', iso )
 
 -- mono-traversable --------------------
 
@@ -264,6 +268,16 @@ parseFPathTests =
                 , success [reldir|foo/|]   _RelDir  "foo/"
                 , success [relfile|bar|]   _RelFile "bar"
                 ]
+
+------------------------------------------------------------
+
+class    IsFPath α      where  fPath' ∷ Iso' α FPath
+instance IsFPath FPath  where  fPath' = iso id id
+
+------------------------------------------------------------
+
+class    HasFPath α      where  fPath ∷ Lens' α FPath
+instance HasFPath FPath  where  fPath = lens id (const id)
 
 ------------------------------------------------------------
 

@@ -44,6 +44,7 @@ import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
 import qualified  FPath
 import qualified  FPath.Abs
 import qualified  FPath.Dir
+import qualified  FPath.FilenameExtension
 import qualified  FPath.FPath
 import qualified  FPath.Rel
 import qualified  FPath.T.FPath.AbsDir
@@ -230,6 +231,7 @@ fpathTests = testGroup "FPath" [ catenationTests
                                , FPath.Dir.tests
                                , FPath.FPath.tests
                                , FPath.Rel.tests
+                               , FPath.FilenameExtension.tests
                                ]
 
 {-| unit tests for all of FPath -}

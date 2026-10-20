@@ -1,3 +1,23 @@
+1.3.8.0 2026-10-20
+==================
+- +`FPath.FilenameExtension`; upgrade extension-handling functions to use this
+   in place of `PathComponent`
+- use Base1T in more places
+- + `FPath.AbsDir.IsAbsDir` (class)
+- + `FPath.AbsDir.HasAbsDir` (class)
+- + `FPath.AbsFile.IsAbsFile` (class)
+- + `FPath.AbsFile.HasAbsFile` (class)
+- + `FPath.RelDir.IsRelDir` (class)
+- + `FPath.RelDir.HasRelDir` (class)
+- + `FPath.RelFile.IsRelFile` (class)
+- + `FPath.RelFile.HasRelFile` (class)
+- + `FPath.Dir.IsDir` (class)
+- + `FPath.Dir.HasDir` (class)
+- + `FPath.File.IsFile` (class)
+- + `FPath.File.HasFile` (class)
+- + `FPath.FPath.IsFPath` (class)
+- + `FPath.FPath.HasFPath` (class)
+
 1.3.7.1 2026-09-06
 ==================
 - + `FPath.Parseable.parse'` (deprecated)

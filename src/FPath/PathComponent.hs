@@ -6,56 +6,29 @@
      and also explicitly excluding the special components `.` and `..` .
  -}
 module FPath.PathComponent
-  ( PathComponent
+  ( HasPathComponent(..), IsPathComponent(..), PathComponent
   , (⊙)
-  , addExt, ext, parsePathC, pathComponent, pc, reverse, splitExt, stub, toLower
-  , toUpper, updateExt
+  , addExt, ext, parsePathC, pathcomponent, pc, reverse
+  , splitExt, stub, toLower, toUpper, updateExt
 
   , tests
   )
 where
 
-import Prelude  ( fromIntegral )
+import Base1T
 
 -- base --------------------------------
 
-import Control.Applicative  ( many, some )
-import Control.Monad        ( return )
-import Data.Bool            ( otherwise )
-import Data.Char            ( Char, chr )
-import Data.Data            ( Data )
-import Data.Either          ( Either( Left, Right ), either )
-import Data.Eq              ( Eq )
-import Data.Function        ( ($), (&), id )
-import Data.Functor         ( (<$>), fmap )
-import Data.List            ( any, elem, filter, find, nub, subsequences )
-import Data.Maybe           ( Maybe( Just, Nothing ) )
-import Data.Monoid          ( mconcat )
-import Data.Semigroup       ( Semigroup )
-import Data.String          ( String )
-import Data.Tuple           ( fst, snd )
-import Data.Typeable        ( Proxy( Proxy ), TypeRep, typeRep )
-import Data.Word            ( Word8 )
-import GHC.Generics         ( Generic )
-import System.Exit          ( ExitCode )
-import System.IO            ( IO )
-import Text.Show            ( Show )
-
--- base-unicode-symbols ----------------
-
-import Data.Bool.Unicode      ( (∧) )
-import Data.Eq.Unicode        ( (≡), (≢) )
-import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
-
--- data-default ------------------------
-
-import Data.Default  ( def )
+import Data.Char      ( Char, chr )
+import Data.Data      ( Data )
+import Data.List      ( any, elem, filter, find, nub, subsequences )
+import Data.Monoid    ( mconcat )
+import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
+import GHC.Generics   ( Generic )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), Textual( textual )
-                     , fromString, toString, toText )
+import Data.Textual  ( Textual( textual ), fromString )
 
 -- deepseq -----------------------------
 
@@ -75,8 +48,7 @@ import Data.GenValidity.Text  ( )
 
 -- lens --------------------------------
 
-import Control.Lens.Prism   ( prism' )
-import Control.Lens.Review  ( (#) )
+import Control.Lens.Iso  ( Iso' )
 
 -- monaderror-io -----------------------
 
@@ -84,17 +56,7 @@ import MonadError  ( ѭ, mapMError )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Applicative  ( (⊵), (∤) )
-import Data.MoreUnicode.Char         ( ℂ )
-import Data.MoreUnicode.Functor      ( (⊳), (⩺) )
-import Data.MoreUnicode.Lens         ( (⊩), (⫥), (⩼) )
-import Data.MoreUnicode.Monad        ( (≫) )
-import Data.MoreUnicode.Natural      ( ℕ )
-import Data.MoreUnicode.Text         ( 𝕋 )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Lens  ( (⊩) )
 
 -- parsers -----------------------------
 
@@ -109,17 +71,9 @@ import QuasiQuoting  ( QuasiQuoter, mkQQ, exp )
 import Test.QuickCheck.Arbitrary  ( Arbitrary( arbitrary, shrink ) )
 import Test.QuickCheck.Gen        ( suchThat )
 
--- tasty -------------------------------
-
-import Test.Tasty  ( TestTree, testGroup )
-
--- tasty-hunit -------------------------
-
-import Test.Tasty.HUnit  ( (@=?), testCase )
-
 -- tasty-plus --------------------------
 
-import TastyPlus  ( (≟), runTestsP, runTestsReplay, runTestTree )
+import TastyPlus  ( (≟) )
 
 -- template-haskell --------------------
 
@@ -128,8 +82,8 @@ import Language.Haskell.TH.Syntax  ( Lift( liftTyped ), TExp( TExp ), liftCode )
 
 -- text --------------------------------
 
-import qualified  Data.Text  as  Text
-import Data.Text  ( break, init, pack, unpack )
+import qualified  Data.Text  as  T
+import Data.Text  ( break, pack, unpack )
 
 -- text-printer ------------------------
 
@@ -159,7 +113,7 @@ import FPath.Error.FPathComponentError
                                 , fPathComponentIllegalCharE, fPathIllegalE
                                 )
 import FPath.Parseable          ( Parseable( parse, parseFPE ) )
-import FPath.Util               ( __ERROR'__, mkVisS )
+import FPath.Util               ( mkVisS )
 
 --------------------------------------------------------------------------------
 
@@ -173,16 +127,22 @@ badChars = (chr ∘ fromIntegral @Word8) ⊳ [0,47] -- '\0', '/'
 {- | A single component in a Path, that is, a directory or file ---
      notably no slashes are allowed (or nul chars); must not be empty
  -}
-newtype PathComponent = PathComponent 𝕋
+newtype PathComponent = PathComponent { unPathComponent ∷ 𝕋 }
   deriving newtype (NFData,Semigroup,Show)
   deriving stock   (Eq,Data,Generic)
+
+----------
 
 instance Printable PathComponent where
   print (PathComponent t) = P.text t
 
+----------
+
 instance Lift PathComponent where
   liftTyped (PathComponent t) =
     liftCode $ appE (conE 'PathComponent) [| t |] ≫ return ∘ TExp
+
+----------
 
 instance Validity PathComponent where
   validate p =
@@ -194,9 +154,13 @@ instance Validity PathComponent where
 
      in mconcat [ badCs, nonEmpty, nonDotties ]
 
+----------
+
 instance GenValid PathComponent where
   genValid = (PathComponent ⊳ genValid) `suchThat` isValid
   shrinkValid (PathComponent t) = PathComponent ⊳ shrinkValid t
+
+----------
 
 instance Textual PathComponent where
   textual =
@@ -213,12 +177,12 @@ instance DirTypeC PathComponent where
   -- needed for `FileLike`
   type DirType PathComponent = ()
 
-----------------------------------------
+----------
 
 instance AsFilePath PathComponent where
   filepath = prism' toString fromString
 
-----------
+--------------------
 
 filepathTests ∷ TestTree
 filepathTests =
@@ -270,7 +234,7 @@ instance Arbitrary PathComponent where
     let subs ∷ [String]
         subs = subsequences (unpack p)
         all_subs ∷ [String]
-        all_subs = nub $ (mkVisS <$> subs) ⊕ subs
+        all_subs = nub $ (mkVisS ⊳ subs) ⊕ subs
         filt_subs ∷ [String] → [String]
         filt_subs = filter $ \ t → t ≢ unpack p ∧ t ≢ ""
      in fmap (PathComponent ∘ pack) $ filt_subs all_subs
@@ -332,26 +296,38 @@ parseTests =
 
 ----------------------------------------
 
+class    IsPathComponent α             where pathComponent'∷Iso' α PathComponent
+instance IsPathComponent PathComponent where pathComponent'= id
+
+----------------------------------------
+
+class HasPathComponent α where pathComponent ∷ Lens' α PathComponent
+instance HasPathComponent PathComponent where pathComponent =lens id (const id)
+
+----------------------------------------
+
 parsePathC' ∷ (Printable τ, MonadError FPathComponentError η) ⇒
               τ → η PathComponent
 parsePathC' = parsePathC
 
+{-
 __parsePathC__ ∷ Printable τ ⇒ τ → PathComponent
 __parsePathC__ = either __ERROR'__ id ∘ parsePathC'
 
 __parsePathC'__ ∷ String → PathComponent
 __parsePathC'__ = __parsePathC__
+-}
 
-{- | quasi-quoter for PathComponent -}
 pathComponentQQ ∷ String → Maybe ExpQ
 pathComponentQQ = (\ p → ⟦p⟧) ⩺ (ѭ ∘ parsePathC')
 
-pathComponent ∷ QuasiQuoter
-pathComponent = mkQQ "PathComponent" $ def & exp ⊩ pathComponentQQ
+{-| quasi-quoter for PathComponent -}
+pathcomponent ∷ QuasiQuoter
+pathcomponent = mkQQ "PathComponent" $ def & exp ⊩ pathComponentQQ
 
-{- | abbreviation for `pathComponent` -}
+{- | abbreviation for `pathComponent_` -}
 pc ∷ QuasiQuoter
-pc = pathComponent
+pc = pathcomponent
 
 ----------------------------------------
 
@@ -368,17 +344,18 @@ instance MonoFunctor PathComponent where
 
 -- don't export this, it wouldn't be safe... it must only be used with functions
 -- that map a Valid PathComponent to a Valid PathComponent
-pcmap ∷ (𝕋 → 𝕋) → PathComponent → PathComponent
-pcmap f (PathComponent p) = PathComponent (f p)
+pcmap ∷ HasPathComponent γ => (𝕋 → 𝕋) → γ → γ
+pcmap f x =
+  x & pathComponent ⊢ PathComponent (f ∘ unPathComponent $ x ⊣ pathComponent)
 
-toUpper ∷ PathComponent → PathComponent
-toUpper = pcmap Text.toUpper
+toUpper ∷ HasPathComponent γ => γ → γ
+toUpper = pcmap T.toUpper
 
-toLower ∷ PathComponent → PathComponent
-toLower = pcmap Text.toLower
+toLower ∷ HasPathComponent γ => γ → γ
+toLower = pcmap T.toLower
 
-reverse ∷ PathComponent → PathComponent
-reverse = pcmap Text.reverse
+reverse ∷ HasPathComponent γ => γ → γ
+reverse = pcmap T.reverse
 
 ----------------------------------------
 
@@ -395,11 +372,11 @@ infixr 6 ⊙ -- same as for ⊕
 
 splitExt ∷ PathComponent → (PathComponent, Maybe PathComponent)
 splitExt p@(PathComponent xs) =
-  case break (≡ '.') (Text.reverse xs) of
+  case break (≡ '.') (T.reverse xs) of
     (_,"")    → (p, Nothing)
     ("",_)    → (p, Nothing)
-    (sfx,pfx) → (PathComponent $ init (Text.reverse pfx),
-                 Just $ PathComponent (Text.reverse sfx))
+    (sfx,pfx) → (PathComponent $ T.init (T.reverse pfx),
+                 Just $ PathComponent (T.reverse sfx))
 
 stub ∷ PathComponent → PathComponent
 stub = fst ∘ splitExt

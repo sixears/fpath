@@ -1,5 +1,5 @@
 module FPath.File
-  ( AsFile( _File ), File(..), FileAs( _File_ )
+  ( File(..), IsFile(..), HasFile(..), AsFile(..), FileAs(..)
 
   , tests
   )
@@ -68,28 +68,32 @@ import Data.Text  ( head, null )
 --                     local imports                      --
 ------------------------------------------------------------
 
-import FPath.AbsDir            ( absdir, rootdir )
-import FPath.AbsFile           ( AbsFile, AsAbsFile( _AbsFile ), absfile )
-import FPath.AppendableFPath   ( AppendableFPath( AppendableFPathD
+import qualified  FPath.FileLike       as  FileLike
+import qualified  FPath.PathComponent  as  PC
+
+import FPath.AbsDir             ( absdir, rootdir )
+import FPath.AbsFile            ( AbsFile, AsAbsFile( _AbsFile ), absfile )
+import FPath.AppendableFPath    ( AppendableFPath( AppendableFPathD
                                                 , AppendableFPathF, (⫻) ) )
-import FPath.AsFilePath        ( AsFilePath( filepath ) )
-import FPath.AsFilePath'       ( AsFilePath'( filepath' ) )
-import FPath.Basename          ( Basename( basename, updateBasename) )
-import FPath.Dir               ( Dir( DirA, DirR ) )
-import FPath.Dirname           ( Ancestors( ancestors )
-                               , HasDirname( ancestors', dirname ) )
-import FPath.DirType           ( DirTypeC( DirType ) )
-import FPath.Error.FPathError  ( AsFPathError, FPathError, __FPathEmptyE__ )
-import FPath.FileLike          ( FileLike( (⊙), addExt, dir, dirfile, file, ext
-                                         , splitExt, updateExt ) )
-import FPath.Parent            ( HasParent( parent )
-                               , HasParentMay( parentMay, parents ) )
-import FPath.Parseable         ( Parseable( parse ) )
-import FPath.PathComponent     ( PathComponent, pc, toUpper )
-import FPath.RelDir            ( reldir )
-import FPath.RelFile           ( AsRelFile( _RelFile ), RelFile, relfile )
-import FPath.RelType           ( RelTypeC( RelType ) )
-import FPath.T.FPath.TestData  ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
+import FPath.AsFilePath         ( AsFilePath( filepath ) )
+import FPath.AsFilePath'        ( AsFilePath'( filepath' ) )
+import FPath.Basename           ( Basename( basename, updateBasename) )
+import FPath.Dir                ( Dir( DirA, DirR ) )
+import FPath.Dirname            ( Ancestors( ancestors )
+                                , HasDirname( ancestors', dirname ) )
+import FPath.DirType            ( DirTypeC( DirType ) )
+import FPath.Error.FPathError   ( AsFPathError, FPathError, __FPathEmptyE__ )
+import FPath.FileLike           ( FileLike( (⊙), addExt, dir, dirfile, ext
+                                          , splitExt, updateExt ) )
+import FPath.FilenameExtension  ( fe )
+import FPath.Parent             ( HasParent( parent )
+                                , HasParentMay( parentMay, parents ) )
+import FPath.Parseable          ( Parseable( parse ) )
+import FPath.PathComponent      ( PathComponent, pc )
+import FPath.RelDir             ( reldir )
+import FPath.RelFile            ( AsRelFile( _RelFile ), RelFile, relfile )
+import FPath.RelType            ( RelTypeC( RelType ) )
+import FPath.T.FPath.TestData   ( af1, af2, af3, af4, rf1, rf2, rf3, rf4 )
 
 -------------------------------------------------------------------------------
 
@@ -101,7 +105,17 @@ data File = FileA AbsFile | FileR RelFile
 instance Ord File where
   a <= b = toText a ≤ toText b
 
---------------------
+------------------------------------------------------------
+
+class    IsFile α    where file' ∷ Iso' α File
+instance IsFile File where file' = iso id id
+
+------------------------------------------------------------
+
+class    HasFile α    where file ∷ Lens' α File
+instance HasFile File where file = lens id (const id)
+
+------------------------------------------------------------
 
 {-| Things that may convert to an `File` (but an `File` will always convert
     to); e.g., @FPath@. -}
@@ -114,7 +128,7 @@ class (Printable α, AsFilePath α) ⇒ AsFile α where
 instance AsFile File where
   _File = id
 
---------------------
+------------------------------------------------------------
 
 {-| Things that /may/ be converted from a `File` (but will always convert /to/ a
     `File`), e.g., @AbsFile@, @RelFile@. -}
@@ -133,7 +147,7 @@ instance FileAs AbsFile where
 instance FileAs RelFile where
   _File_ = prism FileR (\ case (FileR r) → Right r; f → Left f)
 
---------------------
+------------------------------------------------------------
 
 instance AsFilePath' File where
   filepath' = prism' (\ case FileA f → f ⫥ filepath'; FileR f → f ⫥ filepath')
@@ -223,7 +237,7 @@ basenameTests =
 updateBasenameTests ∷ TestTree
 updateBasenameTests =
   let test input expect =
-        testCase (toString input) $ expect ≟ updateBasename toUpper input
+        testCase (toString input) $ expect ≟ updateBasename PC.toUpper input
    in testGroup "updateBasename"
             [ test af1f (FileA [absfile|/R.E|])
             , test af2f (FileA [absfile|/r/P.X|])
@@ -579,12 +593,12 @@ instance FileLike File where
 fileLikeFileTests ∷ TestTree
 fileLikeFileTests =
   let (~~) ∷ File → PathComponent → File
-      f ~~ d' = f & file ⊢ d'
+      f ~~ d' = f & FileLike.file ⊢ d'
    in testGroup "file"
-                [ testCase "rf3"       $ [pc|r.mp3|] ≟ rf3f ⊣ file
-                , testCase "rf4"       $ [pc|.x|]    ≟ rf4f ⊣ file
-                , testCase "af3"       $ [pc|r.mp3|] ≟ af3f ⊣ file
-                , testCase "af4"       $ [pc|.x|]    ≟ af4f ⊣ file
+                [ testCase "rf3"       $ [pc|r.mp3|] ≟ rf3f ⊣ FileLike.file
+                , testCase "rf4"       $ [pc|.x|]    ≟ rf4f ⊣ FileLike.file
+                , testCase "af3"       $ [pc|r.mp3|] ≟ af3f ⊣ FileLike.file
+                , testCase "af4"       $ [pc|.x|]    ≟ af4f ⊣ FileLike.file
 
                 , testCase "af3 → a0"  $
                     FileA [absfile|/p/q/foo|] ≟ af3f ~~ [pc|foo|]
@@ -618,11 +632,11 @@ fileLikeAddExtTests ∷ TestTree
 fileLikeAddExtTests =
   testGroup "addExt"
     [ testCase "foo.bar" $
-        FileA [absfile|/foo.bar|]     ≟ addExt (FileA [absfile|/foo|]) [pc|bar|]
+        FileA [absfile|/foo.bar|]     ≟ addExt (FileA [absfile|/foo|]) [fe|bar|]
     , testCase "r.e.bar" $
-        FileA [absfile|/r.e.bar|]     ≟ af1f ⊙ [pc|bar|]
+        FileA [absfile|/r.e.bar|]     ≟ af1f ⊙ [fe|bar|]
     , testCase "f.o.b.r" $
-        FileR [relfile|p/q/r.mp3.b.r|]≟ rf3f ⊙ [pc|b.r|]
+        FileR [relfile|p/q/r.mp3.b.r|]≟ rf3f ⊙ [fe|b.r|]
     ]
 
 fileLikeSplitExtTests ∷ TestTree
@@ -632,9 +646,9 @@ fileLikeSplitExtTests =
             (FileR [relfile|foo/bar|], Nothing)
         @=? splitExt (FileR [relfile|foo/bar|])
     , testCase "r/p.x"   $
-        (FileR [relfile|r/p|],Just [pc|x|]) @=? splitExt rf2f
+        (FileR [relfile|r/p|],Just [fe|x|]) @=? splitExt rf2f
     , testCase "f.x/g.y" $
-            (FileA [absfile|/f.x/g|], Just [pc|y|])
+            (FileA [absfile|/f.x/g|], Just [fe|y|])
         @=? splitExt (FileA [absfile|/f.x/g.y|])
     , testCase "f.x/g"   $
             (FileA [absfile|/f.x/g|], Nothing)
@@ -644,11 +658,11 @@ fileLikeSplitExtTests =
 fileLikeExtGetterTests ∷ TestTree
 fileLikeExtGetterTests =
   testGroup "getter" [ testCase "foo.z/bar.x" $
-                         Just [pc|x|] @=? ext(FileR [relfile|foo.z/bar.x|])
+                         Just [fe|x|] @=? ext (FileR [relfile|foo.z/bar.x|])
                      , testCase "foo/bar" $
                          Nothing @=? ext (FileA [absfile|/foo/bar|])
                      , testCase "g/f.b.x.baz"  $
-                         Just [pc|baz|] @=? ext (FileA [absfile|/g/f.b.x.baz|])
+                         Just [fe|baz|] @=? ext (FileA [absfile|/g/f.b.x.baz|])
                      ]
 
 fileLikeExtSetterTests ∷ TestTree
@@ -656,28 +670,28 @@ fileLikeExtSetterTests =
   testGroup "setter"
     [ testCase "foo.bar -> foo.baz" $
           FileR [relfile|p/foo.baz|]
-        ≟ FileR (updateExt (const [pc|baz|]) [relfile|p/foo.bar|])
+        ≟ FileR (updateExt (const [fe|baz|]) [relfile|p/foo.bar|])
     , testCase "/foo.x/bar -> /foo.x/bar" $
           FileA [absfile|/foo.x/bar|]
-        ≟ FileA (updateExt (const [pc|baz|]) [absfile|/foo.x/bar|])
+        ≟ FileA (updateExt (const [fe|baz|]) [absfile|/foo.x/bar|])
     , testCase "foo -> foo" $
-        FileA [absfile|/foo|] ≟ FileA (updateExt (const [pc|baz|]) [absfile|/foo|])
+        FileA [absfile|/foo|] ≟ FileA (updateExt (const [fe|baz|]) [absfile|/foo|])
     , testCase "g/foo. -> g/foo." $
           FileA [absfile|/g/foo.|]
-        ≟ FileA (updateExt (const [pc|baz|]) [absfile|/g/foo.|])
+        ≟ FileA (updateExt (const [fe|baz|]) [absfile|/g/foo.|])
     ]
 
 fileLikeExtAdjusterTests ∷ TestTree
 fileLikeExtAdjusterTests =
   testGroup "adjuster"
     [ testCase ".baz -> .BAR" $
-        FileR [relfile|g/fo.BA|] ≟ FileR (updateExt toUpper [relfile|g/fo.ba|])
+        FileR [relfile|g/fo.BA|] ≟FileR(updateExt PC.toUpper [relfile|g/fo.ba|])
     , testCase ".x.b -> .x.B" $
-        FileR [relfile|f.x.B|]   ≟ FileR (updateExt toUpper [relfile|f.x.b|])
+        FileR [relfile|f.x.B|]   ≟FileR(updateExt PC.toUpper [relfile|f.x.b|])
     , testCase ".x -> .xy"    $
-        FileA [absfile|/f.xy|] ≟ FileA (updateExt (◇ [pc|y|]) [absfile|/f.x|])
+        FileA [absfile|/f.xy|]   ≟ FileA (updateExt (◇ [fe|y|]) [absfile|/f.x|])
     , testCase ".    -> ."    $
-        FileA [absfile|/fo.|]  ≟ FileA (updateExt (◇ [pc|y|]) [absfile|/fo.|])
+        FileA [absfile|/fo.|]    ≟ FileA (updateExt (◇ [fe|y|]) [absfile|/fo.|])
     ]
 
 fileLikeTests ∷ TestTree

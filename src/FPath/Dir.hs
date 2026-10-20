@@ -1,5 +1,5 @@
 module FPath.Dir
-  ( AsDir( _Dir ), Dir(..), DirAs( _Dir_ )
+  ( Dir(..), IsDir(..), HasDir(..), AsDir(..), DirAs(..)
 
   , tests
   )
@@ -15,6 +15,10 @@ import Data.Typeable  ( Proxy( Proxy ), TypeRep, typeRep )
 -- data-textual ------------------------
 
 import Data.Textual  ( Textual( textual ), fromString )
+
+-- lens --------------------------------
+
+import Control.Lens.Iso  ( Iso', iso )
 
 -- mono-traversable --------------------
 
@@ -87,7 +91,17 @@ data Dir = DirA AbsDir | DirR RelDir
 instance Ord Dir where
   a <= b = toText a ≤ toText b
 
---------------------
+------------------------------------------------------------
+
+class    IsDir α    where  dir' ∷ Iso' α Dir
+instance IsDir Dir  where  dir' = iso id id
+
+------------------------------------------------------------
+
+class    HasDir α    where  dir ∷ Lens' α Dir
+instance HasDir Dir  where  dir = lens id (const id)
+
+------------------------------------------------------------
 
 {-| Things that may convert to a `Dir` (but a `Dir` will always convert
     to); e.g., @FPath@. -}

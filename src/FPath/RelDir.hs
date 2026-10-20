@@ -3,9 +3,8 @@
 {-# LANGUAGE UnicodeSyntax              #-}
 
 module FPath.RelDir
-  ( AsRelDir(_RelDir) --, AsNonRootRelDir( _NonRootRelDir )
-  , NonRootRelDir
-  , RelDir
+  ( NonRootRelDir
+  , RelDir, HasRelDir(..), IsRelDir(..),AsRelDir(..),RelDirAs(..)
   , parseRelDirP
   , curdir
   , reldir
@@ -44,7 +43,7 @@ import Control.DeepSeq ( NFData )
 
 import Control.Lens.Cons   ( unsnoc )
 import Control.Lens.Getter ( view )
-import Control.Lens.Iso    ( iso )
+import Control.Lens.Iso    ( Iso', iso )
 
 -- monaderror-io -----------------------
 
@@ -364,7 +363,17 @@ class AsRelDir α where
 instance AsRelDir RelDir where
   _RelDir = id
 
---------------------
+------------------------------------------------------------
+
+class    IsRelDir α      where absDir' ∷ Iso' α RelDir
+instance IsRelDir RelDir where absDir' = iso id id
+
+------------------------------------------------------------
+
+class    HasRelDir α      where absDir ∷ Lens' α RelDir
+instance HasRelDir RelDir where absDir = lens id (const id)
+
+------------------------------------------------------------
 
 {-| Things that /may/ be converted from a `RelDir` (but will always convert
     /to/ a `RelDir`). -}

@@ -12,7 +12,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module FPath.RelFile
-  ( AsRelFile( _RelFile ), RelDir, RelFile, RelFileAs( _RelFile_ )
+  ( RelFile, HasRelFile(..), IsRelFile(..), AsRelFile(..), RelFileAs(..)
 
   , relfile, relfileT
 
@@ -39,7 +39,7 @@ import Data.Textual  ( Textual( textual ), fromString )
 -- lens --------------------------------
 
 import Control.Lens.Cons    ( unsnoc )
-import Control.Lens.Iso     ( iso )
+import Control.Lens.Iso     ( Iso', iso )
 
 -- monaderror-io -----------------------
 
@@ -156,7 +156,17 @@ class AsRelFile α where
 instance AsRelFile RelFile where
   _RelFile = id
 
---------------------
+------------------------------------------------------------
+
+class    IsRelFile α       where relFile' ∷ Iso' α RelFile
+instance IsRelFile RelFile where relFile' = iso id id
+
+------------------------------------------------------------
+
+class    HasRelFile α       where relFile ∷ Lens' α RelFile
+instance HasRelFile RelFile where relFile = lens id (const id)
+
+------------------------------------------------------------
 
 {-| things that a `RelFile` *may* be; and that a `RelFile` can *definitely*
     be constructed from -}

@@ -1,6 +1,6 @@
 {-| a file specified by absolute location in the filesystem -}
 module FPath.AbsFile
-  ( AbsDir, AbsFile, AbsFileAs( _AbsFile_ ), AsAbsFile( _AbsFile )
+  ( AbsFile, IsAbsFile(..), HasAbsFile(..), AbsFileAs(..), AsAbsFile(..)
 
   , absfile, absfileT
 
@@ -32,7 +32,7 @@ import Control.DeepSeq  ( NFData )
 -- lens --------------------------------
 
 import Control.Lens.Cons   ( unsnoc )
-import Control.Lens.Iso    ( iso )
+import Control.Lens.Iso    ( Iso', iso )
 
 -- monaderror-io -----------------------
 
@@ -150,7 +150,17 @@ class AsAbsFile α where
 instance AsAbsFile AbsFile where
   _AbsFile = id
 
---------------------
+------------------------------------------------------------
+
+class    IsAbsFile α       where absFile' ∷ Iso' α AbsFile
+instance IsAbsFile AbsFile where absFile' = iso id id
+
+------------------------------------------------------------
+
+class    HasAbsFile α       where absFile ∷ Lens' α AbsFile
+instance HasAbsFile AbsFile where absFile = lens id (const id)
+
+------------------------------------------------------------
 
 {-| things that a `RelFile` *may* be; and that a `RelFile` can *definitely*
     be constructed from -}
